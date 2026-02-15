@@ -2,23 +2,20 @@
 // SUPABASE CLIENT - Connexió a la base de dades
 // ============================================================
 
-// ⚠️ Substituïu aquestes credencials per les vostres
 const SUPABASE_URL = 'https://xnxoufpizdtfklfjwqet.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_Wh4NB0G3fYuNxYRSRJaBDg_HMUrClpm';
 
-// Comprovar que la llibreria Supabase està carregada
-if (!window.supabase) {
-    console.error("❌ ERROR: La llibreria Supabase no s'ha carregat correctament.");
-}
 
 // Crear client Supabase
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Variables globals per ús en altres scripts
 window.supabaseClient = supabase;
 window.currentUser = null;
 window.currentUserProfile = null;
 
+console.log("✅ Supabase client inicialitzat correctament");
+console.log("supabaseClient:", window.supabaseClient);
 // ============================================================
 // FUNCIONS D'UTILITAT
 // ============================================================
