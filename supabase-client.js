@@ -2,9 +2,7 @@
 // SUPABASE CLIENT - Connexió a la base de dades
 // ============================================================
 
-// ⚠️ IMPORTANT: Substituïu aquestes credencials per les vostres
-// Les trobareu a: Supabase Dashboard > Settings > API
-
+// ⚠️ Substituïu aquestes credencials per les vostres
 const SUPABASE_URL = 'https://xnxoufpizdtfklfjwqet.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_Wh4NB0G3fYuNxYRSRJaBDg_HMUrClpm';
 
@@ -13,14 +11,13 @@ if (!window.supabase) {
     console.error("❌ ERROR: La llibreria Supabase no s'ha carregat correctament.");
 }
 
-// Crear client Supabase (usar window.supabase directament)
-if (typeof supabase === 'undefined') {
-    var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-}
+// Crear client Supabase
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Variable global per guardar l'usuari actual
-let currentUser = null;
-let currentUserProfile = null;
+// Variables globals per ús en altres scripts
+window.supabaseClient = supabase;
+window.currentUser = null;
+window.currentUserProfile = null;
 
 // ============================================================
 // FUNCIONS D'UTILITAT
@@ -28,36 +25,41 @@ let currentUserProfile = null;
 
 // Obtenir usuari actual
 async function getCurrentUser() {
-    const { data: { user } } = await supabase.auth.getUser();
-    return user;
+    try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) throw error;
+        window.currentUser = user;
+        return user;
+    } catch (err) {
+        console.error('Error obtenint usuari actual:', err);
+        return null;
+    }
 }
 
 // Obtenir perfil usuari (amb rol)
 async function getUserProfile(userId) {
-    const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-    
-    if (error) {
-        console.error('Error obtenint perfil:', error);
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+        if (error) throw error;
+        window.currentUserProfile = data;
+        return data;
+    } catch (err) {
+        console.error('Error obtenint perfil:', err);
         return null;
     }
-    
-    return data;
 }
 
 // Comprovar si usuari té permís
 function hasPermission(action) {
-    if (!currentUserProfile) return false;
-    
-    const rol = currentUserProfile.rol;
-    
+    if (!window.currentUserProfile) return false;
+    const rol = window.currentUserProfile.rol;
     if (rol === 'admin') return true;
     if (rol === 'visor') return action === 'select';
     if (rol === 'editor') return ['select', 'insert', 'update'].includes(action);
-    
     return false;
 }
 
@@ -65,89 +67,34 @@ function hasPermission(action) {
 // CRUD GENÈRIC AMB PERMISOS
 // ============================================================
 
-// SELECT (llegir)
 async function selectData(table, filters = {}) {
-    if (!hasPermission('select')) {
-        throw new Error('No tens permís per veure aquestes dades');
-    }
-    
+    if (!hasPermission('select')) throw new Error('No tens permís per veure aquestes dades');
     let query = supabase.from(table).select('*');
-    
-    Object.keys(filters).forEach(key => {
-        query = query.eq(key, filters[key]);
-    });
-    
+    Object.keys(filters).forEach(key => query = query.eq(key, filters[key]));
     const { data, error } = await query;
-    
-    if (error) {
-        console.error(`Error SELECT ${table}:`, error);
-        throw error;
-    }
-    
+    if (error) throw error;
     return data || [];
 }
 
-// INSERT (crear)
 async function insertData(table, record) {
-    if (!hasPermission('insert')) {
-        throw new Error('No tens permís per crear registres');
-    }
-    
-    if (currentUser) {
-        record.created_by = currentUser.id;
-    }
-    
-    const { data, error } = await supabase
-        .from(table)
-        .insert([record])
-        .select()
-        .single();
-    
-    if (error) {
-        console.error(`Error INSERT ${table}:`, error);
-        throw error;
-    }
-    
+    if (!hasPermission('insert')) throw new Error('No tens permís per crear registres');
+    if (window.currentUser) record.created_by = window.currentUser.id;
+    const { data, error } = await supabase.from(table).insert([record]).select().single();
+    if (error) throw error;
     return data;
 }
 
-// UPDATE (actualitzar)
 async function updateData(table, id, updates) {
-    if (!hasPermission('update')) {
-        throw new Error('No tens permís per editar registres');
-    }
-    
-    const { data, error } = await supabase
-        .from(table)
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-    
-    if (error) {
-        console.error(`Error UPDATE ${table}:`, error);
-        throw error;
-    }
-    
+    if (!hasPermission('update')) throw new Error('No tens permís per editar registres');
+    const { data, error } = await supabase.from(table).update(updates).eq('id', id).select().single();
+    if (error) throw error;
     return data;
 }
 
-// DELETE (eliminar)
 async function deleteData(table, id) {
-    if (!hasPermission('delete')) {
-        throw new Error('No tens permís per eliminar registres');
-    }
-    
-    const { error } = await supabase
-        .from(table)
-        .delete()
-        .eq('id', id);
-    
-    if (error) {
-        console.error(`Error DELETE ${table}:`, error);
-        throw error;
-    }
-    
+    if (!hasPermission('delete')) throw new Error('No tens permís per eliminar registres');
+    const { error } = await supabase.from(table).delete().eq('id', id);
+    if (error) throw error;
     return true;
 }
 
@@ -194,25 +141,11 @@ function subscribeToChanges(table, callback) {
 function showSyncIndicator(message, type = 'info') {
     const indicator = document.getElementById('sync-indicator');
     const status = document.getElementById('sync-status');
-    
     if (!indicator || !status) return;
-    
     status.textContent = message;
     indicator.className = 'sync-indicator sync-' + type;
     indicator.style.display = 'block';
-    
-    setTimeout(() => {
-        indicator.style.display = 'none';
-    }, 3000);
+    setTimeout(() => indicator.style.display = 'none', 3000);
 }
 
-// ============================================================
-// EXPORTS GLOBALS
-// ============================================================
-
-window.supabaseClient = supabase;
-window.currentUser = currentUser;
-window.currentUserProfile = currentUserProfile;
-
 console.log('✅ Supabase client carregat correctament');
-

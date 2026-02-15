@@ -1,12 +1,8 @@
 // ============================================================
 // AUTENTICACIÓ - Sistema de login/logout
 // ============================================================
-const supabase = window.supabaseClient;
 
-// Comprovar que Supabase està carregat
-if (!window.supabase) {
-    console.error("❌ ERROR: Supabase no està carregat correctament.");
-}
+const supabase = window.supabaseClient;
 
 // ============================================================
 // INICIALITZAR APP
@@ -16,16 +12,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 Iniciant aplicació...');
 
     // Comprovar sessió activa
-    const { data: { session } } = await window.supabaseClient.auth.getSession();
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
 
-    if (session) {
-        await iniciarSessio(session.user);
-    } else {
+        if (session) {
+            await iniciarSessio(session.user);
+        } else {
+            mostrarPantallaLogin();
+        }
+    } catch (err) {
+        console.error('❌ Error obtenint sessió:', err);
         mostrarPantallaLogin();
     }
 
     // Escoltar canvis d'autenticació
-    window.supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    supabase.auth.onAuthStateChange(async (event, session) => {
         console.log('Auth event:', event);
 
         if (event === 'SIGNED_IN' && session) {
@@ -35,9 +36,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Registrar formulari login
+    // Formulari login
     const loginForm = document.getElementById('login-form');
-
     if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -54,24 +54,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             submitBtn.textContent = '🔄 Entrant...';
 
             try {
-                const { data, error } = await window.supabaseClient.auth.signInWithPassword({
-                    email,
-                    password
-                });
-
+                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
                 if (error) throw error;
-
                 console.log('✅ Login correcte');
-
+                // La sessió serà gestionada per onAuthStateChange
             } catch (error) {
                 console.error('❌ Error login:', error);
-
-                mostrarError(
-                    error.message ||
-                    error.error_description ||
-                    'Email o contrasenya incorrectes'
-                );
-
+                mostrarError(error.message || 'Email o contrasenya incorrectes');
                 submitBtn.disabled = false;
                 submitBtn.textContent = originalText;
             }
@@ -97,18 +86,17 @@ function mostrarApp() {
 async function iniciarSessio(user) {
     console.log('✅ Usuari autenticat:', user.email);
 
-    currentUser = user;
+    window.currentUser = user;
+    window.currentUserProfile = await getUserProfile(user.id);
 
-    currentUserProfile = await getUserProfile(user.id);
-
-    if (!currentUserProfile) {
+    if (!window.currentUserProfile) {
         console.error('❌ Perfil no trobat');
-        await window.supabaseClient.auth.signOut();
+        await supabase.auth.signOut();
         mostrarError('Error: Perfil d\'usuari no trobat');
         return;
     }
 
-    console.log('✅ Perfil carregat:', currentUserProfile);
+    console.log('✅ Perfil carregat:', window.currentUserProfile);
 
     mostrarInfoUsuari();
     mostrarApp();
@@ -117,31 +105,33 @@ async function iniciarSessio(user) {
 
 async function tancarSessio() {
     if (confirm('Segur que vols sortir?')) {
-        await window.supabaseClient.auth.signOut();
-        currentUser = null;
-        currentUserProfile = null;
+        await supabase.auth.signOut();
+        window.currentUser = null;
+        window.currentUserProfile = null;
         mostrarPantallaLogin();
     }
 }
 
 function mostrarInfoUsuari() {
     const userInfo = document.getElementById('user-info');
-    if (!userInfo || !currentUserProfile) return;
+    if (!userInfo || !window.currentUserProfile) return;
+
+    const rol = window.currentUserProfile.rol;
 
     const badgeClass = {
         admin: 'badge-admin',
         editor: 'badge-editor',
         visor: 'badge-visor'
-    }[currentUserProfile.rol] || 'badge-default';
+    }[rol] || 'badge-default';
 
     const rolText = {
         admin: 'Administrador',
         editor: 'Editor',
         visor: 'Visor'
-    }[currentUserProfile.rol] || 'Usuari';
+    }[rol] || 'Usuari';
 
     userInfo.innerHTML = `
-        <span class="user-name">${currentUserProfile.nom}</span>
+        <span class="user-name">${window.currentUserProfile.nom}</span>
         <span class="user-badge ${badgeClass}">${rolText}</span>
     `;
 }
@@ -171,15 +161,11 @@ function mostrarError(message) {
 // ============================================================
 
 async function canviarPassword(nouPassword) {
-    const { data, error } = await window.supabaseClient.auth.updateUser({
-        password: nouPassword
-    });
-
+    const { data, error } = await supabase.auth.updateUser({ password: nouPassword });
     if (error) {
         console.error('Error canviant password:', error);
         return false;
     }
-
     console.log('✅ Password actualitzat');
     return true;
 }
