@@ -15,14 +15,9 @@
     
     <!-- Styles -->
     <link rel="stylesheet" href="/styles.css">
-
-    <!-- Supabase Client -->
-    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <!-- Els teus scripts -->
-    <script defer src="/supabase-client.js"></script>
-    <script defer src="/auth.js"></script>
-    <script defer src="/app.js"></script>
+    
+    <!-- Supabase Client (sense defer!) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 
 <body>
@@ -110,5 +105,11 @@
             });
         }
     </script>
+    
+    <!-- Scripts (abans de tancar body) -->
+    <script src="/supabase-client.js"></script>
+    <script src="/auth.js"></script>
+    <script src="/app.js"></script>
 </body>
 </html>
+
