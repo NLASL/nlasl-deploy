@@ -1,6 +1,7 @@
 // ============================================================
 // AUTENTICACIÓ - Sistema de login/logout
 // ============================================================
+const supabase = window.supabaseClient;
 
 // Comprovar que Supabase està carregat
 if (!window.supabase) {
@@ -15,7 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 Iniciant aplicació...');
 
     // Comprovar sessió activa
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await window.supabaseClient.auth.getSession();
 
     if (session) {
         await iniciarSessio(session.user);
@@ -24,7 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Escoltar canvis d'autenticació
-    supabase.auth.onAuthStateChange(async (event, session) => {
+    window.supabaseClient.auth.onAuthStateChange(async (event, session) => {
         console.log('Auth event:', event);
 
         if (event === 'SIGNED_IN' && session) {
@@ -53,7 +54,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             submitBtn.textContent = '🔄 Entrant...';
 
             try {
-                const { data, error } = await supabase.auth.signInWithPassword({
+                const { data, error } = await window.supabaseClient.auth.signInWithPassword({
                     email,
                     password
                 });
@@ -102,7 +103,7 @@ async function iniciarSessio(user) {
 
     if (!currentUserProfile) {
         console.error('❌ Perfil no trobat');
-        await supabase.auth.signOut();
+        await window.supabaseClient.auth.signOut();
         mostrarError('Error: Perfil d\'usuari no trobat');
         return;
     }
@@ -116,7 +117,7 @@ async function iniciarSessio(user) {
 
 async function tancarSessio() {
     if (confirm('Segur que vols sortir?')) {
-        await supabase.auth.signOut();
+        await window.supabaseClient.auth.signOut();
         currentUser = null;
         currentUserProfile = null;
         mostrarPantallaLogin();
@@ -170,7 +171,7 @@ function mostrarError(message) {
 // ============================================================
 
 async function canviarPassword(nouPassword) {
-    const { data, error } = await supabase.auth.updateUser({
+    const { data, error } = await window.supabaseClient.auth.updateUser({
         password: nouPassword
     });
 
