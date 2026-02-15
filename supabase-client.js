@@ -5,9 +5,9 @@
 const SUPABASE_URL = 'https://xnxoufpizdtfklfjwqet.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_Wh4NB0G3fYuNxYRSRJaBDg_HMUrClpm';
 
-
-// Crear client Supabase
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Crear client usant la llibreria global
+const { createClient } = supabase; // Importar la funció createClient
+const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Variables globals per ús en altres scripts
 window.supabaseClient = supabase;
@@ -16,6 +16,7 @@ window.currentUserProfile = null;
 
 console.log("✅ Supabase client inicialitzat correctament");
 console.log("supabaseClient:", window.supabaseClient);
+console.log("supabaseClient.auth:", window.supabaseClient.auth); // Verificar que auth existeixi
 // ============================================================
 // FUNCIONS D'UTILITAT
 // ============================================================

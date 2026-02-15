@@ -1,7 +1,6 @@
 // ============================================================
 // AUTENTICACIÓ - SISTEMA PROFESSIONAL
 // ============================================================
-
 (async function initAuth() {
     console.log("🚀 Iniciant aplicació...");
 
@@ -20,6 +19,36 @@
         mostrarError("Error de connexió. Torna-ho a intentar.");
         return;
     }
+
+    // --- NOU BLOC: Comprovar sessió activa (amb debug i gestió d'errors) ---
+    try {
+        console.log("--- DEBUG AUTH.JS ---");
+        console.log("window.supabaseClient:", window.supabaseClient);
+        console.log("window.supabaseClient.auth:", window.supabaseClient?.auth);
+        console.log("--- FI DEBUG ---");
+
+        if (!window.supabaseClient || !window.supabaseClient.auth) {
+            throw new Error("Supabase client no està inicialitzat correctament.");
+        }
+
+        const { data: { user } } = await window.supabaseClient.auth.getUser();
+        console.log("Usuari obtingut:", user); // Debug
+
+        if (user) {
+            await iniciarSessio(user);
+        } else {
+            mostrarPantallaLogin();
+        }
+    } catch (err) {
+        console.error("Error obtenint usuari:", err);
+        mostrarError(err.message || "Error de connexió. Torna-ho a intentar.");
+        mostrarPantallaLogin();
+    }
+    // --- FI NOU BLOC ---
+
+    // ... (resta del teu codi: listener d'autenticació, formulari login, etc.)
+})();
+
 
     // Comprovar sessió activa
     try {
