@@ -13,8 +13,10 @@ if (!window.supabase) {
     console.error("❌ ERROR: La llibreria Supabase no s'ha carregat correctament.");
 }
 
-// Crear client Supabase
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Crear client Supabase (usar window.supabase directament)
+if (typeof supabase === 'undefined') {
+    var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
 
 // Variable global per guardar l'usuari actual
 let currentUser = null;
@@ -213,3 +215,4 @@ window.currentUser = currentUser;
 window.currentUserProfile = currentUserProfile;
 
 console.log('✅ Supabase client carregat correctament');
+
