@@ -52,7 +52,7 @@
 
     // Comprovar sessió activa
     try {
-        const { data: { user }, error } = await supabase.auth.getUser();
+        const { data: { user }, error } = await supabase.auth.getSession();
         if (error) throw error;
         if (user) {
             await iniciarSessio(user);
