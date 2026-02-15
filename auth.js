@@ -1,15 +1,20 @@
 // ============================================================
-// AUTENTICACIÓ - Sistema de login/logout
+// AUTENTICACIÓ - SISTEMA PROFESSIONAL
 // ============================================================
 
-const supabase = window.supabaseClient;
+(async function initAuth() {
 
-// ============================================================
-// INICIALITZAR APP
-// ============================================================
+    console.log("🚀 Iniciant aplicació...");
 
-document.addEventListener('DOMContentLoaded', async () => {
-    console.log('🚀 Iniciant aplicació...');
+    // Esperar que Supabase estigui disponible
+    await waitForSupabase();
+
+    const supabase = window.supabaseClient;
+
+    if (!supabase) {
+        console.error("❌ SupabaseClient no disponible.");
+        return;
+    }
 
     // Comprovar sessió activa
     try {
@@ -21,114 +26,150 @@ document.addEventListener('DOMContentLoaded', async () => {
             mostrarPantallaLogin();
         }
     } catch (err) {
-        console.error('❌ Error obtenint sessió:', err);
+        console.error("Error obtenint sessió:", err);
         mostrarPantallaLogin();
     }
 
-    // Escoltar canvis d'autenticació
+    // Listener autenticació
     supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('Auth event:', event);
+        console.log("Auth event:", event);
 
-        if (event === 'SIGNED_IN' && session) {
+        if (event === "SIGNED_IN" && session) {
             await iniciarSessio(session.user);
-        } else if (event === 'SIGNED_OUT') {
+        }
+
+        if (event === "SIGNED_OUT") {
+            window.currentUser = null;
+            window.currentUserProfile = null;
             mostrarPantallaLogin();
         }
     });
 
     // Formulari login
-    const loginForm = document.getElementById('login-form');
+    const loginForm = document.getElementById("login-form");
+
     if (loginForm) {
-        loginForm.addEventListener('submit', async (e) => {
+        loginForm.addEventListener("submit", async (e) => {
             e.preventDefault();
 
-            const email = document.getElementById('login-email').value.trim();
-            const password = document.getElementById('login-password').value;
-            const remember = document.getElementById('login-remember').checked;
+            const email = document.getElementById("login-email").value.trim();
+            const password = document.getElementById("login-password").value;
 
-            document.getElementById('login-error').style.display = 'none';
-
-            const submitBtn = loginForm.querySelector('button[type="submit"]');
+            const submitBtn = loginForm.querySelector("button[type='submit']");
             const originalText = submitBtn.textContent;
+
             submitBtn.disabled = true;
-            submitBtn.textContent = '🔄 Entrant...';
+            submitBtn.textContent = "🔄 Entrant...";
 
             try {
-                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                const { error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+
                 if (error) throw error;
-                console.log('✅ Login correcte');
-                // La sessió serà gestionada per onAuthStateChange
+
             } catch (error) {
-                console.error('❌ Error login:', error);
-                mostrarError(error.message || 'Email o contrasenya incorrectes');
+                console.error("❌ Error login:", error);
+                mostrarError(error.message || "Error d'autenticació");
                 submitBtn.disabled = false;
                 submitBtn.textContent = originalText;
             }
         });
     }
-});
+
+})();
+
 
 // ============================================================
-// FUNCIONS LOGIN/LOGOUT
+// ESPERAR SUPABASE (ROBUST)
 // ============================================================
 
-function mostrarPantallaLogin() {
-    document.getElementById('login-screen').style.display = 'flex';
-    document.getElementById('app-screen').style.display = 'none';
-    document.getElementById('login-error').style.display = 'none';
+function waitForSupabase() {
+    return new Promise((resolve) => {
+        if (window.supabaseClient) return resolve();
+
+        const interval = setInterval(() => {
+            if (window.supabaseClient) {
+                clearInterval(interval);
+                resolve();
+            }
+        }, 50);
+    });
 }
 
-function mostrarApp() {
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app-screen').style.display = 'block';
-}
+
+// ============================================================
+// LOGIN / LOGOUT
+// ============================================================
 
 async function iniciarSessio(user) {
-    console.log('✅ Usuari autenticat:', user.email);
+
+    const supabase = window.supabaseClient;
+
+    console.log("✅ Usuari autenticat:", user.email);
 
     window.currentUser = user;
     window.currentUserProfile = await getUserProfile(user.id);
 
     if (!window.currentUserProfile) {
-        console.error('❌ Perfil no trobat');
+        console.error("❌ Perfil no trobat");
         await supabase.auth.signOut();
-        mostrarError('Error: Perfil d\'usuari no trobat');
+        mostrarError("Perfil d'usuari no trobat");
         return;
     }
 
-    console.log('✅ Perfil carregat:', window.currentUserProfile);
-
     mostrarInfoUsuari();
     mostrarApp();
-    canviarVista('dashboard');
+    canviarVista("dashboard");
 }
 
 async function tancarSessio() {
-    if (confirm('Segur que vols sortir?')) {
-        await supabase.auth.signOut();
-        window.currentUser = null;
-        window.currentUserProfile = null;
-        mostrarPantallaLogin();
-    }
+    if (!confirm("Segur que vols sortir?")) return;
+
+    const supabase = window.supabaseClient;
+
+    await supabase.auth.signOut();
+
+    window.currentUser = null;
+    window.currentUserProfile = null;
+
+    mostrarPantallaLogin();
+}
+
+
+// ============================================================
+// UI
+// ============================================================
+
+function mostrarPantallaLogin() {
+    document.getElementById("login-screen").style.display = "flex";
+    document.getElementById("app-screen").style.display = "none";
+}
+
+function mostrarApp() {
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("app-screen").style.display = "block";
 }
 
 function mostrarInfoUsuari() {
-    const userInfo = document.getElementById('user-info');
+
+    const userInfo = document.getElementById("user-info");
     if (!userInfo || !window.currentUserProfile) return;
 
     const rol = window.currentUserProfile.rol;
 
     const badgeClass = {
-        admin: 'badge-admin',
-        editor: 'badge-editor',
-        visor: 'badge-visor'
-    }[rol] || 'badge-default';
+        admin: "badge-admin",
+        editor: "badge-editor",
+        visor: "badge-visor"
+    }[rol] || "badge-default";
 
     const rolText = {
-        admin: 'Administrador',
-        editor: 'Editor',
-        visor: 'Visor'
-    }[rol] || 'Usuari';
+        admin: "Administrador",
+        editor: "Editor",
+        visor: "Visor"
+    }[rol] || "Usuari";
 
     userInfo.innerHTML = `
         <span class="user-name">${window.currentUserProfile.nom}</span>
@@ -136,38 +177,18 @@ function mostrarInfoUsuari() {
     `;
 }
 
+
 // ============================================================
-// ERRORS LOGIN
+// ERRORS
 // ============================================================
 
 function mostrarError(message) {
-    const errorDiv = document.getElementById('login-error');
+
+    const errorDiv = document.getElementById("login-error");
     if (!errorDiv) return;
 
-    const missatgesCatala = {
-        'Invalid login credentials': 'Email o contrasenya incorrectes',
-        'Email not confirmed': 'Email no confirmat',
-        'User not found': 'Usuari no trobat'
-    };
-
-    const missatge = missatgesCatala[message] || message;
-
-    errorDiv.textContent = '❌ ' + missatge;
-    errorDiv.style.display = 'block';
+    errorDiv.textContent = "❌ " + message;
+    errorDiv.style.display = "block";
 }
 
-// ============================================================
-// CANVIAR PASSWORD (opcional)
-// ============================================================
-
-async function canviarPassword(nouPassword) {
-    const { data, error } = await supabase.auth.updateUser({ password: nouPassword });
-    if (error) {
-        console.error('Error canviant password:', error);
-        return false;
-    }
-    console.log('✅ Password actualitzat');
-    return true;
-}
-
-console.log('✅ Auth system carregat');
+console.log("✅ Auth system carregat (professional)");
