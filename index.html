@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Quadern de Camp Digital - NLASL">
+    <meta name="theme-color" content="#2d5016">
+    
+    <title>Quadern de Camp - NLASL</title>
+    
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" href="/logo-nlasl.png">
+    <link rel="apple-touch-icon" href="/logo-nlasl.png">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="/styles.css">
+
+    <!-- Supabase Client -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Els teus scripts -->
+    <script defer src="/supabase-client.js?v=2"></script>
+    <script defer src="/auth.js"></script>
+    <script defer src="/app.js"></script>
+</head>
+
+<body>
+    <!-- ============================================ -->
+    <!-- PANTALLA LOGIN -->
+    <!-- ============================================ -->
+    <div id="login-screen" class="login-container">
+        <div class="login-box">
+            <div class="login-header">
+                <img src="/logo-nlasl.png" alt="NLASL" class="login-logo">
+                <h1>🌾 Quadern de Camp</h1>
+                <p>NLASL - Nadal Lavernia Agrícola SL</p>
+            </div>
+            
+            <form id="login-form" class="login-form">
+                <div class="form-group">
+                    <label for="login-email">Email:</label>
+                    <input type="email" id="login-email" required placeholder="usuari@nlasl.temp">
+                </div>
+                
+                <div class="form-group">
+                    <label for="login-password">Contrasenya:</label>
+                    <input type="password" id="login-password" required placeholder="••••••••">
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="login-remember">
+                        Recordar-me
+                    </label>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block">
+                    🔐 Entrar
+                </button>
+                
+                <div id="login-error" class="alert alert-error" style="display: none; margin-top: 15px;"></div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- ============================================ -->
+    <!-- APLICACIÓ PRINCIPAL -->
+    <!-- ============================================ -->
+    <div id="app-screen" style="display: none;">
+        <header class="app-header">
+            <div class="header-left">
+                <img src="/logo-nlasl.png" alt="NLASL" class="header-logo">
+                <h1>🌾 Quadern de Camp - NLASL</h1>
+            </div>
+            <div class="header-right">
+                <span id="user-info" class="user-badge"></span>
+                <button onclick="tancarSessio()" class="btn btn-secondary btn-sm">
+                    🚪 Sortir
+                </button>
+            </div>
+        </header>
+        
+        <nav class="main-nav">
+            <button class="nav-btn active" onclick="canviarVista('dashboard')" data-view="dashboard">📊 Dashboard</button>
+            <button class="nav-btn" onclick="canviarVista('parcelles')" data-view="parcelles">🗺️ Parcel·les</button>
+            <button class="nav-btn" onclick="canviarVista('tractaments')" data-view="tractaments">🌱 Tractaments</button>
+            <button class="nav-btn" onclick="canviarVista('fertilitzacions')" data-view="fertilitzacions">🌾 Fertilitzacions</button>
+            <button class="nav-btn" onclick="canviarVista('productes')" data-view="productes">📦 Productes</button>
+        </nav>
+        
+        <main class="main-content">
+            <div id="view-container"></div>
+        </main>
+        
+        <div id="notificacions"></div>
+        
+        <div id="sync-indicator" class="sync-indicator">
+            <span id="sync-status">🔄 Sincronitzant...</span>
+        </div>
+    </div>
+
+    <!-- Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(reg => console.log('✅ Service Worker registrat'))
+                    .catch(err => console.log('❌ Service Worker error:', err));
+            });
+        }
+    </script>
+</body>
+</html>
