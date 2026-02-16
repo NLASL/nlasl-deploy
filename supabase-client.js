@@ -1,149 +1,263 @@
 // ============================================================
 // SUPABASE CLIENT - Connexió a la base de dades
+// Quadern de Camp NLASL
 // ============================================================
 
 const SUPABASE_URL = 'https://xnxoufpizdtfklfjwqet.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_Wh4NB0G3fYuNxYRSRJaBDg_HMUrClpm';
 
-// Crear client usant la llibreria global
-const { createClient } = supabase; // Importar la funció createClient
-const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Esperar que window.supabase estigui disponible
+let supabase;
+if (window.supabase) {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} else {
+    console.error('ERROR: Supabase library not loaded');
+}
 
-// Variables globals per ús en altres scripts
-window.supabaseClient = supabase;
-window.currentUser = null;
-window.currentUserProfile = null;
-
-console.log("✅ Supabase client inicialitzat correctament");
-console.log("supabaseClient:", window.supabaseClient);
-console.log("supabaseClient.auth:", window.supabaseClient.auth); // Verificar que auth existeixi
-// ============================================================
-// FUNCIONS D'UTILITAT
-// ============================================================
+// Variables globals
+let currentUser = null;
+let currentUserProfile = null;
 
 // Obtenir usuari actual
 async function getCurrentUser() {
-    try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) throw error;
-        window.currentUser = user;
-        return user;
-    } catch (err) {
-        console.error('Error obtenint usuari actual:', err);
-        return null;
-    }
+    const { data: { user } } = await supabase.auth.getUser();
+    return user;
 }
 
-// Obtenir perfil usuari (amb rol)
+// Obtenir perfil usuari amb rol
 async function getUserProfile(userId) {
-    try {
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .single();
-        if (error) throw error;
-        window.currentUserProfile = data;
-        return data;
-    } catch (err) {
-        console.error('Error obtenint perfil:', err);
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+    
+    if (error) {
+        console.error('Error obtenint perfil:', error);
         return null;
     }
+    
+    return data;
 }
 
-// Comprovar si usuari té permís
+// Comprovar permisos
 function hasPermission(action) {
-    if (!window.currentUserProfile) return false;
-    const rol = window.currentUserProfile.rol;
+    if (!currentUserProfile) return false;
+    
+    const rol = currentUserProfile.rol;
+    
     if (rol === 'admin') return true;
-    if (rol === 'visor') return action === 'select';
-    if (rol === 'editor') return ['select', 'insert', 'update'].includes(action);
+    
+    if (rol === 'visor') {
+        return action === 'select';
+    }
+    
+    if (rol === 'editor') {
+        return ['select', 'insert', 'update'].includes(action);
+    }
+    
     return false;
 }
 
-// ============================================================
-// CRUD GENÈRIC AMB PERMISOS
-// ============================================================
-
+// SELECT
 async function selectData(table, filters = {}) {
-    if (!hasPermission('select')) throw new Error('No tens permís per veure aquestes dades');
+    if (!hasPermission('select')) {
+        throw new Error('No tens permís per veure aquestes dades');
+    }
+    
     let query = supabase.from(table).select('*');
-    Object.keys(filters).forEach(key => query = query.eq(key, filters[key]));
+    
+    Object.keys(filters).forEach(key => {
+        query = query.eq(key, filters[key]);
+    });
+    
     const { data, error } = await query;
-    if (error) throw error;
+    
+    if (error) {
+        console.error('Error SELECT:', error);
+        throw error;
+    }
+    
     return data || [];
 }
 
+// INSERT
 async function insertData(table, record) {
-    if (!hasPermission('insert')) throw new Error('No tens permís per crear registres');
-    if (window.currentUser) record.created_by = window.currentUser.id;
-    const { data, error } = await supabase.from(table).insert([record]).select().single();
-    if (error) throw error;
+    if (!hasPermission('insert')) {
+        throw new Error('No tens permís per crear registres');
+    }
+    
+    if (currentUser) {
+        record.created_by = currentUser.id;
+    }
+    
+    const { data, error } = await supabase
+        .from(table)
+        .insert([record])
+        .select()
+        .single();
+    
+    if (error) {
+        console.error('Error INSERT:', error);
+        throw error;
+    }
+    
     return data;
 }
 
+// UPDATE
 async function updateData(table, id, updates) {
-    if (!hasPermission('update')) throw new Error('No tens permís per editar registres');
-    const { data, error } = await supabase.from(table).update(updates).eq('id', id).select().single();
-    if (error) throw error;
+    if (!hasPermission('update')) {
+        throw new Error('No tens permís per editar registres');
+    }
+    
+    const { data, error } = await supabase
+        .from(table)
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+    
+    if (error) {
+        console.error('Error UPDATE:', error);
+        throw error;
+    }
+    
     return data;
 }
 
+// DELETE
 async function deleteData(table, id) {
-    if (!hasPermission('delete')) throw new Error('No tens permís per eliminar registres');
-    const { error } = await supabase.from(table).delete().eq('id', id);
-    if (error) throw error;
+    if (!hasPermission('delete')) {
+        throw new Error('No tens permís per eliminar registres');
+    }
+    
+    const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq('id', id);
+    
+    if (error) {
+        console.error('Error DELETE:', error);
+        throw error;
+    }
+    
     return true;
 }
 
-// ============================================================
-// FUNCIONS ESPECÍFIQUES PER TAULA
-// ============================================================
-
-async function getParcellas() { return await selectData('parcelles'); }
-async function createParcella(p) { return await insertData('parcelles', p); }
-async function updateParcella(id, u) { return await updateData('parcelles', id, u); }
-async function deleteParcella(id) { return await deleteData('parcelles', id); }
-
-async function getFitosanitaris() { return await selectData('fitosanitaris'); }
-async function createFitosanitari(p) { return await insertData('fitosanitaris', p); }
-async function updateFitosanitari(id, u) { return await updateData('fitosanitaris', id, u); }
-async function deleteFitosanitari(id) { return await deleteData('fitosanitaris', id); }
-
-async function getFertilitzants() { return await selectData('fertilitzants'); }
-async function createFertilitzant(p) { return await insertData('fertilitzants', p); }
-async function updateFertilitzant(id, u) { return await updateData('fertilitzants', id, u); }
-async function deleteFertilitzant(id) { return await deleteData('fertilitzants', id); }
-
-async function getTractaments() { return await selectData('tractaments'); }
-async function createTractament(t) { return await insertData('tractaments', t); }
-async function updateTractament(id, u) { return await updateData('tractaments', id, u); }
-async function deleteTractament(id) { return await deleteData('tractaments', id); }
-
-async function getFertilitzacions() { return await selectData('fertilitzacions'); }
-async function createFertilitzacio(f) { return await insertData('fertilitzacions', f); }
-async function updateFertilitzacio(id, u) { return await updateData('fertilitzacions', id, u); }
-async function deleteFertilitzacio(id) { return await deleteData('fertilitzacions', id); }
-
-// ============================================================
-// SINCRONITZACIÓ I LISTENERS
-// ============================================================
-
-function subscribeToChanges(table, callback) {
-    return supabase
-        .channel(`public:${table}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table }, callback)
-        .subscribe();
+// PARCELLES
+async function getParcellas() {
+    return await selectData('parcelles');
 }
 
-function showSyncIndicator(message, type = 'info') {
+async function createParcella(parcella) {
+    return await insertData('parcelles', parcella);
+}
+
+async function updateParcella(id, updates) {
+    return await updateData('parcelles', id, updates);
+}
+
+async function deleteParcella(id) {
+    return await deleteData('parcelles', id);
+}
+
+// FITOSANITARIS
+async function getFitosanitaris() {
+    return await selectData('fitosanitaris');
+}
+
+async function createFitosanitari(producte) {
+    return await insertData('fitosanitaris', producte);
+}
+
+async function updateFitosanitari(id, updates) {
+    return await updateData('fitosanitaris', id, updates);
+}
+
+async function deleteFitosanitari(id) {
+    return await deleteData('fitosanitaris', id);
+}
+
+// FERTILITZANTS
+async function getFertilitzants() {
+    return await selectData('fertilitzants');
+}
+
+async function createFertilitzant(producte) {
+    return await insertData('fertilitzants', producte);
+}
+
+async function updateFertilitzant(id, updates) {
+    return await updateData('fertilitzants', id, updates);
+}
+
+async function deleteFertilitzant(id) {
+    return await deleteData('fertilitzants', id);
+}
+
+// TRACTAMENTS
+async function getTractaments() {
+    return await selectData('tractaments');
+}
+
+async function createTractament(tractament) {
+    return await insertData('tractaments', tractament);
+}
+
+async function updateTractament(id, updates) {
+    return await updateData('tractaments', id, updates);
+}
+
+async function deleteTractament(id) {
+    return await deleteData('tractaments', id);
+}
+
+// FERTILITZACIONS
+async function getFertilitzacions() {
+    return await selectData('fertilitzacions');
+}
+
+async function createFertilitzacio(fertilitzacio) {
+    return await insertData('fertilitzacions', fertilitzacio);
+}
+
+async function updateFertilitzacio(id, updates) {
+    return await updateData('fertilitzacions', id, updates);
+}
+
+async function deleteFertilitzacio(id) {
+    return await deleteData('fertilitzacions', id);
+}
+
+// Sincronització
+function subscribeToChanges(table, callback) {
+    const channel = supabase
+        .channel('public:' + table)
+        .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: table },
+            callback
+        )
+        .subscribe();
+    
+    return channel;
+}
+
+function showSyncIndicator(message, type) {
+    type = type || 'info';
     const indicator = document.getElementById('sync-indicator');
     const status = document.getElementById('sync-status');
+    
     if (!indicator || !status) return;
+    
     status.textContent = message;
     indicator.className = 'sync-indicator sync-' + type;
     indicator.style.display = 'block';
-    setTimeout(() => indicator.style.display = 'none', 3000);
+    
+    setTimeout(function() {
+        indicator.style.display = 'none';
+    }, 3000);
 }
 
-console.log('✅ Supabase client carregat correctament');
+console.log('✅ Supabase client carregat');
