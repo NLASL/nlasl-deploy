@@ -218,7 +218,7 @@ async function carregarTaulaParcelles() {
         const podeEliminar = hasPermission('delete');
         
         tbody.innerHTML = parcelles.map(function(p) {
-            let accions = '';
+            let accions = '<button class="btn btn-sm btn-primary" onclick="veureParcella(\'' + p.id + '\')">👁️</button> ';
             if (podeEditar) {
                 accions += '<button class="btn btn-sm btn-secondary" onclick="editarParcella(\'' + p.id + '\')">✏️</button> ';
             }
@@ -307,6 +307,66 @@ async function obrirModalParcella() {
         selectFinca.innerHTML += '<option value="' + finca + '">' + finca + '</option>';
     });
     
+    // Habilitar tots els camps
+    document.querySelectorAll('#form-parcella input, #form-parcella select, #form-parcella textarea').forEach(function(el) {
+        el.disabled = false;
+    });
+    document.querySelector('#form-parcella button[type="submit"]').style.display = 'inline-block';
+    
+    document.getElementById('modal-parcella').style.display = 'block';
+}
+
+async function veureParcella(id) {
+    const parcella = parcelles.find(function(p) { return p.id === id; });
+    if (!parcella) return;
+    
+    document.getElementById('modal-parcella-titol').textContent = 'Veure Parcel·la';
+    document.getElementById('parcella-id').value = parcella.id;
+    document.getElementById('parcella-nom').value = parcella.nom || '';
+    document.getElementById('parcella-sigpac').value = parcella.sigpac || '';
+    document.getElementById('parcella-superficie').value = parcella.superficie || '';
+    document.getElementById('parcella-regadiu').value = parcella.regadiu ? 'true' : 'false';
+    document.getElementById('parcella-ref-cadastral').value = parcella.ref_cadastral || '';
+    
+    // Omplir finques
+    const selectFinca = document.getElementById('parcella-finca');
+    selectFinca.innerHTML = '<option value="">Seleccionar...</option>';
+    finques.forEach(function(finca) {
+        const selected = finca === parcella.finca ? 'selected' : '';
+        selectFinca.innerHTML += '<option value="' + finca + '" ' + selected + '>' + finca + '</option>';
+    });
+    
+    // Seleccionar cultiu
+    document.getElementById('parcella-cultiu').value = parcella.cultiu || '';
+    
+    // Actualitzar varietats i seleccionar
+    actualitzarVarietats();
+    if (parcella.varietat) {
+        document.getElementById('parcella-varietat').value = parcella.varietat;
+    }
+    
+    // Deshabilitar tots els camps (només lectura)
+    document.querySelectorAll('#form-parcella input, #form-parcella select, #form-parcella textarea').forEach(function(el) {
+        el.disabled = true;
+    });
+    document.querySelector('#form-parcella button[type="submit"]').style.display = 'none';
+    
+    document.getElementById('modal-parcella').style.display = 'block';
+}
+
+async function obrirModalParcella() {
+    document.getElementById('modal-parcella-titol').textContent = 'Nova Parcel·la';
+    document.getElementById('form-parcella').reset();
+    document.getElementById('parcella-id').value = '';
+    document.getElementById('group-varietat').style.display = 'none';
+    
+    // Omplir selector finques
+    const selectFinca = document.getElementById('parcella-finca');
+    selectFinca.innerHTML = '<option value="">Seleccionar...</option>';
+    finques.forEach(function(finca) {
+        selectFinca.innerHTML += '<option value="' + finca + '">' + finca + '</option>';
+    });
+    
     document.getElementById('modal-parcella').style.display = 'block';
 }
 
@@ -338,6 +398,12 @@ async function editarParcella(id) {
     if (parcella.varietat) {
         document.getElementById('parcella-varietat').value = parcella.varietat;
     }
+    
+    // Habilitar camps
+    document.querySelectorAll('#form-parcella input, #form-parcella select, #form-parcella textarea').forEach(function(el) {
+        el.disabled = false;
+    });
+    document.querySelector('#form-parcella button[type="submit"]').style.display = 'inline-block';
     
     document.getElementById('modal-parcella').style.display = 'block';
 }
@@ -477,7 +543,7 @@ async function carregarTaulaFitosanitaris() {
         const podeEliminar = hasPermission('delete');
         
         tbody.innerHTML = fitosanitaris.map(function(f) {
-            let accions = '';
+            let accions = '<button class="btn btn-sm btn-primary" onclick="veureFitosanitari(\'' + f.id + '\')">👁️</button> ';
             if (podeEditar) {
                 accions += '<button class="btn btn-sm btn-secondary" onclick="editarFitosanitari(\'' + f.id + '\')">✏️</button> ';
             }
@@ -516,6 +582,42 @@ function obrirModalFitosanitari() {
     document.getElementById('modal-fitosanitari-titol').textContent = 'Nou Fitosanitari';
     document.getElementById('form-fitosanitari').reset();
     document.getElementById('fitosanitari-id').value = '';
+    
+    // Habilitar camps
+    document.querySelectorAll('#form-fitosanitari input, #form-fitosanitari select, #form-fitosanitari textarea').forEach(function(el) {
+        el.disabled = false;
+    });
+    document.querySelector('#form-fitosanitari button[type="submit"]').style.display = 'inline-block';
+    
+    document.getElementById('modal-fitosanitari').style.display = 'block';
+}
+
+async function veureFitosanitari(id) {
+    const producte = fitosanitaris.find(function(f) { return f.id === id; });
+    if (!producte) return;
+    
+    document.getElementById('modal-fitosanitari-titol').textContent = 'Veure Fitosanitari';
+    document.getElementById('fitosanitari-id').value = producte.id;
+    document.getElementById('fitosanitari-nom').value = producte.nom || '';
+    document.getElementById('fitosanitari-tipus').value = producte.tipus || '';
+    document.getElementById('fitosanitari-materia').value = producte.materia_activa || '';
+    document.getElementById('fitosanitari-registre').value = producte.registre || '';
+    document.getElementById('fitosanitari-plac').value = producte.plac || '';
+    document.getElementById('fitosanitari-observacions').value = producte.observacions || '';
+    
+    // Deshabilitar camps (només lectura)
+    document.querySelectorAll('#form-fitosanitari input, #form-fitosanitari select, #form-fitosanitari textarea').forEach(function(el) {
+        el.disabled = true;
+    });
+    document.querySelector('#form-fitosanitari button[type="submit"]').style.display = 'none';
+    
+    document.getElementById('modal-fitosanitari').style.display = 'block';
+}
+
+function obrirModalFitosanitari() {
+    document.getElementById('modal-fitosanitari-titol').textContent = 'Nou Fitosanitari';
+    document.getElementById('form-fitosanitari').reset();
+    document.getElementById('fitosanitari-id').value = '';
     document.getElementById('modal-fitosanitari').style.display = 'block';
 }
 
@@ -531,6 +633,13 @@ async function editarFitosanitari(id) {
     document.getElementById('fitosanitari-registre').value = producte.registre || '';
     document.getElementById('fitosanitari-plac').value = producte.plac || '';
     document.getElementById('fitosanitari-observacions').value = producte.observacions || '';
+    
+    // Habilitar camps
+    document.querySelectorAll('#form-fitosanitari input, #form-fitosanitari select, #form-fitosanitari textarea').forEach(function(el) {
+        el.disabled = false;
+    });
+    document.querySelector('#form-fitosanitari button[type="submit"]').style.display = 'inline-block';
+    
     document.getElementById('modal-fitosanitari').style.display = 'block';
 }
 
@@ -598,7 +707,7 @@ async function carregarTaulaFertilitzants() {
         const podeEliminar = hasPermission('delete');
         
         tbody.innerHTML = fertilitzants.map(function(f) {
-            let accions = '';
+            let accions = '<button class="btn btn-sm btn-primary" onclick="veureFertilitzant(\'' + f.id + '\')">👁️</button> ';
             if (podeEditar) {
                 accions += '<button class="btn btn-sm btn-secondary" onclick="editarFertilitzant(\'' + f.id + '\')">✏️</button> ';
             }
@@ -637,6 +746,42 @@ function obrirModalFertilitzant() {
     document.getElementById('modal-fertilitzant-titol').textContent = 'Nou Fertilitzant';
     document.getElementById('form-fertilitzant').reset();
     document.getElementById('fertilitzant-id').value = '';
+    
+    // Habilitar camps
+    document.querySelectorAll('#form-fertilitzant input, #form-fertilitzant select, #form-fertilitzant textarea').forEach(function(el) {
+        el.disabled = false;
+    });
+    document.querySelector('#form-fertilitzant button[type="submit"]').style.display = 'inline-block';
+    
+    document.getElementById('modal-fertilitzant').style.display = 'block';
+}
+
+async function veureFertilitzant(id) {
+    const producte = fertilitzants.find(function(f) { return f.id === id; });
+    if (!producte) return;
+    
+    document.getElementById('modal-fertilitzant-titol').textContent = 'Veure Fertilitzant';
+    document.getElementById('fertilitzant-id').value = producte.id;
+    document.getElementById('fertilitzant-nom').value = producte.nom || '';
+    document.getElementById('fertilitzant-tipus').value = producte.tipus || '';
+    document.getElementById('fertilitzant-n').value = producte.n || '';
+    document.getElementById('fertilitzant-p').value = producte.p || '';
+    document.getElementById('fertilitzant-k').value = producte.k || '';
+    document.getElementById('fertilitzant-observacions').value = producte.observacions || '';
+    
+    // Deshabilitar camps (només lectura)
+    document.querySelectorAll('#form-fertilitzant input, #form-fertilitzant select, #form-fertilitzant textarea').forEach(function(el) {
+        el.disabled = true;
+    });
+    document.querySelector('#form-fertilitzant button[type="submit"]').style.display = 'none';
+    
+    document.getElementById('modal-fertilitzant').style.display = 'block';
+}
+
+function obrirModalFertilitzant() {
+    document.getElementById('modal-fertilitzant-titol').textContent = 'Nou Fertilitzant';
+    document.getElementById('form-fertilitzant').reset();
+    document.getElementById('fertilitzant-id').value = '';
     document.getElementById('modal-fertilitzant').style.display = 'block';
 }
 
@@ -652,6 +797,13 @@ async function editarFertilitzant(id) {
     document.getElementById('fertilitzant-p').value = producte.p || '';
     document.getElementById('fertilitzant-k').value = producte.k || '';
     document.getElementById('fertilitzant-observacions').value = producte.observacions || '';
+    
+    // Habilitar camps
+    document.querySelectorAll('#form-fertilitzant input, #form-fertilitzant select, #form-fertilitzant textarea').forEach(function(el) {
+        el.disabled = false;
+    });
+    document.querySelector('#form-fertilitzant button[type="submit"]').style.display = 'inline-block';
+    
     document.getElementById('modal-fertilitzant').style.display = 'block';
 }
 
