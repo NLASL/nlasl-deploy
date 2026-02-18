@@ -13,7 +13,7 @@ const ASSETS_TO_CACHE = [
     '/index.html',
     '/supabase-client.v4.js',
     '/auth.v3.js',
-    '/app.v4.js',
+    '/app.v5.js',
     '/styles.css',
     '/manifest.json',
     '/logo-nlasl.png'
