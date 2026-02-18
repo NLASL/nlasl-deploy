@@ -4,7 +4,7 @@
 // ============================================================
 
 // VERSIÓ - Incrementar aquest número per forçar actualització
-const VERSION = 'v4';
+const VERSION = 'v5';
 const CACHE_NAME = 'quadern-camp-nlasl-' + VERSION;
 
 // Fitxers a cachear
@@ -13,7 +13,7 @@ const ASSETS_TO_CACHE = [
     '/index.html',
     '/supabase-client.v4.js',
     '/auth.v3.js',
-    '/app.v3.js',
+    '/app.v4.js',
     '/styles.css',
     '/manifest.json',
     '/logo-nlasl.png'
