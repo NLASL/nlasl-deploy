@@ -299,6 +299,11 @@ async function carregarTaulaFitosanitaris() {
     try {
         fitosanitaris = await getFitosanitaris();
         
+        // Ordenar alfabèticament per nom
+        fitosanitaris.sort(function(a, b) {
+            return (a.nom || '').localeCompare(b.nom || '');
+        });
+        
         if (fitosanitaris.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5">No hi ha fitosanitaris</td></tr>';
             return;
@@ -430,6 +435,11 @@ async function carregarTaulaFertilitzants() {
     
     try {
         fertilitzants = await getFertilitzants();
+        
+        // Ordenar alfabèticament per nom
+        fertilitzants.sort(function(a, b) {
+            return (a.nom || '').localeCompare(b.nom || '');
+        });
         
         if (fertilitzants.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6">No hi ha fertilitzants</td></tr>';
