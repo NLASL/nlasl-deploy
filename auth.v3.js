@@ -43,20 +43,20 @@ function mostrarApp() {
 
 // Iniciar sessi√≥
 async function iniciarSessio(user) {
-    console.log('‚úÖ Usuari autenticat:', user.email);
+    console.log('‚ú?Usuari autenticat:', user.email);
     
     currentUser = user;
     
     currentUserProfile = await getUserProfile(user.id);
     
     if (!currentUserProfile) {
-        console.error('‚ùå No s\'ha trobat el perfil de l\'usuari');
+        console.error('‚ù?No s\'ha trobat el perfil de l\'usuari');
         await supabaseClient.auth.signOut();
         mostrarError('Error: Perfil d\'usuari no trobat');
         return;
     }
     
-    console.log('‚úÖ Perfil carregat:', currentUserProfile);
+    console.log('‚ú?Perfil carregat:', currentUserProfile);
     
     mostrarInfoUsuari();
     mostrarApp();
@@ -82,15 +82,15 @@ function mostrarInfoUsuari() {
         'admin': 'badge-admin',
         'editor': 'badge-editor',
         'visor': 'badge-visor'
-    }[currentUserProfile.rol] || 'badge-default';
+    }[currentUserProfile.role] || 'badge-default';
     
     const rolText = {
         'admin': 'Administrador',
         'editor': 'Editor',
         'visor': 'Visor'
-    }[currentUserProfile.rol] || 'Usuari';
+    }[currentUserProfile.role] || 'Usuari';
     
-    userInfo.innerHTML = '<span class="user-name">' + currentUserProfile.nom + '</span>' +
+    userInfo.innerHTML = '<span class="user-name">' + (currentUserProfile.email || 'Usuari') + '</span>' +
         '<span class="user-badge ' + badgeClass + '">' + rolText + '</span>';
 }
 
@@ -120,10 +120,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (error) throw error;
                 
-                console.log('‚úÖ Login correcte');
+                console.log('‚ú?Login correcte');
                 
             } catch (error) {
-                console.error('‚ùå Error login:', error);
+                console.error('‚ù?Error login:', error);
                 mostrarError(error.message || 'Email o contrasenya incorrectes');
                 
                 submitBtn.disabled = false;
@@ -146,8 +146,8 @@ function mostrarError(message) {
     
     const missatge = missatgesCatala[message] || message;
     
-    errorDiv.textContent = '‚ùå ' + missatge;
+    errorDiv.textContent = '‚ù?' + missatge;
     errorDiv.style.display = 'block';
 }
 
-console.log('‚úÖ Auth system v3 carregat');
+console.log('‚ú?Auth system v3 carregat');
