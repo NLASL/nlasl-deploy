@@ -192,8 +192,8 @@ async function carregarVistaTractaments() {
     }
     html += '</div>';
     html += '<div class="table-container"><table class="data-table">';
-    html += '<thead><tr><th>Data</th><th>Producte</th><th>Parcel·les</th><th>Superfície (Ha)</th><th>Dosi</th><th>Accions</th></tr></thead>';
-    html += '<tbody id="tbody-tractaments"><tr><td colspan="6">Carregant...</td></tr></tbody>';
+    html += '<thead><tr><th>Data</th><th>Producte</th><th>Finca</th><th>Parcel·les</th><th>Superfície (Ha)</th><th>Dosi</th><th>Accions</th></tr></thead>';
+    html += '<tbody id="tbody-tractaments"><tr><td colspan="7">Carregant...</td></tr></tbody>';
     html += '</table></div></div>';
     
     html += crearModalTractament();
@@ -210,19 +210,22 @@ async function carregarTaulaTractaments() {
         tractaments = await getTractaments();
         
         if (tractaments.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No hi ha tractaments</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hi ha tractaments</td></tr>';
             return;
         }
         
-        // Agrupar tractaments per data + producte
+        // Agrupar tractaments per data + producte + finca
         const grups = {};
         for (let i = 0; i < tractaments.length; i++) {
             const t = tractaments[i];
-            const clau = t.data + '-' + t.producte_id;
+            const parcella = parcelles.find(function(p) { return p.id === t.parcella_id; });
+            const finca = parcella ? (parcella.finca || 'Sense finca') : 'Sense finca';
+            const clau = t.data + '-' + t.producte_id + '-' + finca;
             if (!grups[clau]) {
                 grups[clau] = {
                     data: t.data,
                     producte_id: t.producte_id,
+                    finca: finca,
                     dosi: t.dosi,
                     unitat: t.unitat,
                     tractaments: []
@@ -249,6 +252,7 @@ async function carregarTaulaTractaments() {
             html += '<tr>';
             html += '<td><strong>' + formatData(grup.data) + '</strong></td>';
             html += '<td>' + nomProducte + '</td>';
+            html += '<td>' + grup.finca + '</td>';
             html += '<td>' + numParcelles + ' parcel·les</td>';
             html += '<td>' + superficieTotal.toFixed(2) + '</td>';
             html += '<td>' + (grup.dosi || 0) + ' ' + (grup.unitat || 'L/Ha') + '</td>';
@@ -264,7 +268,7 @@ async function carregarTaulaTractaments() {
         
     } catch (error) {
         console.error('Error:', error);
-        tbody.innerHTML = '<tr><td colspan="6">Error carregant dades</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7">Error carregant dades</td></tr>';
     }
 }
 
@@ -659,8 +663,8 @@ async function carregarVistaFertilitzacions() {
     }
     html += '</div>';
     html += '<div class="table-container"><table class="data-table">';
-    html += '<thead><tr><th>Data</th><th>Producte</th><th>Parcel·les</th><th>Superfície (Ha)</th><th>Dosi</th><th>Accions</th></tr></thead>';
-    html += '<tbody id="tbody-fertilitzacions"><tr><td colspan="6">Carregant...</td></tr></tbody>';
+    html += '<thead><tr><th>Data</th><th>Producte</th><th>Finca</th><th>Parcel·les</th><th>Superfície (Ha)</th><th>Dosi</th><th>Accions</th></tr></thead>';
+    html += '<tbody id="tbody-fertilitzacions"><tr><td colspan="7">Carregant...</td></tr></tbody>';
     html += '</table></div></div>';
     
     html += crearModalFertilitzacio();
@@ -677,18 +681,21 @@ async function carregarTaulaFertilitzacions() {
         fertilitzacions = await getFertilitzacions();
         
         if (fertilitzacions.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No hi ha fertilitzacions</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hi ha fertilitzacions</td></tr>';
             return;
         }
         
         const grups = {};
         for (let i = 0; i < fertilitzacions.length; i++) {
             const f = fertilitzacions[i];
-            const clau = f.data + '-' + f.producte_id;
+            const parcella = parcelles.find(function(p) { return p.id === f.parcella_id; });
+            const finca = parcella ? (parcella.finca || 'Sense finca') : 'Sense finca';
+            const clau = f.data + '-' + f.producte_id + '-' + finca;
             if (!grups[clau]) {
                 grups[clau] = {
                     data: f.data,
                     producte_id: f.producte_id,
+                    finca: finca,
                     dosi: f.dosi,
                     unitat: f.unitat,
                     fertilitzacions: []
@@ -714,6 +721,7 @@ async function carregarTaulaFertilitzacions() {
             html += '<tr>';
             html += '<td><strong>' + formatData(grup.data) + '</strong></td>';
             html += '<td>' + nomProducte + '</td>';
+            html += '<td>' + grup.finca + '</td>';
             html += '<td>' + numParcelles + ' parcel·les</td>';
             html += '<td>' + superficieTotal.toFixed(2) + '</td>';
             html += '<td>' + (grup.dosi || 0) + ' ' + (grup.unitat || 'kg/Ha') + '</td>';
@@ -729,7 +737,7 @@ async function carregarTaulaFertilitzacions() {
         
     } catch (error) {
         console.error('Error:', error);
-        tbody.innerHTML = '<tr><td colspan="6">Error carregant dades</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7">Error carregant dades</td></tr>';
     }
 }
 
