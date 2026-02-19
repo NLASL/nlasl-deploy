@@ -6,14 +6,14 @@
 const SUPABASE_URL = 'https://xnxoufpizdtfklfjwqet.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhueG91ZnBpemR0ZmtsZmp3cWV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk0NDkyMjIsImV4cCI6MjA1NTAyNTIyMn0.Wh4NB0G3fYuNxYRSRJaBDg_HMUrClpmcT-C5m78nSYU';
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ============================================================
 // PARCELLES
 // ============================================================
 
 async function getParcellas() {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('parcelles')
         .select('*')
         .order('nom');
@@ -22,7 +22,7 @@ async function getParcellas() {
 }
 
 async function createParcella(parcella) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('parcelles')
         .insert([parcella])
         .select();
@@ -31,7 +31,7 @@ async function createParcella(parcella) {
 }
 
 async function updateParcella(id, parcella) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('parcelles')
         .update(parcella)
         .eq('id', id)
@@ -41,7 +41,7 @@ async function updateParcella(id, parcella) {
 }
 
 async function deleteParcella(id) {
-    const { error } = await supabase
+    const { error } = await supabaseClient
         .from('parcelles')
         .delete()
         .eq('id', id);
@@ -49,7 +49,7 @@ async function deleteParcella(id) {
 }
 
 async function getFinques() {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('parcelles')
         .select('finca')
         .not('finca', 'is', null)
@@ -64,7 +64,7 @@ async function getFinques() {
 // ============================================================
 
 async function getFitosanitaris() {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('fitosanitaris')
         .select('*')
         .order('nom');
@@ -73,7 +73,7 @@ async function getFitosanitaris() {
 }
 
 async function createFitosanitari(fitosanitari) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('fitosanitaris')
         .insert([fitosanitari])
         .select();
@@ -82,7 +82,7 @@ async function createFitosanitari(fitosanitari) {
 }
 
 async function updateFitosanitari(id, fitosanitari) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('fitosanitaris')
         .update(fitosanitari)
         .eq('id', id)
@@ -92,7 +92,7 @@ async function updateFitosanitari(id, fitosanitari) {
 }
 
 async function deleteFitosanitari(id) {
-    const { error } = await supabase
+    const { error } = await supabaseClient
         .from('fitosanitaris')
         .delete()
         .eq('id', id);
@@ -104,7 +104,7 @@ async function deleteFitosanitari(id) {
 // ============================================================
 
 async function getFertilitzants() {
-    const { data, error } = await supabase
+    const { data, error} = await supabaseClient
         .from('fertilitzants')
         .select('*')
         .order('nom');
@@ -113,7 +113,7 @@ async function getFertilitzants() {
 }
 
 async function createFertilitzant(fertilitzant) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('fertilitzants')
         .insert([fertilitzant])
         .select();
@@ -122,7 +122,7 @@ async function createFertilitzant(fertilitzant) {
 }
 
 async function updateFertilitzant(id, fertilitzant) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('fertilitzants')
         .update(fertilitzant)
         .eq('id', id)
@@ -132,7 +132,7 @@ async function updateFertilitzant(id, fertilitzant) {
 }
 
 async function deleteFertilitzant(id) {
-    const { error } = await supabase
+    const { error } = await supabaseClient
         .from('fertilitzants')
         .delete()
         .eq('id', id);
@@ -144,7 +144,7 @@ async function deleteFertilitzant(id) {
 // ============================================================
 
 async function getTractaments() {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('tractaments')
         .select('*')
         .order('data', { ascending: false });
@@ -153,7 +153,7 @@ async function getTractaments() {
 }
 
 async function createTractament(tractament) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('tractaments')
         .insert([tractament])
         .select();
@@ -162,7 +162,7 @@ async function createTractament(tractament) {
 }
 
 async function updateTractament(id, tractament) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('tractaments')
         .update(tractament)
         .eq('id', id)
@@ -172,7 +172,7 @@ async function updateTractament(id, tractament) {
 }
 
 async function deleteTractament(id) {
-    const { error } = await supabase
+    const { error } = await supabaseClient
         .from('tractaments')
         .delete()
         .eq('id', id);
@@ -184,7 +184,7 @@ async function deleteTractament(id) {
 // ============================================================
 
 async function getFertilitzacions() {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('fertilitzacions')
         .select('*')
         .order('data', { ascending: false });
@@ -193,7 +193,7 @@ async function getFertilitzacions() {
 }
 
 async function createFertilitzacio(fertilitzacio) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('fertilitzacions')
         .insert([fertilitzacio])
         .select();
@@ -202,7 +202,7 @@ async function createFertilitzacio(fertilitzacio) {
 }
 
 async function updateFertilitzacio(id, fertilitzacio) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('fertilitzacions')
         .update(fertilitzacio)
         .eq('id', id)
@@ -212,7 +212,7 @@ async function updateFertilitzacio(id, fertilitzacio) {
 }
 
 async function deleteFertilitzacio(id) {
-    const { error } = await supabase
+    const { error } = await supabaseClient
         .from('fertilitzacions')
         .delete()
         .eq('id', id);
@@ -224,7 +224,7 @@ async function deleteFertilitzacio(id) {
 // ============================================================
 
 async function getTreballadors() {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('treballadors')
         .select('*')
         .order('nom');
@@ -233,7 +233,7 @@ async function getTreballadors() {
 }
 
 async function createTreballador(treballador) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('treballadors')
         .insert([treballador])
         .select();
@@ -242,7 +242,7 @@ async function createTreballador(treballador) {
 }
 
 async function updateTreballador(id, treballador) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('treballadors')
         .update(treballador)
         .eq('id', id)
@@ -252,7 +252,7 @@ async function updateTreballador(id, treballador) {
 }
 
 async function deleteTreballador(id) {
-    const { error } = await supabase
+    const { error } = await supabaseClient
         .from('treballadors')
         .delete()
         .eq('id', id);
@@ -264,7 +264,7 @@ async function deleteTreballador(id) {
 // ============================================================
 
 async function getControlHorari(filtres) {
-    let query = supabase
+    let query = supabaseClient
         .from('control_horari')
         .select('*')
         .order('data', { ascending: false });
@@ -287,7 +287,7 @@ async function getControlHorari(filtres) {
 }
 
 async function createControlHorari(registre) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('control_horari')
         .insert([registre])
         .select();
@@ -296,7 +296,7 @@ async function createControlHorari(registre) {
 }
 
 async function updateControlHorari(id, registre) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('control_horari')
         .update(registre)
         .eq('id', id)
@@ -306,7 +306,7 @@ async function updateControlHorari(id, registre) {
 }
 
 async function deleteControlHorari(id) {
-    const { error } = await supabase
+    const { error } = await supabaseClient
         .from('control_horari')
         .delete()
         .eq('id', id);
@@ -318,7 +318,7 @@ async function deleteControlHorari(id) {
 // ============================================================
 
 function subscribeToChanges(table, callback) {
-    return supabase
+    return supabaseClient
         .channel('public:' + table)
         .on('postgres_changes', 
             { event: '*', schema: 'public', table: table },
