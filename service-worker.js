@@ -11,9 +11,9 @@ const CACHE_NAME = 'quadern-camp-nlasl-' + VERSION;
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
-    '/supabase-client.v4.js',
+    '/supabase-client.v5.js',
     '/auth.v3.js',
-    '/app.v7.js',
+    '/app.v8.js',
     '/styles.css',
     '/manifest.json',
     '/logo-nlasl.png'
