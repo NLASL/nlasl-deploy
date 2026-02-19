@@ -278,10 +278,13 @@ function crearModalTractament() {
     html += '<div class="form-group"><label>Data Tractament *</label><input type="date" id="tractament-data" required></div>';
     
     html += '<div class="form-group"><label>Selecció Parcel·les *</label>';
-    html += '<div style="margin-bottom: 10px;">';
-    html += '<label style="margin-right: 20px;"><input type="radio" name="seleccio-tipus" value="finca" onchange="canviarTipusSeleccio()" checked> Per Finca</label>';
-    html += '<label style="margin-right: 20px;"><input type="radio" name="seleccio-tipus" value="varietat" onchange="canviarTipusSeleccio()"> Per Varietat</label>';
-    html += '<label><input type="radio" name="seleccio-tipus" value="manual" onchange="canviarTipusSeleccio()"> Selecció Manual</label>';
+    html += '<div style="display: flex; gap: 15px; margin-top: 10px;">';
+    html += '<label style="flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: white; transition: all 0.2s;" onmouseover="this.style.borderColor=\'#4CAF50\'" onmouseout="if(!this.querySelector(\'input\').checked) this.style.borderColor=\'#ddd\'">';
+    html += '<input type="radio" name="seleccio-tipus" value="finca" onchange="canviarTipusSeleccio(); document.querySelectorAll(\'label\').forEach(l => l.style.background=\'white\'); this.parentElement.style.background=\'#e8f5e9\'; document.querySelectorAll(\'label\').forEach(l => l.style.borderColor=\'#ddd\'); this.parentElement.style.borderColor=\'#4CAF50\';" checked style="margin: 0;"> <span style="font-weight: 500;">🗺️ Per Finca</span></label>';
+    html += '<label style="flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: white; transition: all 0.2s;" onmouseover="this.style.borderColor=\'#4CAF50\'" onmouseout="if(!this.querySelector(\'input\').checked) this.style.borderColor=\'#ddd\'">';
+    html += '<input type="radio" name="seleccio-tipus" value="varietat" onchange="canviarTipusSeleccio(); document.querySelectorAll(\'label\').forEach(l => l.style.background=\'white\'); this.parentElement.style.background=\'#e8f5e9\'; document.querySelectorAll(\'label\').forEach(l => l.style.borderColor=\'#ddd\'); this.parentElement.style.borderColor=\'#4CAF50\';" style="margin: 0;"> <span style="font-weight: 500;">🌾 Per Varietat</span></label>';
+    html += '<label style="flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: white; transition: all 0.2s;" onmouseover="this.style.borderColor=\'#4CAF50\'" onmouseout="if(!this.querySelector(\'input\').checked) this.style.borderColor=\'#ddd\'">';
+    html += '<input type="radio" name="seleccio-tipus" value="manual" onchange="canviarTipusSeleccio(); document.querySelectorAll(\'label\').forEach(l => l.style.background=\'white\'); this.parentElement.style.background=\'#e8f5e9\'; document.querySelectorAll(\'label\').forEach(l => l.style.borderColor=\'#ddd\'); this.parentElement.style.borderColor=\'#4CAF50\';" style="margin: 0;"> <span style="font-weight: 500;">📍 Selecció Manual</span></label>';
     html += '</div></div>';
     
     html += '<div id="seleccio-finca" class="form-group"><label>Finca</label><select id="tractament-finca" onchange="actualitzarParcellesSeleccionades()"><option value="">Seleccionar...</option></select></div>';
@@ -438,7 +441,12 @@ async function obrirModalTractament() {
         selectParcelles.innerHTML += '<option value="' + p.id + '">' + p.nom + ' (' + p.superficie + ' Ha)</option>';
     });
     
-    fitosanitaris.forEach(function(f) {
+    // Ordenar fitosanitaris alfabèticament
+    const fitosanitarisOrdenats = fitosanitaris.slice().sort(function(a, b) {
+        return (a.nom || '').localeCompare(b.nom || '');
+    });
+    
+    fitosanitarisOrdenats.forEach(function(f) {
         selectProducte.innerHTML += '<option value="' + f.id + '">' + f.nom + '</option>';
     });
     
@@ -446,6 +454,15 @@ async function obrirModalTractament() {
     document.getElementById('quantitat-total').textContent = '0';
     
     document.getElementById('modal-tractament').style.display = 'block';
+    
+    // Aplicar estil inicial al primer radio button
+    setTimeout(function() {
+        const primerRadio = document.querySelector('input[name="seleccio-tipus"][value="finca"]');
+        if (primerRadio && primerRadio.parentElement) {
+            primerRadio.parentElement.style.background = '#e8f5e9';
+            primerRadio.parentElement.style.borderColor = '#4CAF50';
+        }
+    }, 50);
 }
 
 async function guardarTractament(event) {
