@@ -525,7 +525,85 @@ async function guardarTractament(event) {
 }
 
 async function veureTractamentGrup(clau) {
-    alert('Funció veure detall tractament en desenvolupament');
+    const grupTractaments = tractaments.filter(function(t) {
+        return (t.data + '-' + t.producte_id) === clau;
+    });
+    
+    if (grupTractaments.length === 0) return;
+    
+    const primer = grupTractaments[0];
+    const producte = fitosanitaris.find(function(f) { return f.id === primer.producte_id; });
+    const nomProducte = producte ? producte.nom : 'Producte desconegut';
+    
+    const superficieTotal = grupTractaments.reduce(function(sum, t) {
+        return sum + (parseFloat(t.superficie_tractada) || 0);
+    }, 0);
+    
+    const quantitatTotal = superficieTotal * (parseFloat(primer.dosi) || 0);
+    const unitatBase = (primer.unitat || 'L/Ha').split('/')[0];
+    
+    let html = '<div id="modal-veure-tractament" class="modal" style="display: block;">';
+    html += '<div class="modal-content" style="max-width: 700px;">';
+    html += '<span class="close" onclick="tancarModal(\'modal-veure-tractament\')">&times;</span>';
+    html += '<h2>📋 Detall Tractament</h2>';
+    
+    html += '<div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">';
+    html += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">';
+    html += '<div><strong>📅 Data:</strong> ' + formatData(primer.data) + '</div>';
+    html += '<div><strong>🧪 Producte:</strong> ' + nomProducte + '</div>';
+    html += '<div><strong>💧 Dosi:</strong> ' + (primer.dosi || 0) + ' ' + (primer.unitat || 'L/Ha') + '</div>';
+    html += '<div><strong>📏 Superfície total:</strong> ' + superficieTotal.toFixed(2) + ' Ha</div>';
+    html += '<div><strong>📦 Quantitat total:</strong> ' + quantitatTotal.toFixed(2) + ' ' + unitatBase + '</div>';
+    if (primer.data_limit) {
+        html += '<div><strong>⏰ Data límit:</strong> ' + formatData(primer.data_limit) + '</div>';
+    }
+    html += '</div></div>';
+    
+    html += '<h3 style="margin-top: 20px; margin-bottom: 10px;">🗺️ Parcel·les Tractades (' + grupTractaments.length + ')</h3>';
+    html += '<div class="table-container"><table class="data-table">';
+    html += '<thead><tr><th>Parcel·la</th><th>Finca</th><th>Cultiu</th><th>Varietat</th><th>Superfície (Ha)</th></tr></thead>';
+    html += '<tbody>';
+    
+    grupTractaments.forEach(function(t) {
+        const parcella = parcelles.find(function(p) { return p.id === t.parcella_id; });
+        if (parcella) {
+            html += '<tr>';
+            html += '<td><strong>' + (parcella.nom || '-') + '</strong></td>';
+            html += '<td>' + (parcella.finca || '-') + '</td>';
+            html += '<td>' + (parcella.cultiu || '-') + '</td>';
+            html += '<td>' + (parcella.varietat || '-') + '</td>';
+            html += '<td>' + (t.superficie_tractada || 0) + '</td>';
+            html += '</tr>';
+        }
+    });
+    
+    html += '</tbody></table></div>';
+    
+    if (primer.operador || primer.maquinaria || primer.condicions_meteo || primer.observacions) {
+        html += '<h3 style="margin-top: 20px; margin-bottom: 10px;">📝 Informació Addicional</h3>';
+        html += '<div style="background: #f5f5f5; padding: 15px; border-radius: 8px;">';
+        if (primer.operador) {
+            html += '<div style="margin-bottom: 10px;"><strong>👤 Operador:</strong> ' + primer.operador + '</div>';
+        }
+        if (primer.maquinaria) {
+            html += '<div style="margin-bottom: 10px;"><strong>🚜 Maquinària:</strong> ' + primer.maquinaria + '</div>';
+        }
+        if (primer.condicions_meteo) {
+            html += '<div style="margin-bottom: 10px;"><strong>🌤️ Condicions Meteo:</strong> ' + primer.condicions_meteo + '</div>';
+        }
+        if (primer.observacions) {
+            html += '<div><strong>📄 Observacions:</strong> ' + primer.observacions + '</div>';
+        }
+        html += '</div>';
+    }
+    
+    html += '<div class="form-actions" style="margin-top: 20px;">';
+    html += '<button type="button" class="btn btn-primary" onclick="tancarModal(\'modal-veure-tractament\')">Tancar</button>';
+    html += '</div>';
+    
+    html += '</div></div>';
+    
+    document.body.insertAdjacentHTML('beforeend', html);
 }
 
 async function eliminarTractamentGrup(clau) {
