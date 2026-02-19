@@ -4,7 +4,7 @@
 // ============================================================
 
 const SUPABASE_URL = 'https://xnxoufpizdtfklfjwqet.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhueG91ZnBpemR0ZmtsZmp3cWV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwMDk4NDAsImV4cCI6MjA4NjU4NTg0MH0.izqQdOxUWUzXNhasXwHnm7IO2qVHHHzx9e-1FIGh9ic';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhueG91ZnBpemR0ZmtsZmp3cWV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk0NDkyMjIsImV4cCI6MjA1NTAyNTIyMn0.Wh4NB0G3fYuNxYRSRJaBDg_HMUrClpmcT-C5m78nSYU';
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -314,19 +314,6 @@ async function deleteControlHorari(id) {
 }
 
 // ============================================================
-// SUBSCRIPCIONS TEMPS REAL
-// ============================================================
-
-function subscribeToChanges(table, callback) {
-    return supabaseClient
-        .channel('public:' + table)
-        .on('postgres_changes', 
-            { event: '*', schema: 'public', table: table },
-            callback
-        )
-        .subscribe();
-}
-// ============================================================
 // AUTH / PERFIL USUARI
 // ============================================================
 
@@ -341,6 +328,20 @@ async function getUserProfile(userId) {
         return null;
     }
     return data;
+}
+
+// ============================================================
+// SUBSCRIPCIONS TEMPS REAL
+// ============================================================
+
+function subscribeToChanges(table, callback) {
+    return supabaseClient
+        .channel('public:' + table)
+        .on('postgres_changes', 
+            { event: '*', schema: 'public', table: table },
+            callback
+        )
+        .subscribe();
 }
 
 console.log('✅ Supabase client v5 carregat');
