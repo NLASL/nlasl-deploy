@@ -546,8 +546,11 @@ async function guardarTractament(event) {
 }
 
 async function veureTractamentGrup(clau) {
+    // La clau ara és: data-producte_id-finca
     const grupTractaments = tractaments.filter(function(t) {
-        return (t.data + '-' + t.producte_id) === clau;
+        const parcella = parcelles.find(function(p) { return p.id === t.parcella_id; });
+        const finca = parcella ? (parcella.finca || 'Sense finca') : 'Sense finca';
+        return (t.data + '-' + t.producte_id + '-' + finca) === clau;
     });
     
     if (grupTractaments.length === 0) return;
@@ -632,7 +635,9 @@ async function eliminarTractamentGrup(clau) {
     
     try {
         const grup = tractaments.filter(function(t) {
-            return (t.data + '-' + t.producte_id) === clau;
+            const parcella = parcelles.find(function(p) { return p.id === t.parcella_id; });
+            const finca = parcella ? (parcella.finca || 'Sense finca') : 'Sense finca';
+            return (t.data + '-' + t.producte_id + '-' + finca) === clau;
         });
         
         for (let i = 0; i < grup.length; i++) {
@@ -779,6 +784,8 @@ function crearModalFertilitzacio() {
     html += '<div id="totals-npk" style="display:none; background: #f1f8e9; padding: 12px; border-radius: 6px; margin-bottom: 15px;"></div>';
     
     html += '<div class="form-group"><label>Mètode Aplicació</label><select id="fertilitzacio-metode"><option value="">Seleccionar...</option><option value="Sòl">Sòl</option><option value="Foliar">Foliar</option><option value="Fertiirrigació">Fertiirrigació</option><option value="Altres">Altres</option></select></div>';
+    html += '<div class="form-group"><label>Operador</label><input type="text" id="fertilitzacio-operador"></div>';
+    html += '<div class="form-group"><label>Maquinària</label><input type="text" id="fertilitzacio-maquinaria"></div>';
     html += '<div class="form-group"><label>Observacions</label><textarea id="fertilitzacio-observacions" rows="3"></textarea></div>';
     
     html += '<div class="form-actions">';
@@ -989,6 +996,8 @@ async function guardarFertilitzacio(event) {
     const dosi = parseFloat(document.getElementById('fertilitzacio-dosi').value);
     const unitat = document.getElementById('fertilitzacio-unitat').value;
     const metode = document.getElementById('fertilitzacio-metode').value;
+    const operador = document.getElementById('fertilitzacio-operador').value.trim();
+    const maquinaria = document.getElementById('fertilitzacio-maquinaria').value.trim();
     const observacions = document.getElementById('fertilitzacio-observacions').value.trim();
     
     let parcellesAFertilitzar = [];
@@ -1039,6 +1048,8 @@ async function guardarFertilitzacio(event) {
                 unitat: unitat,
                 superficie_tractada: parcella.superficie,
                 metode: metode || null,
+                operador: operador || null,
+                maquinaria: maquinaria || null,
                 observacions: observacions || null,
                 us_total: quantitatTotal,
                 n_total: nTotal,
@@ -1060,8 +1071,11 @@ async function guardarFertilitzacio(event) {
 }
 
 async function veureFertilitzacioGrup(clau) {
+    // La clau ara és: data-producte_id-finca
     const grupFertilitzacions = fertilitzacions.filter(function(f) {
-        return (f.data + '-' + f.producte_id) === clau;
+        const parcella = parcelles.find(function(p) { return p.id === f.parcella_id; });
+        const finca = parcella ? (parcella.finca || 'Sense finca') : 'Sense finca';
+        return (f.data + '-' + f.producte_id + '-' + finca) === clau;
     });
     
     if (grupFertilitzacions.length === 0) return;
@@ -1124,9 +1138,19 @@ async function veureFertilitzacioGrup(clau) {
     
     html += '</tbody></table></div>';
     
-    if (primer.observacions) {
-        html += '<h3 style="margin-top: 20px; margin-bottom: 10px;">📝 Observacions</h3>';
-        html += '<div style="background: #f5f5f5; padding: 15px; border-radius: 8px;">' + primer.observacions + '</div>';
+    if (primer.operador || primer.maquinaria || primer.observacions) {
+        html += '<h3 style="margin-top: 20px; margin-bottom: 10px;">📝 Informació Addicional</h3>';
+        html += '<div style="background: #f5f5f5; padding: 15px; border-radius: 8px;">';
+        if (primer.operador) {
+            html += '<div style="margin-bottom: 10px;"><strong>👤 Operador:</strong> ' + primer.operador + '</div>';
+        }
+        if (primer.maquinaria) {
+            html += '<div style="margin-bottom: 10px;"><strong>🚜 Maquinària:</strong> ' + primer.maquinaria + '</div>';
+        }
+        if (primer.observacions) {
+            html += '<div><strong>📄 Observacions:</strong> ' + primer.observacions + '</div>';
+        }
+        html += '</div>';
     }
     
     html += '<div class="form-actions" style="margin-top: 20px;">';
@@ -1141,7 +1165,9 @@ async function eliminarFertilitzacioGrup(clau) {
     
     try {
         const grup = fertilitzacions.filter(function(f) {
-            return (f.data + '-' + f.producte_id) === clau;
+            const parcella = parcelles.find(function(p) { return p.id === f.parcella_id; });
+            const finca = parcella ? (parcella.finca || 'Sense finca') : 'Sense finca';
+            return (f.data + '-' + f.producte_id + '-' + finca) === clau;
         });
         
         for (let i = 0; i < grup.length; i++) {
