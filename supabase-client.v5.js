@@ -326,5 +326,21 @@ function subscribeToChanges(table, callback) {
         )
         .subscribe();
 }
+// ============================================================
+// AUTH / PERFIL USUARI
+// ============================================================
+
+async function getUserProfile(userId) {
+    const { data, error } = await supabaseClient
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+    if (error) {
+        console.warn('No user profile found:', error);
+        return null;
+    }
+    return data;
+}
 
 console.log('✅ Supabase client v5 carregat');
