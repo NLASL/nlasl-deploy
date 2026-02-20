@@ -64,6 +64,19 @@ function tancarModal(modalId) {
     }
 }
 
+// Control de permisos
+function hasPermission(action) {
+    if (!currentUserProfile) return false;
+    
+    const role = currentUserProfile.role;
+    
+    if (role === 'admin') return true;
+    if (role === 'editor' && (action === 'insert' || action === 'update' || action === 'select')) return true;
+    if (role === 'visor' && action === 'select') return true;
+    
+    return false;
+}
+
 // Navegació
 function canviarVista(vista) {
     vistaActual = vista;
