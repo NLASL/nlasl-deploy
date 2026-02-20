@@ -64,20 +64,7 @@ function tancarModal(modalId) {
     }
 }
 
-// Control de permisos
-function hasPermission(action) {
-    if (!currentUserProfile) return false;
-    
-    const role = currentUserProfile.role;
-    
-    if (role === 'admin') return true;
-    if (role === 'editor' && (action === 'insert' || action === 'update' || action === 'select')) return true;
-    if (role === 'visor' && action === 'select') return true;
-    
-    return false;
-}
-
-// Navegació i canvi de vistes
+// Navegació
 function canviarVista(vista) {
     vistaActual = vista;
     
@@ -2065,7 +2052,7 @@ function crearModalControlHorari() {
         '<div class="form-group"><label>Hores *</label><input type="number" id="control-horari-hores" required min="0" step="0.5" onchange="actualitzarCostHorari()"></div>' +
         '<div class="form-group"><label>Tipus Jornada</label><select id="control-horari-tipus" onchange="actualitzarCostHorari()"><option value="Normal">Normal</option><option value="Extra">Extra (+50%)</option><option value="Festiu">Festiu (+75%)</option><option value="Nocturn">Nocturn (+25%)</option></select></div>' +
         '<div class="form-group"><label>Tasca</label><input type="text" id="control-horari-tasca"></div>' +
-        '<div class="form-group"><label>Parcel·la (opcional)</label><select id="control-horari-parcella"><option value="">Sense parcel·la</option></select></div>' +
+        '<div class="form-group"><label>Finca (opcional)</label><select id="control-horari-finca"><option value="">Sense finca</option></select></div>' +
         '<div class="form-group"><label>Observacions</label><textarea id="control-horari-observacions" rows="2"></textarea></div>' +
         '<div class="form-group"><label>Cost Total: <span id="cost-calculat">0.00</span> €</label></div>' +
         '<div class="form-actions"><button type="button" class="btn btn-secondary" onclick="tancarModal(\'modal-control-horari\')">Cancel·lar</button>' +
@@ -2081,16 +2068,16 @@ async function obrirModalControlHorari() {
     document.getElementById('control-horari-data').value = avui;
     
     const selectTreballador = document.getElementById('control-horari-treballador');
-    const selectParcella = document.getElementById('control-horari-parcella');
+    const selectFinca = document.getElementById('control-horari-finca');
     
     selectTreballador.innerHTML = '<option value="">Seleccionar...</option>';
     treballadors.filter(function(t) { return t.actiu; }).forEach(function(t) {
         selectTreballador.innerHTML += '<option value="' + t.id + '">' + t.nom + '</option>';
     });
     
-    selectParcella.innerHTML = '<option value="">Sense parcel·la</option>';
-    parcelles.forEach(function(p) {
-        selectParcella.innerHTML += '<option value="' + p.id + '">' + p.nom + '</option>';
+    selectFinca.innerHTML = '<option value="">Sense finca</option>';
+    finques.forEach(function(f) {
+        selectFinca.innerHTML += '<option value="' + f + '">' + f + '</option>';
     });
     
     document.getElementById('cost-calculat').textContent = '0.00';
@@ -2156,7 +2143,7 @@ async function guardarControlHorari(event) {
         hores: hores,
         tipus_jornada: tipus,
         tasca: document.getElementById('control-horari-tasca').value.trim() || null,
-        parcella_id: document.getElementById('control-horari-parcella').value || null,
+        finca: document.getElementById('control-horari-finca').value || null,
         observacions: document.getElementById('control-horari-observacions').value.trim() || null,
         cost_total: costCalculat
     };
