@@ -4,7 +4,7 @@
 // ============================================================
 
 const SUPABASE_URL = 'https://xnxoufpizdtfklfjwqet.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhueG91ZnBpemR0ZmtsZmp3cWV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwMDk4NDAsImV4cCI6MjA4NjU4NTg0MH0.izqQdOxUWUzXNhasXwHnm7IO2qVHHHzx9e-1FIGh9ic';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhueG91ZnBpemR0ZmtsZmp3cWV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk0NDkyMjIsImV4cCI6MjA1NTAyNTIyMn0.Wh4NB0G3fYuNxYRSRJaBDg_HMUrClpmcT-C5m78nSYU';
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -328,6 +328,85 @@ async function getUserProfile(userId) {
         return null;
     }
     return data;
+}
+
+// ============================================================
+// TASQUES
+// ============================================================
+
+async function getTasques() {
+    const { data, error } = await supabaseClient
+        .from('tasques')
+        .select('*')
+        .eq('activa', true)
+        .order('nom');
+    if (error) throw error;
+    return data || [];
+}
+
+// ============================================================
+// MOTIUS ABSÈNCIA
+// ============================================================
+
+async function getMotiusAbsencia() {
+    const { data, error } = await supabaseClient
+        .from('motius_absencia')
+        .select('*')
+        .eq('actiu', true)
+        .order('nom');
+    if (error) throw error;
+    return data || [];
+}
+
+// ============================================================
+// INCIDÈNCIES
+// ============================================================
+
+async function getIncidencies(filtres) {
+    let query = supabaseClient
+        .from('incidencies')
+        .select('*')
+        .order('data', { ascending: false });
+    
+    if (filtres) {
+        if (filtres.treballadorId) {
+            query = query.eq('treballador_id', filtres.treballadorId);
+        }
+        if (filtres.estat) {
+            query = query.eq('estat', filtres.estat);
+        }
+    }
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+}
+
+async function createIncidencia(incidencia) {
+    const { data, error } = await supabaseClient
+        .from('incidencies')
+        .insert([incidencia])
+        .select();
+    if (error) throw error;
+    return data[0];
+}
+
+async function updateIncidencia(id, incidencia) {
+    const { data, error } = await supabaseClient
+        .from('incidencies')
+        .update(incidencia)
+        .eq('id', id)
+        .select();
+    if (error) throw error;
+    return data[0];
+}
+
+async function deleteIncidencia(id) {
+    const { error } = await supabaseClient
+        .from('incidencies')
+        .delete()
+        .eq('id', id);
+    if (error) throw error;
 }
 
 // ============================================================
