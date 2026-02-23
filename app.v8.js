@@ -2225,8 +2225,6 @@ async function guardarControlHorari(event) {
     const treballadorId = document.getElementById('control-horari-treballador').value;
     const horaEntrada = document.getElementById('control-horari-hora-entrada').value;
     const horaSortida = document.getElementById('control-horari-hora-sortida').value || null;
-    const tascaId = document.getElementById('control-horari-tasca').value;
-    const tascaLliure = document.getElementById('control-horari-tasca-libre').value.trim() || null;
     const motiuId = document.getElementById('control-horari-motiu').value || null;
     const numPersones = parseInt(document.getElementById('control-horari-num-persones').value) || 1;
     
@@ -2245,21 +2243,28 @@ async function guardarControlHorari(event) {
     const dades = {
         data: document.getElementById('control-horari-data').value,
         treballador_id: treballadorId,
-        hora_entrada: horaEntrada,
         hora_sortida: horaSortida,
-        tasca_id: tascaId,
-        tasca_libre: tascaLliure,
-        finca: document.getElementById('control-horari-finca').value || null,
         motiu_sortida_id: motiuId,
-        num_persones: numPersones,
         observacions: document.getElementById('control-horari-observacions').value.trim() || null,
         cost_total: cost
     };
     
+    // Si és entrada nova (INSERT), afegir també entrada, tasca i finca
+    if (!id) {
+        const tascaId = document.getElementById('control-horari-tasca').value;
+        const tascaLliure = document.getElementById('control-horari-tasca-libre').value.trim() || null;
+        
+        dades.hora_entrada = horaEntrada;
+        dades.tasca_id = tascaId;
+        dades.tasca_libre = tascaLliure;
+        dades.finca = document.getElementById('control-horari-finca').value || null;
+        dades.num_persones = numPersones;
+    }
+    
     try {
         if (id) {
             await updateControlHorari(id, dades);
-            mostrarNotificacio(horaSortida ? 'Sortida fitxada correctament' : 'Entrada actualitzada', 'success');
+            mostrarNotificacio('Sortida fitxada correctament', 'success');
         } else {
             await createControlHorari(dades);
             mostrarNotificacio('Entrada fitxada correctament', 'success');
