@@ -2089,7 +2089,7 @@ function crearModalControlHorari() {
         '<div class="form-group"><label>Data *</label><input type="date" id="control-horari-data" required readonly></div>' +
         '<div class="form-group" id="group-hora-entrada" style="display:none;"><label>Hora Entrada</label><input type="time" id="control-horari-hora-entrada" readonly></div>' +
         '<div class="form-group" id="group-hora-sortida" style="display:none;"><label>Hora Sortida</label><input type="time" id="control-horari-hora-sortida" readonly></div>' +
-        '<div class="form-group"><label>Tasca *</label><select id="control-horari-tasca" required onchange="mostrarTascaLliure()"><option value="">Seleccionar...</option></select></div>' +
+        '<div class="form-group"><label>Tasca *</label><select id="control-horari-tasca" onchange="mostrarTascaLliure()"><option value="">Seleccionar...</option></select></div>' +
         '<div class="form-group" id="group-tasca-libre" style="display:none;"><label>Descripció tasca</label><input type="text" id="control-horari-tasca-libre" placeholder="Descriu la tasca..."></div>' +
         '<div class="form-group"><label>Finca (opcional)</label><select id="control-horari-finca"><option value="">Sense finca</option></select></div>' +
         '<div class="form-group" id="group-motiu-sortida" style="display:none;"><label>Motiu sortida anticipada</label><select id="control-horari-motiu"><option value="">Sense motiu especial</option></select></div>' +
@@ -2227,6 +2227,15 @@ async function guardarControlHorari(event) {
     const horaSortida = document.getElementById('control-horari-hora-sortida').value || null;
     const motiuId = document.getElementById('control-horari-motiu').value || null;
     const numPersones = parseInt(document.getElementById('control-horari-num-persones').value) || 1;
+    
+    // Si és entrada nova, validar tasca
+    if (!id) {
+        const tascaId = document.getElementById('control-horari-tasca').value;
+        if (!tascaId) {
+            mostrarNotificacio('Cal seleccionar una tasca', 'error');
+            return;
+        }
+    }
     
     // Calcular cost si hi ha sortida
     let cost = null;
