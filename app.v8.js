@@ -2159,6 +2159,9 @@ async function comprovarEntradaOberta() {
     const groupEntrada = document.getElementById('group-hora-entrada');
     const groupSortida = document.getElementById('group-hora-sortida');
     const groupMotiu = document.getElementById('group-motiu-sortida');
+    const groupTasca = document.querySelector('#control-horari-tasca').closest('.form-group');
+    const groupTascaLliure = document.getElementById('group-tasca-libre');
+    const groupFinca = document.querySelector('#control-horari-finca').closest('.form-group');
     const btnFitxar = document.getElementById('btn-fitxar');
     
     if (registreObert) {
@@ -2168,6 +2171,9 @@ async function comprovarEntradaOberta() {
         groupEntrada.style.display = 'block';
         groupSortida.style.display = 'block';
         groupMotiu.style.display = 'block';
+        groupTasca.style.display = 'none';  // Ocultar tasca
+        groupTascaLliure.style.display = 'none';
+        groupFinca.style.display = 'none';  // Ocultar finca
         document.getElementById('control-horari-hora-entrada').value = registreObert.hora_entrada;
         document.getElementById('control-horari-hora-sortida').value = new Date().toTimeString().slice(0,5);
         document.getElementById('control-horari-id').value = registreObert.id;
@@ -2178,6 +2184,8 @@ async function comprovarEntradaOberta() {
         groupEntrada.style.display = 'block';
         groupSortida.style.display = 'none';
         groupMotiu.style.display = 'none';
+        groupTasca.style.display = 'block';  // Mostrar tasca
+        groupFinca.style.display = 'block';  // Mostrar finca
         document.getElementById('control-horari-hora-entrada').value = new Date().toTimeString().slice(0,5);
         btnFitxar.textContent = '🟢 Fitxar Entrada';
     }
