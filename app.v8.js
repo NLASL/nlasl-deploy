@@ -2143,14 +2143,13 @@ async function obrirModalControlHorari() {
 
 async function comprovarEntradaOberta() {
     const treballadorId = document.getElementById('control-horari-treballador').value;
-    const data = document.getElementById('control-horari-data').value;
+    const dataAvui = document.getElementById('control-horari-data').value;
     
     if (!treballadorId) return;
     
-    // Buscar registre obert del mateix dia
+    // Buscar registre obert (sense sortida)
     const registreObert = controlHorari.find(function(r) {
         return r.treballador_id === treballadorId && 
-               r.data === data && 
                r.hora_entrada && 
                !r.hora_sortida;
     });
@@ -2164,28 +2163,59 @@ async function comprovarEntradaOberta() {
     const groupFinca = document.querySelector('#control-horari-finca').closest('.form-group');
     const btnFitxar = document.getElementById('btn-fitxar');
     
-    if (registreObert) {
-        // Té entrada oberta → Fitxar sortida
+    if (registreObert && registreObert.data !== dataAvui) {
+        // Entrada oberta d'un dia anterior → Generar incidència
+        infoDiv.style.display = 'block';
+        infoDiv.innerHTML = '<strong>⚠️ INCIDÈNCIA:</strong> Tens una entrada oberta del dia ' + formatData(registreObert.data) + ' sense sortida. S\'ha generat una incidència per l\'administrador.';
+        infoDiv.style.background = '#ffebee';
+        
+        // Generar incidència automàtica
+        try {
+            await createIncidencia({
+                treballador_id: treballadorId,
+                data: registreObert.data,
+                tipus: 'sense_sortida',
+                estat: 'pendent',
+                observacions_treballador: 'Incidència detectada automàticament'
+            });
+        } catch (error) {
+            console.error('Error creant incidència:', error);
+        }
+        
+        // Permetre fitxar entrada nova avui
+        groupEntrada.style.display = 'block';
+        groupSortida.style.display = 'none';
+        groupMotiu.style.display = 'none';
+        groupTasca.style.display = 'block';
+        groupFinca.style.display = 'block';
+        document.getElementById('control-horari-hora-entrada').value = new Date().toTimeString().slice(0,5);
+        document.getElementById('control-horari-id').value = '';
+        btnFitxar.textContent = '🟢 Fitxar Entrada';
+        
+    } else if (registreObert && registreObert.data === dataAvui) {
+        // Entrada oberta del mateix dia → Fitxar sortida
         infoDiv.style.display = 'block';
         infoDiv.innerHTML = '<strong>⚠️ Tens una entrada oberta:</strong> ' + registreObert.hora_entrada;
+        infoDiv.style.background = '#e3f2fd';
         groupEntrada.style.display = 'block';
         groupSortida.style.display = 'block';
         groupMotiu.style.display = 'block';
-        groupTasca.style.display = 'none';  // Ocultar tasca
+        groupTasca.style.display = 'none';
         groupTascaLliure.style.display = 'none';
-        groupFinca.style.display = 'none';  // Ocultar finca
+        groupFinca.style.display = 'none';
         document.getElementById('control-horari-hora-entrada').value = registreObert.hora_entrada;
         document.getElementById('control-horari-hora-sortida').value = new Date().toTimeString().slice(0,5);
         document.getElementById('control-horari-id').value = registreObert.id;
         btnFitxar.textContent = '🔴 Fitxar Sortida';
+        
     } else {
-        // No té entrada → Fitxar entrada
+        // No té entrada oberta → Fitxar entrada
         infoDiv.style.display = 'none';
         groupEntrada.style.display = 'block';
         groupSortida.style.display = 'none';
         groupMotiu.style.display = 'none';
-        groupTasca.style.display = 'block';  // Mostrar tasca
-        groupFinca.style.display = 'block';  // Mostrar finca
+        groupTasca.style.display = 'block';
+        groupFinca.style.display = 'block';
         document.getElementById('control-horari-hora-entrada').value = new Date().toTimeString().slice(0,5);
         btnFitxar.textContent = '🟢 Fitxar Entrada';
     }
@@ -2243,32 +2273,39 @@ async function guardarControlHorari(event) {
         const treballador = treballadors.find(function(t) { return t.id === treballadorId; });
         if (treballador && treballador.preu_hora) {
             const entrada = new Date('2000-01-01 ' + horaEntrada);
-            const sortida = new Date('2000-01-01 ' + horaSortida);
+            let sortida = new Date('2000-01-01 ' + horaSortida);
+            
+            // Si sortida < entrada, ha creuat mitjanit → afegir 1 dia
+            if (sortida < entrada) {
+                sortida = new Date('2000-01-02 ' + horaSortida);
+            }
+            
             const hores = (sortida - entrada) / 3600000;
             cost = hores * treballador.preu_hora * numPersones;
         }
     }
     
     const dades = {
-        data: document.getElementById('control-horari-data').value,
-        treballador_id: treballadorId,
         hora_sortida: horaSortida,
         motiu_sortida_id: motiuId,
         observacions: document.getElementById('control-horari-observacions').value.trim() || null,
         cost_total: cost
     };
     
-    // Si és entrada nova (INSERT), afegir també entrada, tasca i finca
+    // Si és entrada nova (INSERT), afegir també data, treballador, entrada, tasca i finca
     if (!id) {
         const tascaId = document.getElementById('control-horari-tasca').value;
         const tascaLliure = document.getElementById('control-horari-tasca-libre').value.trim() || null;
         
+        dades.data = document.getElementById('control-horari-data').value;
+        dades.treballador_id = treballadorId;
         dades.hora_entrada = horaEntrada;
         dades.tasca_id = tascaId;
         dades.tasca_libre = tascaLliure;
         dades.finca = document.getElementById('control-horari-finca').value || null;
         dades.num_persones = numPersones;
     }
+    // Si és sortida (UPDATE), NO canviar data ni treballador
     
     try {
         if (id) {
