@@ -14,6 +14,7 @@ let controlHorari = [];
 let tasques = [];
 let motiusAbsencia = [];
 let incidencies = [];
+let absencies = [];
 let finques = [];
 let fincaSeleccionada = null;
 let vistaActual = 'dashboard';
@@ -114,6 +115,12 @@ function canviarVista(vista) {
             break;
         case 'control-horari':
             carregarVistaControlHorari();
+            break;
+        case 'incidencies':
+            carregarVistaIncidencies();
+            break;
+        case 'absencies':
+            carregarVistaAbsencies();
             break;
         default:
             container.innerHTML = '<p>Vista no trobada</p>';
@@ -2281,7 +2288,15 @@ async function guardarControlHorari(event) {
             }
             
             const hores = (sortida - entrada) / 3600000;
-            cost = hores * treballador.preu_hora * numPersones;
+            
+            // Si és UPDATE, agafar num_persones del registre original
+            let persones = numPersones;
+            if (id) {
+                const registreOriginal = controlHorari.find(function(r) { return r.id === id; });
+                persones = registreOriginal ? (registreOriginal.num_persones || 1) : 1;
+            }
+            
+            cost = hores * treballador.preu_hora * persones;
         }
     }
     
@@ -2332,6 +2347,276 @@ async function eliminarControlHorari(id) {
         await deleteControlHorari(id);
         mostrarNotificacio('Registre eliminat correctament', 'success');
         await carregarTaulaControlHorari();
+    } catch (error) {
+        console.error('Error eliminant:', error);
+        mostrarNotificacio('Error: ' + error.message, 'error');
+    }
+}
+
+// ============================================================
+// VISTA INCIDÈNCIES
+// ============================================================
+
+async function carregarVistaIncidencies() {
+    const container = document.getElementById('view-container');
+    
+    let html = '<div class="view-incidencies">';
+    html += '<div style="display: flex; justify-content: space-between; margin-bottom: 20px;">';
+    html += '<h2>⚠️ Incidències Control Horari</h2>';
+    html += '</div>';
+    
+    html += '<div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">';
+    html += '<h3 style="margin-top: 0;">🔍 Filtres</h3>';
+    html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 15px;">';
+    html += '<div><label>Treballador:</label><select id="filtro-incidencia-treballador" onchange="aplicarFiltresIncidencies()"><option value="">Tots</option></select></div>';
+    html += '<div><label>Estat:</label><select id="filtro-incidencia-estat" onchange="aplicarFiltresIncidencies()"><option value="">Tots</option><option value="pendent">Pendents</option><option value="resolta">Resoltes</option><option value="justificada">Justificades</option></select></div>';
+    html += '<div><label>Tipus:</label><select id="filtro-incidencia-tipus" onchange="aplicarFiltresIncidencies()"><option value="">Tots</option><option value="sense_entrada">Sense entrada</option><option value="sense_sortida">Sense sortida</option><option value="jornada_curta">Jornada curta</option><option value="jornada_llarga">Jornada llarga</option></select></div>';
+    html += '<div style="align-self: end;"><button class="btn btn-secondary" onclick="netejarFiltresIncidencies()">🗑️ Netejar</button></div>';
+    html += '</div></div>';
+    
+    html += '<div class="table-container"><table class="data-table">';
+    html += '<thead><tr><th>Data</th><th>Treballador</th><th>Tipus</th><th>Estat</th><th>Observacions</th><th>Accions</th></tr></thead>';
+    html += '<tbody id="tbody-incidencies"><tr><td colspan="6">Carregant...</td></tr></tbody>';
+    html += '</table></div></div>';
+    
+    html += crearModalIncidencia();
+    
+    container.innerHTML = html;
+    
+    await carregarSelectTreballadorsIncidencies();
+    await carregarTaulaIncidencies();
+}
+
+async function carregarSelectTreballadorsIncidencies() {
+    const select = document.getElementById('filtro-incidencia-treballador');
+    if (!select) return;
+    
+    treballadors = await getTreballadors();
+    select.innerHTML = '<option value="">Tots</option>';
+    treballadors.forEach(function(t) {
+        select.innerHTML += '<option value="' + t.id + '">' + t.nom + '</option>';
+    });
+}
+
+async function carregarTaulaIncidencies() {
+    const tbody = document.getElementById('tbody-incidencies');
+    if (!tbody) return;
+    
+    try {
+        const filtres = {
+            treballadorId: document.getElementById('filtro-incidencia-treballador')?.value || null,
+            estat: document.getElementById('filtro-incidencia-estat')?.value || null
+        };
+        
+        incidencies = await getIncidencies(filtres);
+        
+        // Filtrar per tipus si cal
+        const tipusFiltre = document.getElementById('filtro-incidencia-tipus')?.value;
+        if (tipusFiltre) {
+            incidencies = incidencies.filter(function(i) { return i.tipus === tipusFiltre; });
+        }
+        
+        if (incidencies.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No hi ha incidències</td></tr>';
+            return;
+        }
+        
+        const podeEditar = hasPermission('update');
+        const podeEliminar = hasPermission('delete');
+        
+        tbody.innerHTML = incidencies.map(function(inc) {
+            const treballador = treballadors.find(function(t) { return t.id === inc.treballador_id; });
+            const nomTreballador = treballador ? treballador.nom : 'Desconegut';
+            
+            const tipusText = {
+                'sense_entrada': 'Sense entrada',
+                'sense_sortida': 'Sense sortida',
+                'jornada_curta': 'Jornada curta',
+                'jornada_llarga': 'Jornada llarga'
+            }[inc.tipus] || inc.tipus;
+            
+            let estatBadge = '';
+            if (inc.estat === 'pendent') {
+                estatBadge = '<span style="background: #ff9800; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">🔴 Pendent</span>';
+            } else if (inc.estat === 'resolta') {
+                estatBadge = '<span style="background: #4caf50; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">✅ Resolta</span>';
+            } else if (inc.estat === 'justificada') {
+                estatBadge = '<span style="background: #2196f3; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">ℹ️ Justificada</span>';
+            }
+            
+            let accions = '<button class="btn btn-sm btn-primary" onclick="veureIncidencia(\'' + inc.id + '\')">👁️</button> ';
+            if (podeEditar && inc.estat === 'pendent') {
+                accions += '<button class="btn btn-sm btn-success" onclick="resoldrIncidencia(\'' + inc.id + '\')">✔️ Resoldre</button> ';
+            }
+            if (podeEliminar) {
+                accions += '<button class="btn btn-sm btn-danger" onclick="eliminarIncidencia(\'' + inc.id + '\')">🗑️</button>';
+            }
+            
+            return '<tr><td><strong>' + formatData(inc.data) + '</strong></td><td>' + nomTreballador + '</td><td>' + tipusText + '</td><td>' + estatBadge + '</td><td>' + (inc.observacions_treballador || '-') + '</td><td>' + accions + '</td></tr>';
+        }).join('');
+        
+    } catch (error) {
+        console.error('Error:', error);
+        tbody.innerHTML = '<tr><td colspan="6">Error carregant dades</td></tr>';
+    }
+}
+
+function aplicarFiltresIncidencies() {
+    carregarTaulaIncidencies();
+}
+
+function netejarFiltresIncidencies() {
+    document.getElementById('filtro-incidencia-treballador').value = '';
+    document.getElementById('filtro-incidencia-estat').value = '';
+    document.getElementById('filtro-incidencia-tipus').value = '';
+    carregarTaulaIncidencies();
+}
+
+function crearModalIncidencia() {
+    return '<div id="modal-incidencia" class="modal" style="display: none;"><div class="modal-content" style="max-width: 600px;">' +
+        '<span class="close" onclick="tancarModal(\'modal-incidencia\')">&times;</span>' +
+        '<h2 id="modal-incidencia-titol">Resoldre Incidència</h2>' +
+        '<form id="form-incidencia" onsubmit="guardarIncidencia(event)">' +
+        '<input type="hidden" id="incidencia-id">' +
+        '<div id="info-incidencia" style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;"></div>' +
+        '<div class="form-group"><label>Acció</label><select id="incidencia-accio" onchange="canviarAccioIncidencia()" required>' +
+        '<option value="">Seleccionar...</option>' +
+        '<option value="emplenar">Emplenar hora faltant</option>' +
+        '<option value="justificar">Marcar com justificada</option>' +
+        '</select></div>' +
+        '<div class="form-group" id="group-hora-faltant" style="display:none;"><label>Hora faltant</label><input type="time" id="incidencia-hora"></div>' +
+        '<div class="form-group"><label>Observacions Admin</label><textarea id="incidencia-observacions-admin" rows="3" placeholder="Motiu de la resolució..."></textarea></div>' +
+        '<div class="form-actions"><button type="button" class="btn btn-secondary" onclick="tancarModal(\'modal-incidencia\')">Cancel·lar</button>' +
+        '<button type="submit" class="btn btn-primary">Guardar</button></div></form></div></div>';
+}
+
+async function veureIncidencia(id) {
+    const incidencia = incidencies.find(function(i) { return i.id === id; });
+    if (!incidencia) return;
+    
+    const treballador = treballadors.find(function(t) { return t.id === incidencia.treballador_id; });
+    const registre = controlHorari.find(function(r) { return r.treballador_id === incidencia.treballador_id && r.data === incidencia.data; });
+    
+    let info = '<strong>📅 Data:</strong> ' + formatData(incidencia.data) + '<br>';
+    info += '<strong>👤 Treballador:</strong> ' + (treballador ? treballador.nom : 'Desconegut') + '<br>';
+    info += '<strong>⚠️ Tipus:</strong> ' + incidencia.tipus + '<br>';
+    if (registre) {
+        info += '<strong>🕐 Entrada:</strong> ' + (registre.hora_entrada || '-') + '<br>';
+        info += '<strong>🕐 Sortida:</strong> ' + (registre.hora_sortida || '-') + '<br>';
+    }
+    if (incidencia.observacions_treballador) {
+        info += '<strong>📝 Observacions treballador:</strong> ' + incidencia.observacions_treballador + '<br>';
+    }
+    if (incidencia.observacions_admin) {
+        info += '<strong>💼 Observacions admin:</strong> ' + incidencia.observacions_admin;
+    }
+    
+    alert(info);
+}
+
+async function resoldrIncidencia(id) {
+    const incidencia = incidencies.find(function(i) { return i.id === id; });
+    if (!incidencia) return;
+    
+    const treballador = treballadors.find(function(t) { return t.id === incidencia.treballador_id; });
+    const registre = controlHorari.find(function(r) { return r.treballador_id === incidencia.treballador_id && r.data === incidencia.data; });
+    
+    let info = '<strong>📅 ' + formatData(incidencia.data) + '</strong><br>';
+    info += '<strong>👤 ' + (treballador ? treballador.nom : 'Desconegut') + '</strong><br>';
+    info += '<strong>⚠️ ' + incidencia.tipus + '</strong>';
+    if (registre) {
+        info += '<br>Entrada: ' + (registre.hora_entrada || '-') + ' | Sortida: ' + (registre.hora_sortida || '-');
+    }
+    
+    document.getElementById('info-incidencia').innerHTML = info;
+    document.getElementById('modal-incidencia-titol').textContent = 'Resoldre Incidència';
+    document.getElementById('incidencia-id').value = incidencia.id;
+    document.getElementById('incidencia-accio').value = '';
+    document.getElementById('incidencia-hora').value = '';
+    document.getElementById('incidencia-observacions-admin').value = '';
+    document.getElementById('group-hora-faltant').style.display = 'none';
+    
+    document.getElementById('modal-incidencia').style.display = 'block';
+}
+
+function canviarAccioIncidencia() {
+    const accio = document.getElementById('incidencia-accio').value;
+    const groupHora = document.getElementById('group-hora-faltant');
+    
+    if (accio === 'emplenar') {
+        groupHora.style.display = 'block';
+        document.getElementById('incidencia-hora').required = true;
+    } else {
+        groupHora.style.display = 'none';
+        document.getElementById('incidencia-hora').required = false;
+    }
+}
+
+async function guardarIncidencia(event) {
+    event.preventDefault();
+    
+    const id = document.getElementById('incidencia-id').value;
+    const accio = document.getElementById('incidencia-accio').value;
+    const hora = document.getElementById('incidencia-hora').value;
+    const observacionsAdmin = document.getElementById('incidencia-observacions-admin').value.trim();
+    
+    const incidencia = incidencies.find(function(i) { return i.id === id; });
+    if (!incidencia) return;
+    
+    try {
+        if (accio === 'emplenar') {
+            // Emplenar hora faltant al registre
+            const registre = controlHorari.find(function(r) { 
+                return r.treballador_id === incidencia.treballador_id && r.data === incidencia.data; 
+            });
+            
+            if (registre) {
+                const dades = {};
+                if (incidencia.tipus === 'sense_entrada') {
+                    dades.hora_entrada = hora;
+                } else if (incidencia.tipus === 'sense_sortida') {
+                    dades.hora_sortida = hora;
+                }
+                
+                await updateControlHorari(registre.id, dades);
+            }
+            
+            // Marcar incidència com resolta
+            await updateIncidencia(id, {
+                estat: 'resolta',
+                observacions_admin: observacionsAdmin,
+                resolt_per: currentUser.id
+            });
+            
+            mostrarNotificacio('Incidència resolta correctament', 'success');
+            
+        } else if (accio === 'justificar') {
+            // Marcar com justificada
+            await updateIncidencia(id, {
+                estat: 'justificada',
+                observacions_admin: observacionsAdmin,
+                resolt_per: currentUser.id
+            });
+            
+            mostrarNotificacio('Incidència justificada correctament', 'success');
+        }
+        
+        tancarModal('modal-incidencia');
+        await carregarTaulaIncidencies();
+        
+    } catch (error) {
+        console.error('Error guardant:', error);
+        mostrarNotificacio('Error: ' + error.message, 'error');
+    }
+}
+
+async function eliminarIncidencia(id) {
+    if (!confirm('Segur que vols eliminar aquesta incidència?')) return;
+    
+    try {
+        await deleteIncidencia(id);
+        mostrarNotificacio('Incidència eliminada correctament', 'success');
+        await carregarTaulaIncidencies();
     } catch (error) {
         console.error('Error eliminant:', error);
         mostrarNotificacio('Error: ' + error.message, 'error');
