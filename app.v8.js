@@ -2903,6 +2903,341 @@ async function eliminarAbsencia(id) {
         mostrarNotificacio('Error: ' + error.message, 'error');
     }
 }
+// ============================================================
+// VISTA TREBALLADOR SIMPLE
+// ============================================================
+
+async function carregarVistaTreballadorSimple() {
+    const container = document.getElementById('view-container');
+    
+    // Buscar treballador per auth_user_id
+    const treballador = treballadors.find(function(t) { 
+        return t.auth_user_id === currentUser.id; 
+    });
+    
+    if (!treballador) {
+        container.innerHTML = '<div style="padding: 40px; text-align: center;"><h2>⚠️ No tens perfil de treballador assignat</h2><p>Contacta amb l\'administrador.</p></div>';
+        return;
+    }
+    
+    const avui = new Date().toISOString().split('T')[0];
+    const diesSetmana = ['Diumenge', 'Dilluns', 'Dimarts', 'Dimecres', 'Dijous', 'Divendres', 'Dissabte'];
+    const mesos = ['Gener', 'Febrer', 'Març', 'Abril', 'Maig', 'Juny', 'Juliol', 'Agost', 'Setembre', 'Octubre', 'Novembre', 'Desembre'];
+    const data = new Date();
+    const diaSetmana = diesSetmana[data.getDay()];
+    const dia = data.getDate();
+    const mes = mesos[data.getMonth()];
+    
+    // Buscar registre obert
+    const registreObert = controlHorari.find(function(r) {
+        return r.treballador_id === treballador.id && 
+               r.data === avui && 
+               r.hora_entrada && 
+               !r.hora_sortida;
+    });
+    
+    let html = '<div class="view-treballador-simple" style="max-width: 600px; margin: 0 auto; padding: 20px;">';
+    
+    // Capçalera
+    html += '<div style="text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">';
+    html += '<h1 style="margin: 0; font-size: 28px;">👤 ' + treballador.nom + '</h1>';
+    html += '<p style="margin: 10px 0 0 0; font-size: 18px; opacity: 0.9;">' + diaSetmana + ', ' + dia + ' de ' + mes + '</p>';
+    html += '</div>';
+    
+    // Botó fitxar
+    html += '<div id="zona-fitxatge" style="margin-bottom: 40px;">';
+    html += '</div>';
+    
+    // Els meus registres
+    html += '<div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">';
+    html += '<h3 style="margin-top: 0; color: #333;">📊 Els meus registres</h3>';
+    html += '<div id="registres-treballador"></div>';
+    html += '</div>';
+    
+    html += '</div>';
+    
+    // Modals
+    html += crearModalFitxatgeTreballador();
+    
+    container.innerHTML = html;
+    
+    // Carregar estat fitxatge
+    await actualitzarZonaFitxatge(treballador.id, registreObert);
+    
+    // Carregar registres
+    await carregarRegistresTreballador(treballador.id);
+}
+
+async function actualitzarZonaFitxatge(treballadorId, registreObert) {
+    const zona = document.getElementById('zona-fitxatge');
+    if (!zona) return;
+    
+    let html = '';
+    
+    if (registreObert) {
+        // Té entrada oberta → Mostrar botó sortida
+        html += '<div style="text-align: center; background: #ffebee; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 2px solid #ef5350;">';
+        html += '<p style="margin: 0; font-size: 16px; color: #c62828;">⚠️ Tens una entrada oberta des de les <strong>' + registreObert.hora_entrada + '</strong></p>';
+        html += '</div>';
+        
+        html += '<button onclick="fitxarSortidaTreballador(\'' + treballadorId + '\')" style="';
+        html += 'width: 100%; ';
+        html += 'padding: 40px; ';
+        html += 'font-size: 32px; ';
+        html += 'font-weight: bold; ';
+        html += 'background: linear-gradient(135deg, #f44336 0%, #e91e63 100%); ';
+        html += 'color: white; ';
+        html += 'border: none; ';
+        html += 'border-radius: 16px; ';
+        html += 'cursor: pointer; ';
+        html += 'box-shadow: 0 6px 20px rgba(244, 67, 54, 0.4); ';
+        html += 'transition: all 0.3s; ';
+        html += 'text-transform: uppercase; ';
+        html += 'letter-spacing: 2px;';
+        html += '" ';
+        html += 'onmouseover="this.style.transform=\'scale(1.02)\'; this.style.boxShadow=\'0 8px 25px rgba(244, 67, 54, 0.5)\';" ';
+        html += 'onmouseout="this.style.transform=\'scale(1)\'; this.style.boxShadow=\'0 6px 20px rgba(244, 67, 54, 0.4)\';">';
+        html += '🔴 Fitxar Sortida';
+        html += '</button>';
+    } else {
+        // No té entrada → Mostrar botó entrada
+        html += '<button onclick="fitxarEntradaTreballador(\'' + treballadorId + '\')" style="';
+        html += 'width: 100%; ';
+        html += 'padding: 40px; ';
+        html += 'font-size: 32px; ';
+        html += 'font-weight: bold; ';
+        html += 'background: linear-gradient(135deg, #4caf50 0%, #8bc34a 100%); ';
+        html += 'color: white; ';
+        html += 'border: none; ';
+        html += 'border-radius: 16px; ';
+        html += 'cursor: pointer; ';
+        html += 'box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4); ';
+        html += 'transition: all 0.3s; ';
+        html += 'text-transform: uppercase; ';
+        html += 'letter-spacing: 2px;';
+        html += '" ';
+        html += 'onmouseover="this.style.transform=\'scale(1.02)\'; this.style.boxShadow=\'0 8px 25px rgba(76, 175, 80, 0.5)\';" ';
+        html += 'onmouseout="this.style.transform=\'scale(1)\'; this.style.boxShadow=\'0 6px 20px rgba(76, 175, 80, 0.4)\';">';
+        html += '🟢 Fitxar Entrada';
+        html += '</button>';
+    }
+    
+    zona.innerHTML = html;
+}
+
+async function carregarRegistresTreballador(treballadorId) {
+    const container = document.getElementById('registres-treballador');
+    if (!container) return;
+    
+    try {
+        // Carregar últims 7 dies
+        const registres = controlHorari.filter(function(r) {
+            return r.treballador_id === treballadorId;
+        }).slice(0, 7);
+        
+        if (registres.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #999;">Encara no tens registres</p>';
+            return;
+        }
+        
+        let html = '<table style="width: 100%; border-collapse: collapse;">';
+        html += '<thead><tr style="border-bottom: 2px solid #eee;"><th style="padding: 10px; text-align: left;">Data</th><th style="padding: 10px; text-align: center;">Entrada</th><th style="padding: 10px; text-align: center;">Sortida</th><th style="padding: 10px; text-align: center;">Hores</th></tr></thead>';
+        html += '<tbody>';
+        
+        registres.forEach(function(r) {
+            const sortidaText = r.hora_sortida || '<span style="color: #ff9800;">Pendent</span>';
+            const horesText = r.hores_treballades ? r.hores_treballades.toFixed(2) + 'h' : '-';
+            
+            html += '<tr style="border-bottom: 1px solid #f5f5f5;">';
+            html += '<td style="padding: 12px;"><strong>' + formatData(r.data) + '</strong></td>';
+            html += '<td style="padding: 12px; text-align: center;">' + (r.hora_entrada || '-') + '</td>';
+            html += '<td style="padding: 12px; text-align: center;">' + sortidaText + '</td>';
+            html += '<td style="padding: 12px; text-align: center;"><strong>' + horesText + '</strong></td>';
+            html += '</tr>';
+        });
+        
+        html += '</tbody></table>';
+        
+        container.innerHTML = html;
+        
+    } catch (error) {
+        console.error('Error:', error);
+        container.innerHTML = '<p style="color: red;">Error carregant registres</p>';
+    }
+}
+
+function crearModalFitxatgeTreballador() {
+    return '<div id="modal-fitxatge-treballador" class="modal" style="display: none;"><div class="modal-content" style="max-width: 500px;">' +
+        '<span class="close" onclick="tancarModal(\'modal-fitxatge-treballador\')">&times;</span>' +
+        '<h2 id="modal-fitxatge-titol">Fitxar</h2>' +
+        '<form id="form-fitxatge-treballador" onsubmit="guardarFitxatgeTreballador(event)">' +
+        '<input type="hidden" id="fitxatge-treballador-id">' +
+        '<input type="hidden" id="fitxatge-registre-id">' +
+        '<input type="hidden" id="fitxatge-tipus">' +
+        '<div id="info-fitxatge-treballador" style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-size: 18px;"></div>' +
+        '<div class="form-group" id="group-tasca-treballador"><label>Tasca *</label><select id="fitxatge-tasca" required><option value="">Seleccionar...</option></select></div>' +
+        '<div class="form-group" id="group-tasca-libre-treballador" style="display:none;"><label>Descripció</label><input type="text" id="fitxatge-tasca-libre"></div>' +
+        '<div class="form-group" id="group-finca-treballador"><label>Finca</label><select id="fitxatge-finca"><option value="">Sense finca</option></select></div>' +
+        '<div class="form-group" id="group-motiu-treballador" style="display:none;"><label>Motiu sortida</label><select id="fitxatge-motiu"><option value="">Sense motiu</option></select></div>' +
+        '<div class="form-actions"><button type="button" class="btn btn-secondary" onclick="tancarModal(\'modal-fitxatge-treballador\')">Cancel·lar</button>' +
+        '<button type="submit" class="btn btn-primary">Confirmar</button></div></form></div></div>';
+}
+
+async function fitxarEntradaTreballador(treballadorId) {
+    document.getElementById('modal-fitxatge-titol').textContent = '🟢 Fitxar Entrada';
+    document.getElementById('fitxatge-treballador-id').value = treballadorId;
+    document.getElementById('fitxatge-registre-id').value = '';
+    document.getElementById('fitxatge-tipus').value = 'entrada';
+    
+    const horaActual = new Date().toTimeString().slice(0,5);
+    document.getElementById('info-fitxatge-treballador').innerHTML = '<strong>Hora entrada:</strong> ' + horaActual;
+    
+    // Mostrar tasca i finca
+    document.getElementById('group-tasca-treballador').style.display = 'block';
+    document.getElementById('group-finca-treballador').style.display = 'block';
+    document.getElementById('group-motiu-treballador').style.display = 'none';
+    
+    // Carregar tasques
+    const selectTasca = document.getElementById('fitxatge-tasca');
+    selectTasca.innerHTML = '<option value="">Seleccionar...</option>';
+    tasques.forEach(function(t) {
+        selectTasca.innerHTML += '<option value="' + t.id + '">' + t.nom + '</option>';
+    });
+    
+    // Carregar finques
+    const selectFinca = document.getElementById('fitxatge-finca');
+    selectFinca.innerHTML = '<option value="">Sense finca</option>';
+    finques.forEach(function(f) {
+        selectFinca.innerHTML += '<option value="' + f + '">' + f + '</option>';
+    });
+    
+    // Carregar motius
+    const selectMotiu = document.getElementById('fitxatge-motiu');
+    selectMotiu.innerHTML = '<option value="">Sense motiu</option>';
+    motiusAbsencia.forEach(function(m) {
+        selectMotiu.innerHTML += '<option value="' + m.id + '">' + m.nom + '</option>';
+    });
+    
+    document.getElementById('modal-fitxatge-treballador').style.display = 'block';
+}
+
+async function fitxarSortidaTreballador(treballadorId) {
+    const avui = new Date().toISOString().split('T')[0];
+    const registreObert = controlHorari.find(function(r) {
+        return r.treballador_id === treballadorId && 
+               r.data === avui && 
+               r.hora_entrada && 
+               !r.hora_sortida;
+    });
+    
+    if (!registreObert) {
+        mostrarNotificacio('No tens cap entrada oberta', 'error');
+        return;
+    }
+    
+    document.getElementById('modal-fitxatge-titol').textContent = '🔴 Fitxar Sortida';
+    document.getElementById('fitxatge-treballador-id').value = treballadorId;
+    document.getElementById('fitxatge-registre-id').value = registreObert.id;
+    document.getElementById('fitxatge-tipus').value = 'sortida';
+    
+    const horaActual = new Date().toTimeString().slice(0,5);
+    document.getElementById('info-fitxatge-treballador').innerHTML = '<strong>Entrada:</strong> ' + registreObert.hora_entrada + ' <strong>→ Sortida:</strong> ' + horaActual;
+    
+    // Ocultar tasca i finca, mostrar motiu
+    document.getElementById('group-tasca-treballador').style.display = 'none';
+    document.getElementById('group-finca-treballador').style.display = 'none';
+    document.getElementById('group-motiu-treballador').style.display = 'block';
+    
+    // Carregar motius
+    const selectMotiu = document.getElementById('fitxatge-motiu');
+    selectMotiu.innerHTML = '<option value="">Sense motiu</option>';
+    motiusAbsencia.forEach(function(m) {
+        selectMotiu.innerHTML += '<option value="' + m.id + '">' + m.nom + '</option>';
+    });
+    
+    document.getElementById('modal-fitxatge-treballador').style.display = 'block';
+}
+
+async function guardarFitxatgeTreballador(event) {
+    event.preventDefault();
+    
+    const treballadorId = document.getElementById('fitxatge-treballador-id').value;
+    const registreId = document.getElementById('fitxatge-registre-id').value;
+    const tipus = document.getElementById('fitxatge-tipus').value;
+    const horaActual = new Date().toTimeString().slice(0,5);
+    const dataAvui = new Date().toISOString().split('T')[0];
+    
+    try {
+        if (tipus === 'entrada') {
+            // Crear entrada nova
+            const tascaId = document.getElementById('fitxatge-tasca').value;
+            if (!tascaId) {
+                mostrarNotificacio('Cal seleccionar una tasca', 'error');
+                return;
+            }
+            
+            const treballador = treballadors.find(function(t) { return t.id === treballadorId; });
+            
+            await createControlHorari({
+                data: dataAvui,
+                treballador_id: treballadorId,
+                hora_entrada: horaActual,
+                tasca_id: tascaId,
+                tasca_libre: document.getElementById('fitxatge-tasca-libre').value.trim() || null,
+                finca: document.getElementById('fitxatge-finca').value || null,
+                num_persones: treballador && treballador.tipus === 'Temporal' ? 1 : 1
+            });
+            
+            mostrarNotificacio('✅ Entrada fitxada correctament', 'success');
+            
+        } else {
+            // Actualitzar amb sortida
+            const motiuId = document.getElementById('fitxatge-motiu').value || null;
+            const registre = controlHorari.find(function(r) { return r.id === registreId; });
+            
+            if (registre) {
+                const treballador = treballadors.find(function(t) { return t.id === treballadorId; });
+                const entrada = new Date('2000-01-01 ' + registre.hora_entrada);
+                let sortida = new Date('2000-01-01 ' + horaActual);
+                
+                if (sortida < entrada) {
+                    sortida = new Date('2000-01-02 ' + horaActual);
+                }
+                
+                const hores = (sortida - entrada) / 3600000;
+                const numPersones = registre.num_persones || 1;
+                const cost = treballador && treballador.preu_hora ? (hores * treballador.preu_hora * numPersones) : null;
+                
+                await updateControlHorari(registreId, {
+                    hora_sortida: horaActual,
+                    motiu_sortida_id: motiuId,
+                    cost_total: cost
+                });
+            }
+            
+            mostrarNotificacio('✅ Sortida fitxada correctament', 'success');
+        }
+        
+        tancarModal('modal-fitxatge-treballador');
+        
+        // Recarregar tot
+        controlHorari = await getControlHorari();
+        const treballador = treballadors.find(function(t) { return t.id === treballadorId; });
+        const registreObert = controlHorari.find(function(r) {
+            return r.treballador_id === treballadorId && 
+                   r.data === dataAvui && 
+                   r.hora_entrada && 
+                   !r.hora_sortida;
+        });
+        
+        await actualitzarZonaFitxatge(treballadorId, registreObert);
+        await carregarRegistresTreballador(treballadorId);
+        
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarNotificacio('Error: ' + error.message, 'error');
+    }
+}
 // Listeners
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(function() {
