@@ -2623,6 +2623,286 @@ async function eliminarIncidencia(id) {
     }
 }
 
+// ============================================================
+// VISTA ABSÈNCIES
+// ============================================================
+
+async function carregarVistaAbsencies() {
+    const container = document.getElementById('view-container');
+    const podeCrear = hasPermission('insert');
+    
+    let html = '<div class="view-absencies">';
+    html += '<div style="display: flex; justify-content: space-between; margin-bottom: 20px;">';
+    html += '<h2>📅 Absències i Vacances</h2>';
+    if (podeCrear) {
+        html += '<button class="btn btn-primary" onclick="obrirModalAbsencia()">➕ Sol·licitar Absència</button>';
+    }
+    html += '</div>';
+    
+    html += '<div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">';
+    html += '<h3 style="margin-top: 0;">🔍 Filtres</h3>';
+    html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 15px;">';
+    html += '<div><label>Treballador:</label><select id="filtro-absencia-treballador" onchange="aplicarFiltresAbsencies()"><option value="">Tots</option></select></div>';
+    html += '<div><label>Estat:</label><select id="filtro-absencia-estat" onchange="aplicarFiltresAbsencies()"><option value="">Tots</option><option value="pendent">Pendents</option><option value="aprovada">Aprovades</option><option value="rebutjada">Rebutjades</option></select></div>';
+    html += '<div><label>Tipus:</label><select id="filtro-absencia-tipus" onchange="aplicarFiltresAbsencies()"><option value="">Tots</option><option value="vacances">Vacances</option><option value="baixa">Baixa mèdica</option><option value="permis">Permís</option><option value="altres">Altres</option></select></div>';
+    html += '<div style="align-self: end;"><button class="btn btn-secondary" onclick="netejarFiltresAbsencies()">🗑️ Netejar</button></div>';
+    html += '</div></div>';
+    
+    html += '<div class="table-container"><table class="data-table">';
+    html += '<thead><tr><th>Treballador</th><th>Tipus</th><th>Data Inici</th><th>Data Fi</th><th>Dies</th><th>Estat</th><th>Accions</th></tr></thead>';
+    html += '<tbody id="tbody-absencies"><tr><td colspan="7">Carregant...</td></tr></tbody>';
+    html += '</table></div></div>';
+    
+    html += crearModalAbsencia();
+    
+    container.innerHTML = html;
+    
+    await carregarSelectTreballadorsAbsencies();
+    await carregarTaulaAbsencies();
+}
+
+async function carregarSelectTreballadorsAbsencies() {
+    const select = document.getElementById('filtro-absencia-treballador');
+    if (!select) return;
+    
+    treballadors = await getTreballadors();
+    select.innerHTML = '<option value="">Tots</option>';
+    treballadors.forEach(function(t) {
+        select.innerHTML += '<option value="' + t.id + '">' + t.nom + '</option>';
+    });
+}
+
+async function carregarTaulaAbsencies() {
+    const tbody = document.getElementById('tbody-absencies');
+    if (!tbody) return;
+    
+    try {
+        const filtres = {
+            treballadorId: document.getElementById('filtro-absencia-treballador')?.value || null,
+            estat: document.getElementById('filtro-absencia-estat')?.value || null,
+            tipus: document.getElementById('filtro-absencia-tipus')?.value || null
+        };
+        
+        absencies = await getAbsencies(filtres);
+        
+        if (absencies.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hi ha absències</td></tr>';
+            return;
+        }
+        
+        const podeEditar = hasPermission('update');
+        const podeEliminar = hasPermission('delete');
+        const role = currentUserProfile ? currentUserProfile.role : '';
+        const podeAprovar = role === 'admin' || role === 'editor';
+        
+        tbody.innerHTML = absencies.map(function(abs) {
+            const treballador = treballadors.find(function(t) { return t.id === abs.treballador_id; });
+            const nomTreballador = treballador ? treballador.nom : 'Desconegut';
+            
+            const tipusText = {
+                'vacances': '🏖️ Vacances',
+                'baixa': '🤒 Baixa mèdica',
+                'permis': '📋 Permís',
+                'altres': '📌 Altres'
+            }[abs.tipus] || abs.tipus;
+            
+            let estatBadge = '';
+            if (abs.estat === 'pendent') {
+                estatBadge = '<span style="background: #ff9800; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">⏳ Pendent</span>';
+            } else if (abs.estat === 'aprovada') {
+                estatBadge = '<span style="background: #4caf50; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">✅ Aprovada</span>';
+            } else if (abs.estat === 'rebutjada') {
+                estatBadge = '<span style="background: #f44336; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">❌ Rebutjada</span>';
+            }
+            
+            let accions = '<button class="btn btn-sm btn-primary" onclick="veureAbsencia(\'' + abs.id + '\')">👁️</button> ';
+            if (podeAprovar && abs.estat === 'pendent') {
+                accions += '<button class="btn btn-sm btn-success" onclick="aprovarAbsencia(\'' + abs.id + '\')">✅</button> ';
+                accions += '<button class="btn btn-sm btn-danger" onclick="rebutjarAbsencia(\'' + abs.id + '\')">❌</button> ';
+            }
+            if (podeEliminar) {
+                accions += '<button class="btn btn-sm btn-danger" onclick="eliminarAbsencia(\'' + abs.id + '\')">🗑️</button>';
+            }
+            
+            return '<tr><td><strong>' + nomTreballador + '</strong></td><td>' + tipusText + '</td><td>' + formatData(abs.data_inici) + '</td><td>' + formatData(abs.data_fi) + '</td><td>' + (abs.dies || '-') + '</td><td>' + estatBadge + '</td><td>' + accions + '</td></tr>';
+        }).join('');
+        
+    } catch (error) {
+        console.error('Error:', error);
+        tbody.innerHTML = '<tr><td colspan="7">Error carregant dades</td></tr>';
+    }
+}
+
+function aplicarFiltresAbsencies() {
+    carregarTaulaAbsencies();
+}
+
+function netejarFiltresAbsencies() {
+    document.getElementById('filtro-absencia-treballador').value = '';
+    document.getElementById('filtro-absencia-estat').value = '';
+    document.getElementById('filtro-absencia-tipus').value = '';
+    carregarTaulaAbsencies();
+}
+
+function crearModalAbsencia() {
+    return '<div id="modal-absencia" class="modal" style="display: none;"><div class="modal-content" style="max-width: 600px;">' +
+        '<span class="close" onclick="tancarModal(\'modal-absencia\')">&times;</span>' +
+        '<h2 id="modal-absencia-titol">Sol·licitar Absència</h2>' +
+        '<form id="form-absencia" onsubmit="guardarAbsencia(event)">' +
+        '<input type="hidden" id="absencia-id">' +
+        '<div class="form-group"><label>Treballador *</label><select id="absencia-treballador" required><option value="">Seleccionar...</option></select></div>' +
+        '<div class="form-group"><label>Tipus *</label><select id="absencia-tipus" required>' +
+        '<option value="">Seleccionar...</option>' +
+        '<option value="vacances">🏖️ Vacances</option>' +
+        '<option value="baixa">🤒 Baixa mèdica</option>' +
+        '<option value="permis">📋 Permís retribuït</option>' +
+        '<option value="altres">📌 Altres</option>' +
+        '</select></div>' +
+        '<div class="form-group"><label>Data Inici *</label><input type="date" id="absencia-data-inici" required onchange="calcularDiesAbsencia()"></div>' +
+        '<div class="form-group"><label>Data Fi *</label><input type="date" id="absencia-data-fi" required onchange="calcularDiesAbsencia()"></div>' +
+        '<div class="form-group"><label>Dies: <span id="absencia-dies-calculats">0</span></label></div>' +
+        '<div class="form-group"><label>Motiu</label><textarea id="absencia-motiu" rows="2" placeholder="Motiu de l\'absència..."></textarea></div>' +
+        '<div class="form-group"><label>Observacions</label><textarea id="absencia-observacions" rows="2"></textarea></div>' +
+        '<div class="form-actions"><button type="button" class="btn btn-secondary" onclick="tancarModal(\'modal-absencia\')">Cancel·lar</button>' +
+        '<button type="submit" class="btn btn-primary">Sol·licitar</button></div></form></div></div>';
+}
+
+async function obrirModalAbsencia() {
+    document.getElementById('modal-absencia-titol').textContent = 'Sol·licitar Absència';
+    document.getElementById('form-absencia').reset();
+    document.getElementById('absencia-id').value = '';
+    document.getElementById('absencia-dies-calculats').textContent = '0';
+    
+    const select = document.getElementById('absencia-treballador');
+    select.innerHTML = '<option value="">Seleccionar...</option>';
+    treballadors.filter(function(t) { return t.actiu; }).forEach(function(t) {
+        select.innerHTML += '<option value="' + t.id + '">' + t.nom + '</option>';
+    });
+    
+    document.getElementById('modal-absencia').style.display = 'block';
+}
+
+function calcularDiesAbsencia() {
+    const inici = document.getElementById('absencia-data-inici').value;
+    const fi = document.getElementById('absencia-data-fi').value;
+    
+    if (!inici || !fi) return;
+    
+    const dataInici = new Date(inici);
+    const dataFi = new Date(fi);
+    const difMs = dataFi - dataInici;
+    const dies = Math.ceil(difMs / (1000 * 60 * 60 * 24)) + 1;
+    
+    document.getElementById('absencia-dies-calculats').textContent = dies > 0 ? dies : 0;
+}
+
+async function veureAbsencia(id) {
+    const absencia = absencies.find(function(a) { return a.id === id; });
+    if (!absencia) return;
+    
+    const treballador = treballadors.find(function(t) { return t.id === absencia.treballador_id; });
+    
+    let info = '<strong>👤 Treballador:</strong> ' + (treballador ? treballador.nom : 'Desconegut') + '\n';
+    info += '<strong>📅 Dates:</strong> ' + formatData(absencia.data_inici) + ' - ' + formatData(absencia.data_fi) + '\n';
+    info += '<strong>📊 Dies:</strong> ' + (absencia.dies || 0) + '\n';
+    info += '<strong>🏷️ Tipus:</strong> ' + absencia.tipus + '\n';
+    if (absencia.motiu) {
+        info += '<strong>📝 Motiu:</strong> ' + absencia.motiu + '\n';
+    }
+    if (absencia.observacions) {
+        info += '<strong>💬 Observacions:</strong> ' + absencia.observacions + '\n';
+    }
+    info += '<strong>📍 Estat:</strong> ' + absencia.estat;
+    
+    alert(info);
+}
+
+async function guardarAbsencia(event) {
+    event.preventDefault();
+    
+    const id = document.getElementById('absencia-id').value;
+    const inici = document.getElementById('absencia-data-inici').value;
+    const fi = document.getElementById('absencia-data-fi').value;
+    
+    const dataInici = new Date(inici);
+    const dataFi = new Date(fi);
+    const difMs = dataFi - dataInici;
+    const dies = Math.ceil(difMs / (1000 * 60 * 60 * 24)) + 1;
+    
+    const dades = {
+        treballador_id: document.getElementById('absencia-treballador').value,
+        tipus: document.getElementById('absencia-tipus').value,
+        data_inici: inici,
+        data_fi: fi,
+        dies: dies,
+        motiu: document.getElementById('absencia-motiu').value.trim() || null,
+        observacions: document.getElementById('absencia-observacions').value.trim() || null,
+        estat: 'pendent'
+    };
+    
+    try {
+        if (id) {
+            await updateAbsencia(id, dades);
+            mostrarNotificacio('Absència actualitzada correctament', 'success');
+        } else {
+            await createAbsencia(dades);
+            mostrarNotificacio('Absència sol·licitada correctament', 'success');
+        }
+        
+        tancarModal('modal-absencia');
+        await carregarTaulaAbsencies();
+        
+    } catch (error) {
+        console.error('Error guardant:', error);
+        mostrarNotificacio('Error: ' + error.message, 'error');
+    }
+}
+
+async function aprovarAbsencia(id) {
+    if (!confirm('Segur que vols aprovar aquesta absència?')) return;
+    
+    try {
+        await updateAbsencia(id, {
+            estat: 'aprovada',
+            aprovat_per: currentUser.id
+        });
+        mostrarNotificacio('Absència aprovada correctament', 'success');
+        await carregarTaulaAbsencies();
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarNotificacio('Error: ' + error.message, 'error');
+    }
+}
+
+async function rebutjarAbsencia(id) {
+    const motiu = prompt('Motiu del rebuig (opcional):');
+    
+    try {
+        await updateAbsencia(id, {
+            estat: 'rebutjada',
+            observacions: motiu || 'Rebutjada per administrador',
+            aprovat_per: currentUser.id
+        });
+        mostrarNotificacio('Absència rebutjada', 'success');
+        await carregarTaulaAbsencies();
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarNotificacio('Error: ' + error.message, 'error');
+    }
+}
+
+async function eliminarAbsencia(id) {
+    if (!confirm('Segur que vols eliminar aquesta absència?')) return;
+    
+    try {
+        await deleteAbsencia(id);
+        mostrarNotificacio('Absència eliminada correctament', 'success');
+        await carregarTaulaAbsencies();
+    } catch (error) {
+        console.error('Error eliminant:', error);
+        mostrarNotificacio('Error: ' + error.message, 'error');
+    }
+}
 // Listeners
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(function() {
