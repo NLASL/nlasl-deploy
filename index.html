@@ -92,9 +92,14 @@
 	
 
     <!-- Els teus scripts -->
-    <script src="/supabase-client.v5.js"></script>
-    <script src="/auth.v3.js"></script>
-    <script src="/app.v8.js"></script>
+		<script src="/supabase-client.v5.js"></script>
+		<script>
+    // Verificar que tot s'ha carregat
+		console.log('📍 getUserProfile exists?', typeof getUserProfile !== 'undefined');
+		console.log('📍 supabaseClient exists?', typeof supabaseClient !== 'undefined');
+		</script>
+		<script src="/auth.v3.js"></script>
+		<script src="/app.v8.js"></script>
 
     <!-- Service Worker -->
     <script>
