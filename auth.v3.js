@@ -9,12 +9,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     console.log('🚀 Iniciant aplicació...');
     
     const { data: { session } } = await supabaseClient.auth.getSession();
-    
-    if (session) {
-        await iniciarSessio(session.user);
-    } else {
-        mostrarPantallaLogin();
-    }
+
+console.log('📍 Session:', session);  // DEBUG
+
+if (session) {
+    console.log('📍 Té sessió, carregant...');
+    await iniciarSessio(session.user);
+} else {
+    console.log('📍 NO té sessió, mostrant login...');
+    mostrarPantallaLogin();
+}
     
     // Listener canvis auth
     supabaseClient.auth.onAuthStateChange(async (event, session) => {
