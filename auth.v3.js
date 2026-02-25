@@ -103,9 +103,18 @@ function ocultarMenuAdmin() {
 
 // Mostrar pantalla de login
 function mostrarPantallaLogin() {
-    document.getElementById('login-screen').style.display = 'flex';
-    document.getElementById('app-screen').style.display = 'none';
-    document.getElementById('login-error').style.display = 'none';
+    console.log('📍 Executant mostrarPantallaLogin...');
+    const loginScreen = document.getElementById('login-screen');
+    const appScreen = document.getElementById('app-screen');
+    
+    console.log('📍 loginScreen exists?', !!loginScreen);
+    console.log('📍 appScreen exists?', !!appScreen);
+    
+    if (loginScreen) loginScreen.style.display = 'flex';
+    if (appScreen) appScreen.style.display = 'none';
+    
+    const errorDiv = document.getElementById('login-error');
+    if (errorDiv) errorDiv.style.display = 'none';
 }
 
 // Mostrar aplicació
