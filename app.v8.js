@@ -1850,7 +1850,7 @@ function crearModalTreballador() {
         '<div class="form-group"><label>Codi Usuari</label><input type="text" id="treballador-codi" placeholder="treb01, TISA01..."></div>' +
         '<div class="form-group"><label>Categoria</label><select id="treballador-categoria">' +
         '<option value="">Seleccionar...</option><option value="Encarregat">Encarregat</option><option value="Oficial">Oficial</option>' +
-        '<option value="Peó">Peó</option></select></div>' +
+'<option value="Peó Agrícola">Peó Agrícola</option><option value="Maquinista">Maquinista</option><option value="Tractorista">Tractorista</option></select></div>' +
         '<div class="form-group"><label>Preu/Hora (€)</label><input type="number" id="treballador-preu" min="0" step="0.01"></div>' +
         '<div class="form-group"><label><input type="checkbox" id="treballador-actiu" checked> Actiu</label></div>' +
         '<div class="form-actions"><button type="button" class="btn btn-secondary" onclick="tancarModal(\'modal-treballador\')">Cancel·lar</button>' +
