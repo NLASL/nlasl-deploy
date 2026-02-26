@@ -3144,9 +3144,12 @@ async function fitxarSortidaTreballador(treballadorId) {
     document.getElementById('info-fitxatge-treballador').innerHTML = '<strong>Entrada:</strong> ' + registreObert.hora_entrada + ' <strong>→ Sortida:</strong> ' + horaActual;
     
     // Ocultar tasca i finca, mostrar motiu
-    document.getElementById('group-tasca-treballador').style.display = 'none';
-    document.getElementById('group-finca-treballador').style.display = 'none';
-    document.getElementById('group-motiu-treballador').style.display = 'block';
+	document.getElementById('group-tasca-treballador').style.display = 'none';
+	document.getElementById('group-finca-treballador').style.display = 'none';
+	document.getElementById('group-motiu-treballador').style.display = 'block';
+
+// Treure required dels camps ocults
+document.getElementById('fitxatge-tasca').required = false;
     
     // Carregar motius
     const selectMotiu = document.getElementById('fitxatge-motiu');
