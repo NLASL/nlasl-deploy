@@ -36,32 +36,40 @@ async function criarAdminUsers(action, params) {
 }
 
 // ============================================================
-// BOTÓ D'ADMIN: Afegir a la vista Treballadors
-// Apareix només si l'usuari té rol admin
+// BOTÓ D'ADMIN: Injectat quan es carrega la vista treballadors
+// S'activa via event després que app.v8.js hagi renderitzat la vista
 // ============================================================
 
-// Patch de carregarVistaTreballadors per afegir botó admin
-const _carregarVistaTreballadorsOriginal = typeof carregarVistaTreballadors === 'function' 
-    ? carregarVistaTreballadors : null;
+// Observador que detecta quan apareix la vista de treballadors
+// i hi afegeix el botó d'admin sense fer patch de la funció original
+function injectarBotoAdmin() {
+    if (!currentUserProfile || currentUserProfile.role !== 'admin') return;
+    if (document.getElementById('btn-gestio-accessos')) return;
 
-async function carregarVistaTreballadors() {
-    if (_carregarVistaTreballadorsOriginal) {
-        await _carregarVistaTreballadorsOriginal();
-    }
+    const header = document.querySelector('.view-treballadors > div:first-child');
+    if (!header) return;
 
-    // Afegir botó admin si és administrador
-    if (currentUserProfile && currentUserProfile.role === 'admin') {
-        const header = document.querySelector('.view-treballadors > div:first-child');
-        if (header && !document.getElementById('btn-gestio-accessos')) {
-            const btn = document.createElement('button');
-            btn.id = 'btn-gestio-accessos';
-            btn.className = 'btn btn-secondary';
-            btn.innerHTML = '🔐 Gestió d\'accessos';
-            btn.onclick = obrirModalGestioAccessos;
-            header.appendChild(btn);
-        }
-    }
+    const btn = document.createElement('button');
+    btn.id = 'btn-gestio-accessos';
+    btn.className = 'btn btn-secondary';
+    btn.innerHTML = '🔐 Gestió d\'accessos';
+    btn.onclick = obrirModalGestioAccessos;
+    header.appendChild(btn);
 }
+
+// Observar canvis al DOM per detectar quan es carrega la vista
+const _adminObserver = new MutationObserver(function() {
+    if (document.querySelector('.view-treballadors')) {
+        injectarBotoAdmin();
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('view-container');
+    if (container) {
+        _adminObserver.observe(container, { childList: true, subtree: false });
+    }
+});
 
 // ============================================================
 // MODAL GESTIÓ D'ACCESSOS
