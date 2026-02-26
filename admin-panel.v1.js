@@ -23,7 +23,8 @@ async function criarAdminUsers(action, params) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + session.access_token
+            'Authorization': 'Bearer ' + session.access_token,
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhueG91ZnBpemR0ZmtsZmp3cWV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwMDk4NDAsImV4cCI6MjA4NjU4NTg0MH0.izqQdOxUWUzXNhasXwHnm7IO2qVHHHzx9e-1FIGh9ic'
         },
         body: JSON.stringify({ action, ...params })
     });
