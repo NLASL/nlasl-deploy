@@ -84,8 +84,8 @@ function obrirModalGestioAccessos() {
     // Crear modal si no existeix
     if (!document.getElementById('modal-gestio-accessos')) {
         const div = document.createElement('div');
-        div.innerHTML = crearModalGestioAccessos();
-        document.body.appendChild(div.firstChild);
+        div.innerHTML = crearModalGestioAccessos().trim();
+        document.body.appendChild(div.firstElementChild);
     }
 
     carregarTaulaAccessos();
