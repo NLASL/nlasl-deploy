@@ -99,6 +99,23 @@ function ocultarMenuAdmin() {
             btn.style.display = 'none';
         }
     });
+
+    // Afegir botó Inici si no existeix
+    const nav = document.querySelector('.main-nav');
+    if (nav && !document.getElementById('btn-inici-treballador')) {
+        const btn = document.createElement('button');
+        btn.id = 'btn-inici-treballador';
+        btn.className = 'nav-btn active';
+        btn.innerHTML = '🏠 Inici';
+        btn.onclick = function() {
+            document.querySelectorAll('.nav-btn').forEach(function(b) {
+                b.classList.remove('active');
+            });
+            btn.classList.add('active');
+            carregarVistaTreballadorSimple();
+        };
+        nav.insertBefore(btn, nav.firstChild);
+    }
 }
 
 // Mostrar pantalla de login
