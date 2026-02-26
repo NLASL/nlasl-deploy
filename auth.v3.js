@@ -95,7 +95,7 @@ function ocultarMenuAdmin() {
     const navButtons = document.querySelectorAll('.nav-btn');
     navButtons.forEach(function(btn) {
         const view = btn.getAttribute('data-view');
-        if (view !== 'control-horari') {
+        if (view !== 'control-horari' && view !== 'inici-treballador') {
             btn.style.display = 'none';
         }
     });
@@ -106,6 +106,7 @@ function ocultarMenuAdmin() {
         const btn = document.createElement('button');
         btn.id = 'btn-inici-treballador';
         btn.className = 'nav-btn active';
+        btn.setAttribute('data-view', 'inici-treballador');
         btn.innerHTML = '🏠 Inici';
         btn.onclick = function() {
             document.querySelectorAll('.nav-btn').forEach(function(b) {
@@ -117,7 +118,6 @@ function ocultarMenuAdmin() {
         nav.insertBefore(btn, nav.firstChild);
     }
 }
-
 // Mostrar pantalla de login
 function mostrarPantallaLogin() {
     console.log('📍 Executant mostrarPantallaLogin...');
