@@ -397,15 +397,13 @@ function afegirBotoIniciTreballador() {
     nav.insertBefore(btn, nav.firstChild);
 }
 
-// Injectar quan es carrega l'app
-document.addEventListener('DOMContentLoaded', function() {
-    // Esperar que auth.v3.js hagi acabat de carregar
-    const interval = setInterval(function() {
-        if (currentUser && treballadors && treballadors.length > 0) {
-            clearInterval(interval);
-            afegirBotoIniciTreballador();
-        }
-    }, 500);
-});
+// Injectar quan es carrega l'app - observar el nav
+const _initBotoInici = setInterval(function() {
+    if (typeof currentUser !== 'undefined' && currentUser &&
+        typeof treballadors !== 'undefined' && treballadors.length > 0) {
+        clearInterval(_initBotoInici);
+        setTimeout(afegirBotoIniciTreballador, 300);
+    }
+}, 300);
 
 console.log('✅ Horari extensions v1 carregat');
