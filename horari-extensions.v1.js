@@ -198,34 +198,26 @@ async function guardarSortidaAnticipada(event) {
 }
 
 // ============================================================
-// 3. BOTÓ "SORTIDA ANTICIPADA" A LA VISTA TREBALLADOR
-// Patch de actualitzarZonaFitxatge per afegir el botó extra
+// 3. BOTÓ "SORTIDA ANTICIPADA"
+// S'afegeix des de afegirBotoSortidaAnticipada() quan cal
+// No fa patch de cap funció existent
 // ============================================================
 
-// Guardem la funció original per poder-la cridar
-const _actualitzarZonaFitxatgeOriginal = actualitzarZonaFitxatge;
-
-async function actualitzarZonaFitxatge(treballadorId, registreObert) {
-    // Executar la funció original
-    await _actualitzarZonaFitxatgeOriginal(treballadorId, registreObert);
-
-    // Si hi ha registre obert, afegir botó de sortida anticipada
-    if (registreObert) {
-        const zona = document.getElementById('zona-fitxatge');
-        if (!zona) return;
-
-        const divExtra = document.createElement('div');
-        divExtra.style.marginTop = '12px';
-        divExtra.style.textAlign = 'center';
-        divExtra.innerHTML =
-            '<button onclick="obrirModalSortidaAnticipada(\'' + treballadorId + '\')" ' +
-            'style="padding:12px 24px;font-size:14px;background:#ff9800;color:white;' +
-            'border:none;border-radius:8px;cursor:pointer;opacity:0.85;" ' +
-            'onmouseover="this.style.opacity=\'1\'" onmouseout="this.style.opacity=\'0.85\'">' +
-            '⏩ Sortida anticipada (metge, tràmits...)</button>';
-        zona.appendChild(divExtra);
-    }
+function afegirBotoSortidaAnticipada(treballadorId) {
+    const zona = document.getElementById('zona-fitxatge');
+    if (!zona) return;
+    if (document.getElementById('btn-sortida-anticipada')) return;
+    const div = document.createElement('div');
+    div.style.marginTop = '12px';
+    div.style.textAlign = 'center';
+    div.innerHTML = '<button id="btn-sortida-anticipada" ' +
+        'onclick="obrirModalSortidaAnticipada(\'' + treballadorId + '\')" ' +
+        'style="padding:12px 24px;font-size:14px;background:#ff9800;color:white;' +
+        'border:none;border-radius:8px;cursor:pointer;">' +
+        '⏩ Sortida anticipada (metge, tràmits...)</button>';
+    zona.appendChild(div);
 }
+
 
 // ============================================================
 // 4. FIX: aprovarAbsencia i rebutjarAbsencia
@@ -371,5 +363,49 @@ async function carregarVistaIncidencies() {
         headerDiv.appendChild(btn);
     }
 }
+
+// ============================================================
+// BOTÓ INICI PER A TREBALLADORS
+// Afegeix botó "Inici" al menú quan és un treballador
+// ============================================================
+
+function afegirBotoIniciTreballador() {
+    // Només si és treballador (menú simplificat)
+    const nav = document.querySelector('.main-nav');
+    if (!nav) return;
+    if (document.getElementById('btn-inici-treballador')) return;
+
+    // Verificar que és treballador (no admin/editor)
+    const esTreballador = treballadors && currentUser &&
+        treballadors.find(function(t) { return t.auth_user_id === currentUser.id; });
+    if (!esTreballador) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'btn-inici-treballador';
+    btn.className = 'nav-btn';
+    btn.innerHTML = '🏠 Inici';
+    btn.onclick = function() {
+        // Treure actiu de tots
+        document.querySelectorAll('.nav-btn').forEach(function(b) {
+            b.classList.remove('active');
+        });
+        btn.classList.add('active');
+        carregarVistaTreballadorSimple();
+    };
+
+    // Inserir al principi del menú
+    nav.insertBefore(btn, nav.firstChild);
+}
+
+// Injectar quan es carrega l'app
+document.addEventListener('DOMContentLoaded', function() {
+    // Esperar que auth.v3.js hagi acabat de carregar
+    const interval = setInterval(function() {
+        if (currentUser && treballadors && treballadors.length > 0) {
+            clearInterval(interval);
+            afegirBotoIniciTreballador();
+        }
+    }, 500);
+});
 
 console.log('✅ Horari extensions v1 carregat');
