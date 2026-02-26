@@ -364,4 +364,144 @@ async function carregarVistaIncidencies() {
     }
 }
 
+// ============================================================
+// FILTRE CONTROL HORARI PER TREBALLADOR
+// Si l'usuari és treballador, sobrescriu carregarVistaControlHorari
+// per mostrar només els seus registres en format simplificat
+// ============================================================
+
+const _carregarVistaControlHorariAdmin = carregarVistaControlHorari;
+
+async function carregarVistaControlHorari() {
+    // Detectar si és treballador
+    const treballador = treballadors && currentUser
+        ? treballadors.find(function(t) { return t.auth_user_id === currentUser.id; })
+        : null;
+
+    if (!treballador) {
+        // És admin/editor → vista normal
+        await _carregarVistaControlHorariAdmin();
+        return;
+    }
+
+    // És treballador → vista simplificada només amb els seus registres
+    const container = document.getElementById('view-container');
+
+    let html = '<div class="view-control-horari">';
+    html += '<h2 style="margin-bottom:20px;">⏱️ Els meus registres</h2>';
+
+    // Filtre de dates
+    html += '<div style="background:#f5f5f5;padding:15px;border-radius:8px;margin-bottom:20px;">';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:15px;">';
+    html += '<div><label>Data Inici:</label><input type="date" id="filtro-data-inici-treb" onchange="carregarRegistresTreballadorHorari()"></div>';
+    html += '<div><label>Data Fi:</label><input type="date" id="filtro-data-fi-treb" onchange="carregarRegistresTreballadorHorari()"></div>';
+    html += '<div style="align-self:end;"><button class="btn btn-secondary" onclick="netejarFiltresTreballador()">🗑️ Netejar</button></div>';
+    html += '</div></div>';
+
+    // Resum
+    html += '<div id="resum-horari-treb" style="margin-bottom:20px;"></div>';
+
+    // Taula
+    html += '<div class="table-container"><table class="data-table">';
+    html += '<thead><tr><th>Data</th><th>Entrada</th><th>Sortida</th><th>Hores</th><th>Tasca</th><th>Estat</th></tr></thead>';
+    html += '<tbody id="tbody-horari-treb"><tr><td colspan="6">Carregant...</td></tr></tbody>';
+    html += '</table></div></div>';
+
+    container.innerHTML = html;
+
+    // Posar dates per defecte (últims 30 dies)
+    const avui = new Date();
+    const fa30 = new Date();
+    fa30.setDate(avui.getDate() - 30);
+    document.getElementById('filtro-data-inici-treb').value = fa30.toISOString().split('T')[0];
+    document.getElementById('filtro-data-fi-treb').value = avui.toISOString().split('T')[0];
+
+    await carregarRegistresTreballadorHorari();
+}
+
+async function carregarRegistresTreballadorHorari() {
+    const tbody = document.getElementById('tbody-horari-treb');
+    if (!tbody) return;
+
+    const treballador = treballadors.find(function(t) { return t.auth_user_id === currentUser.id; });
+    if (!treballador) return;
+
+    const dataInici = document.getElementById('filtro-data-inici-treb')?.value || null;
+    const dataFi = document.getElementById('filtro-data-fi-treb')?.value || null;
+
+    try {
+        const registres = await getControlHorari({
+            treballadorId: treballador.id,
+            dataInici: dataInici,
+            dataFi: dataFi
+        });
+
+        if (registres.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No hi ha registres en aquest període</td></tr>';
+            document.getElementById('resum-horari-treb').innerHTML = '';
+            return;
+        }
+
+        let totalHores = 0;
+
+        tbody.innerHTML = registres.map(function(r) {
+            const tasca = tasques.find(function(t) { return t.id === r.tasca_id; });
+            const nomTasca = tasca ? tasca.nom : (r.tasca_libre || '-');
+            const hores = parseFloat(r.hores_treballades) || 0;
+            totalHores += hores;
+
+            const horaSortida = r.hora_sortida
+                ? r.hora_sortida
+                : '<span style="color:#ff9800;">⏳ Pendent</span>';
+
+            const horesText = hores > 0 ? hores.toFixed(2) + 'h' : '-';
+
+            let estatBadge = '';
+            if (!r.hora_sortida) {
+                estatBadge = '<span style="background:#ff9800;color:white;padding:3px 8px;border-radius:4px;font-size:11px;">Oberta</span>';
+            } else if (r.sortida_automatica) {
+                estatBadge = '<span style="background:#9e9e9e;color:white;padding:3px 8px;border-radius:4px;font-size:11px;">Auto</span>';
+            } else {
+                estatBadge = '<span style="background:#4caf50;color:white;padding:3px 8px;border-radius:4px;font-size:11px;">✓</span>';
+            }
+
+            return '<tr>' +
+                '<td><strong>' + formatData(r.data) + '</strong></td>' +
+                '<td>' + (r.hora_entrada || '-') + '</td>' +
+                '<td>' + horaSortida + '</td>' +
+                '<td><strong>' + horesText + '</strong></td>' +
+                '<td>' + nomTasca + '</td>' +
+                '<td>' + estatBadge + '</td>' +
+                '</tr>';
+        }).join('');
+
+        // Resum
+        const resum = document.getElementById('resum-horari-treb');
+        if (resum) {
+            resum.innerHTML = '<div style="display:flex;gap:15px;flex-wrap:wrap;">' +
+                '<div style="background:white;padding:12px 20px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.1);">' +
+                '<div style="font-size:11px;color:#666;">TOTAL HORES</div>' +
+                '<div style="font-size:24px;font-weight:bold;color:#4caf50;">' + totalHores.toFixed(2) + 'h</div>' +
+                '</div>' +
+                '<div style="background:white;padding:12px 20px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.1);">' +
+                '<div style="font-size:11px;color:#666;">REGISTRES</div>' +
+                '<div style="font-size:24px;font-weight:bold;color:#2196f3;">' + registres.length + '</div>' +
+                '</div>' +
+                '</div>';
+        }
+
+    } catch (error) {
+        console.error('Error:', error);
+        tbody.innerHTML = '<tr><td colspan="6">Error carregant dades</td></tr>';
+    }
+}
+
+function netejarFiltresTreballador() {
+    const inici = document.getElementById('filtro-data-inici-treb');
+    const fi = document.getElementById('filtro-data-fi-treb');
+    if (inici) inici.value = '';
+    if (fi) fi.value = '';
+    carregarRegistresTreballadorHorari();
+}
+
 console.log('✅ Horari extensions v1 carregat');
