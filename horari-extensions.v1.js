@@ -364,46 +364,4 @@ async function carregarVistaIncidencies() {
     }
 }
 
-// ============================================================
-// BOTÓ INICI PER A TREBALLADORS
-// Afegeix botó "Inici" al menú quan és un treballador
-// ============================================================
-
-function afegirBotoIniciTreballador() {
-    // Només si és treballador (menú simplificat)
-    const nav = document.querySelector('.main-nav');
-    if (!nav) return;
-    if (document.getElementById('btn-inici-treballador')) return;
-
-    // Verificar que és treballador (no admin/editor)
-    const esTreballador = treballadors && currentUser &&
-        treballadors.find(function(t) { return t.auth_user_id === currentUser.id; });
-    if (!esTreballador) return;
-
-    const btn = document.createElement('button');
-    btn.id = 'btn-inici-treballador';
-    btn.className = 'nav-btn';
-    btn.innerHTML = '🏠 Inici';
-    btn.onclick = function() {
-        // Treure actiu de tots
-        document.querySelectorAll('.nav-btn').forEach(function(b) {
-            b.classList.remove('active');
-        });
-        btn.classList.add('active');
-        carregarVistaTreballadorSimple();
-    };
-
-    // Inserir al principi del menú
-    nav.insertBefore(btn, nav.firstChild);
-}
-
-// Injectar quan es carrega l'app - observar el nav
-const _initBotoInici = setInterval(function() {
-    if (typeof currentUser !== 'undefined' && currentUser &&
-        typeof treballadors !== 'undefined' && treballadors.length > 0) {
-        clearInterval(_initBotoInici);
-        setTimeout(afegirBotoIniciTreballador, 300);
-    }
-}, 300);
-
 console.log('✅ Horari extensions v1 carregat');
