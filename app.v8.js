@@ -114,8 +114,15 @@ function canviarVista(vista) {
             carregarVistaTreballadors();
             break;
         case 'control-horari':
-            carregarVistaControlHorari();
-            break;
+		const treballadorActiu = treballadors.find(function(t) { 
+			return t.auth_user_id === currentUser.id; 
+    });
+			if (treballadorActiu) {
+			carregarVistaControlHorariTreballador();
+    } else {
+			carregarVistaControlHorari();
+    }
+    break;
         case 'incidencies':
             carregarVistaIncidencies();
             break;

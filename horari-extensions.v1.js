@@ -366,25 +366,14 @@ async function carregarVistaIncidencies() {
 
 // ============================================================
 // FILTRE CONTROL HORARI PER TREBALLADOR
-// Si l'usuari és treballador, sobrescriu carregarVistaControlHorari
-// per mostrar només els seus registres en format simplificat
+// Funció auxiliar cridada des de canviarVista() quan és treballador
+// NO fa patch de carregarVistaControlHorari
 // ============================================================
 
-const _carregarVistaControlHorariAdmin = carregarVistaControlHorari;
+async function carregarVistaControlHorariTreballador() {
+    const treballador = treballadors.find(function(t) { return t.auth_user_id === currentUser.id; });
+    if (!treballador) return;
 
-async function carregarVistaControlHorari() {
-    // Detectar si és treballador
-    const treballador = treballadors && currentUser
-        ? treballadors.find(function(t) { return t.auth_user_id === currentUser.id; })
-        : null;
-
-    if (!treballador) {
-        // És admin/editor → vista normal
-        await _carregarVistaControlHorariAdmin();
-        return;
-    }
-
-    // És treballador → vista simplificada només amb els seus registres
     const container = document.getElementById('view-container');
 
     let html = '<div class="view-control-horari">';
