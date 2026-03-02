@@ -2136,6 +2136,27 @@ async function editarControlHorari(id) {
     document.getElementById('btn-fitxar').textContent = 'Guardar canvis';
     document.getElementById('modal-control-horari').style.display = 'block';
 }
+function crearModalControlHorari() {
+    return '<div id="modal-control-horari" class="modal" style="display: none;"><div class="modal-content" style="max-width: 700px;">' +
+        '<span class="close" onclick="tancarModal(\'modal-control-horari\')">&times;</span>' +
+        '<h2 id="modal-control-horari-titol">Fitxar</h2>' +
+        '<form id="form-control-horari" onsubmit="guardarControlHorari(event)">' +
+        '<input type="hidden" id="control-horari-id">' +
+        '<div class="form-group"><label>Treballador *</label><select id="control-horari-treballador" required onchange="comprovarEntradaOberta()"><option value="">Seleccionar...</option></select></div>' +
+        '<div id="info-fitxatge" style="display:none; background: #e3f2fd; padding: 12px; border-radius: 6px; margin-bottom: 15px;"></div>' +
+        '<div class="form-group"><label>Data *</label><input type="date" id="control-horari-data" required readonly></div>' +
+        '<div class="form-group" id="group-hora-entrada" style="display:none;"><label>Hora Entrada</label><input type="time" id="control-horari-hora-entrada" readonly></div>' +
+        '<div class="form-group" id="group-hora-sortida" style="display:none;"><label>Hora Sortida</label><input type="time" id="control-horari-hora-sortida" readonly></div>' +
+        '<div class="form-group"><label>Tasca *</label><select id="control-horari-tasca" onchange="mostrarTascaLliure()"><option value="">Seleccionar...</option></select></div>' +
+        '<div class="form-group" id="group-tasca-libre" style="display:none;"><label>Descripcio tasca</label><input type="text" id="control-horari-tasca-libre" placeholder="Descriu la tasca..."></div>' +
+        '<div class="form-group"><label>Finca (opcional)</label><select id="control-horari-finca"><option value="">Sense finca</option></select></div>' +
+        '<div class="form-group" id="group-motiu-sortida" style="display:none;"><label>Motiu sortida anticipada</label><select id="control-horari-motiu"><option value="">Sense motiu especial</option></select></div>' +
+        '<div class="form-group" id="group-num-persones" style="display:none;"><label>N Persones (grups)</label><input type="number" id="control-horari-num-persones" min="1" value="1"></div>' +
+        '<div class="form-group"><label>Observacions</label><textarea id="control-horari-observacions" rows="2"></textarea></div>' +
+        '<div class="form-actions"><button type="button" class="btn btn-secondary" onclick="tancarModal(\'modal-control-horari\')">Cancel·lar</button>' +
+        '<button type="submit" class="btn btn-primary" id="btn-fitxar">Fitxar</button></div></form></div></div>';
+}
+
 async function obrirModalControlHorari() {
     document.getElementById('modal-control-horari-titol').textContent = 'Fitxar';
     document.getElementById('form-control-horari').reset();
