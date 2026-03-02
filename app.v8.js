@@ -2350,43 +2350,42 @@ async function guardarControlHorari(event) {
     }
     
 	const tascaId = document.getElementById('control-horari-tasca').value || null;
-	const tascaLliure = document.getElementById('control-horari-tasca-libre').value.trim() || null;
+    const tascaLliure = document.getElementById('control-horari-tasca-libre').value.trim() || null;
 
-	const dades = {
-			hora_sortida: horaSortida,
-			motiu_sortida_id: motiuId,
-			observacions: document.getElementById('control-horari-observacions').value.trim() || null,
-			cost_total: cost,
-			tasca_id: tascaId,
-			tasca_libre: tascaLliure,
-		finca: document.getElementById('control-horari-finca').value || null
-};
+    const dades = {
+        hora_sortida: horaSortida,
+        motiu_sortida_id: motiuId,
+        observacions: document.getElementById('control-horari-observacions').value.trim() || null,
+        cost_total: cost,
+        tasca_id: tascaId,
+        tasca_libre: tascaLliure,
+        finca: document.getElementById('control-horari-finca').value || null
+    };
 
-	if (!id) {
-	// INSERT — afegir camps obligatoris
-			dades.data = document.getElementById('control-horari-data').value;
-			dades.treballador_id = treballadorId;
-			dades.hora_entrada = horaEntrada;
-			dades.num_persones = numPersones;
-} else {
-    // UPDATE admin — permetre editar hora entrada i data
-			dades.hora_entrada = horaEntrada;
-			dades.data = document.getElementById('control-horari-data').value;
-}
-// Si és sortida (UPDATE), NO canviar data ni treballador
-    
+    if (!id) {
+        // INSERT — afegir camps obligatoris
+        dades.data = document.getElementById('control-horari-data').value;
+        dades.treballador_id = treballadorId;
+        dades.hora_entrada = horaEntrada;
+        dades.num_persones = numPersones;
+    } else {
+        // UPDATE admin — permetre editar hora entrada i data
+        dades.hora_entrada = horaEntrada;
+        dades.data = document.getElementById('control-horari-data').value;
+    }
+
     try {
         if (id) {
             await updateControlHorari(id, dades);
-            mostrarNotificacio('Sortida fitxada correctament', 'success');
+            mostrarNotificacio('Registre actualitzat correctament', 'success');
         } else {
             await createControlHorari(dades);
             mostrarNotificacio('Entrada fitxada correctament', 'success');
         }
-        
+
         tancarModal('modal-control-horari');
         await carregarTaulaControlHorari();
-        
+
     } catch (error) {
         console.error('Error guardant:', error);
         mostrarNotificacio('Error: ' + error.message, 'error');
