@@ -347,22 +347,7 @@ async function detectarIncidenciesManual() {
 // Patch de carregarVistaIncidencies per afegir el botó
 // ============================================================
 
-const _carregarVistaIncidenciesOriginal = carregarVistaIncidencies;
 
-async function carregarVistaIncidencies() {
-    await _carregarVistaIncidenciesOriginal();
-
-    // Afegir botó de detecció manual al header de la vista
-    const headerDiv = document.querySelector('.view-incidencies > div:first-child');
-    if (headerDiv && !document.getElementById('btn-detectar-incidencies')) {
-        const btn = document.createElement('button');
-        btn.id = 'btn-detectar-incidencies';
-        btn.className = 'btn btn-secondary';
-        btn.textContent = '🔍 Detectar incidències d\'ahir';
-        btn.onclick = detectarIncidenciesManual;
-        headerDiv.appendChild(btn);
-    }
-}
 
 // ============================================================
 // FILTRE CONTROL HORARI PER TREBALLADOR
