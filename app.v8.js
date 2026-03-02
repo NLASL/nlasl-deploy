@@ -2300,9 +2300,6 @@ async function veureControlHorari(id) {
     alert('Funció veure detall registre en desenvolupament');
 }
 
-async function editarControlHorari(id) {
-    alert('Funció editar registre en desenvolupament');
-}
 
 async function guardarControlHorari(event) {
     event.preventDefault();
