@@ -2096,10 +2096,9 @@ async function editarControlHorari(id) {
     const registre = controlHorari.find(function(r) { return r.id === id; });
     if (!registre) return;
 
-    document.getElementById('modal-control-horari-titol').textContent = '✏️ Editar Registre';
+    document.getElementById('modal-control-horari-titol').textContent = 'Editar Registre';
     document.getElementById('control-horari-id').value = id;
 
-    // Treballador
     const selTreb = document.getElementById('control-horari-treballador');
     selTreb.innerHTML = '<option value="">Seleccionar...</option>';
     treballadors.filter(function(t) { return t.actiu; }).forEach(function(t) {
@@ -2108,22 +2107,16 @@ async function editarControlHorari(id) {
     selTreb.value = registre.treballador_id;
     selTreb.disabled = true;
 
-    // Data
-    const inputData = document.getElementById('control-horari-data');
-    inputData.value = registre.data;
-    inputData.removeAttribute('readonly');
+    document.getElementById('control-horari-data').value = registre.data;
+    document.getElementById('control-horari-data').removeAttribute('readonly');
 
-    // Hores — fer editables
     document.getElementById('group-hora-entrada').style.display = 'block';
     document.getElementById('group-hora-sortida').style.display = 'block';
-    const inputEntrada = document.getElementById('control-horari-hora-entrada');
-    const inputSortida = document.getElementById('control-horari-hora-sortida');
-    inputEntrada.value = registre.hora_entrada || '';
-    inputSortida.value = registre.hora_sortida || '';
-    inputEntrada.removeAttribute('readonly');
-    inputSortida.removeAttribute('readonly');
+    document.getElementById('control-horari-hora-entrada').value = registre.hora_entrada || '';
+    document.getElementById('control-horari-hora-sortida').value = registre.hora_sortida || '';
+    document.getElementById('control-horari-hora-entrada').removeAttribute('readonly');
+    document.getElementById('control-horari-hora-sortida').removeAttribute('readonly');
 
-    // Tasca
     const selTasca = document.getElementById('control-horari-tasca');
     selTasca.innerHTML = '<option value="">Seleccionar...</option>';
     tasques.forEach(function(t) {
@@ -2131,13 +2124,6 @@ async function editarControlHorari(id) {
     });
     selTasca.value = registre.tasca_id || '';
 
-    // Tasca lliure
-    if (registre.tasca_libre) {
-        document.getElementById('group-tasca-libre').style.display = 'block';
-        document.getElementById('control-horari-tasca-libre').value = registre.tasca_libre;
-    }
-
-    // Finca
     const selFinca = document.getElementById('control-horari-finca');
     selFinca.innerHTML = '<option value="">Sense finca</option>';
     finques.forEach(function(f) {
@@ -2145,16 +2131,11 @@ async function editarControlHorari(id) {
     });
     selFinca.value = registre.finca || '';
 
-    // Observacions
     document.getElementById('control-horari-observacions').value = registre.observacions || '';
-
-    // Ocultar info fitxatge i mostrar botons correctes
     document.getElementById('info-fitxatge').style.display = 'none';
     document.getElementById('btn-fitxar').textContent = 'Guardar canvis';
-
     document.getElementById('modal-control-horari').style.display = 'block';
 }
-
 async function obrirModalControlHorari() {
     document.getElementById('modal-control-horari-titol').textContent = 'Fitxar';
     document.getElementById('form-control-horari').reset();
