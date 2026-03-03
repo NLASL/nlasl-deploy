@@ -214,20 +214,25 @@ async function carregarTaulaAccessos() {
             let accions = '';
 
             if (!teAcces) {
-                estatBadge = '<span style="background:#9e9e9e;color:white;padding:4px 8px;border-radius:4px;font-size:12px;">⚪ Sense accés</span>';
-                accions = `<button class="btn btn-sm btn-primary" 
-                    onclick="obrirFormCrearAcces('${t.id}', '${t.nom}')">
-                    ➕ Crear accés</button>`;
-            } else {
-                estatBadge = '<span style="background:#4caf50;color:white;padding:4px 8px;border-radius:4px;font-size:12px;">🟢 Actiu</span>';
-                accions = `
-                    <button class="btn btn-sm btn-secondary" 
-                        onclick="obrirFormResetPassword('${t.id}', '${t.nom}', '${t.auth_user_id}')">
-                        🔑 Reset password</button>
-                    <button class="btn btn-sm btn-danger" style="margin-left:4px;"
-                        onclick="confirmarDesactivarAcces('${t.id}', '${t.nom}', '${t.auth_user_id}', false)">
-                        🚫 Desactivar</button>`;
-            }
+				estatBadge = '<span style="background:#9e9e9e;color:white;padding:4px 8px;border-radius:4px;font-size:12px;">⚪ Sense accés</span>';
+				accions = `<button class="btn btn-sm btn-primary" 
+					onclick="obrirFormCrearAcces('${t.id}', '${t.nom}')">
+					➕ Crear accés</button>`;
+			} else if (t.banned) {
+				estatBadge = '<span style="background:#f44336;color:white;padding:4px 8px;border-radius:4px;font-size:12px;">🔴 Desactivat</span>';
+				accions = `<button class="btn btn-sm btn-success" 
+				onclick="confirmarDesactivarAcces('${t.id}', '${t.nom}', '${t.auth_user_id}', true)">
+				✅ Activar</button>`;
+			} else {
+				estatBadge = '<span style="background:#4caf50;color:white;padding:4px 8px;border-radius:4px;font-size:12px;">🟢 Actiu</span>';
+				accions = `
+					<button class="btn btn-sm btn-secondary" 
+					onclick="obrirFormResetPassword('${t.id}', '${t.nom}', '${t.auth_user_id}')">
+					🔑 Reset password</button>
+					<button class="btn btn-sm btn-danger" style="margin-left:4px;"
+					onclick="confirmarDesactivarAcces('${t.id}', '${t.nom}', '${t.auth_user_id}', false)">
+					🚫 Desactivar</button>`;
+}
 
             return `<tr>
                 <td><strong>${t.nom}</strong><br>

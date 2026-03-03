@@ -225,7 +225,7 @@ async function deleteFertilitzacio(id) {
 
 async function getTreballadors() {
     const { data, error } = await supabaseClient
-        .from('treballadors')
+        .from('treballadors_amb_ban')
         .select('*')
         .order('nom');
     if (error) throw error;
