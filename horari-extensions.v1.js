@@ -347,22 +347,28 @@ async function detectarIncidenciesManual() {
 // Patch de carregarVistaIncidencies per afegir el botó
 // ============================================================
 
-const _carregarVistaIncidenciesOriginal = carregarVistaIncidencies;
+// ============================================================
+// 7. BOTÓ "DETECTAR INCIDÈNCIES" - injectat via MutationObserver
+// ============================================================
 
-async function carregarVistaIncidencies() {
-    await _carregarVistaIncidenciesOriginal();
-
-    // Afegir botó de detecció manual al header de la vista
+const _incidenciesObserver = new MutationObserver(function() {
     const headerDiv = document.querySelector('.view-incidencies > div:first-child');
     if (headerDiv && !document.getElementById('btn-detectar-incidencies')) {
         const btn = document.createElement('button');
         btn.id = 'btn-detectar-incidencies';
         btn.className = 'btn btn-secondary';
-        btn.textContent = '🔍 Detectar incidències d\'ahir';
+        btn.textContent = 'Detectar incidencies d ahir';
         btn.onclick = detectarIncidenciesManual;
         headerDiv.appendChild(btn);
     }
-}
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('view-container');
+    if (container) {
+        _incidenciesObserver.observe(container, { childList: true, subtree: false });
+    }
+});
 
 // ============================================================
 // FILTRE CONTROL HORARI PER TREBALLADOR
