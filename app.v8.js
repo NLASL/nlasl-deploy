@@ -2267,7 +2267,7 @@ async function comprovarEntradaOberta() {
         btnFitxar.textContent = '🔴 Fitxar Sortida';
         
     } else {
-        // No té entrada oberta → Fitxar entrada
+ // No té entrada oberta → Fitxar entrada
         infoDiv.style.display = 'none';
         groupEntrada.style.display = 'block';
         groupSortida.style.display = 'none';
@@ -2278,10 +2278,17 @@ async function comprovarEntradaOberta() {
         btnFitxar.textContent = '🟢 Fitxar Entrada';
     }
     
-    // Mostrar num_persones si és grup temporal
+    // Mostrar num_persones i hores editables si és grup temporal
     const treballador = treballadors.find(function(t) { return t.id === treballadorId; });
     if (treballador && treballador.tipus === 'Temporal') {
         document.getElementById('group-num-persones').style.display = 'block';
+        // Hores editables per temporers — registren jornada completa d'un cop
+        const inputEntrada = document.getElementById('control-horari-hora-entrada');
+        const inputSortida = document.getElementById('control-horari-hora-sortida');
+        inputEntrada.removeAttribute('readonly');
+        inputSortida.removeAttribute('readonly');
+        groupSortida.style.display = 'block';
+        btnFitxar.textContent = 'Guardar Jornada';
     } else {
         document.getElementById('group-num-persones').style.display = 'none';
     }
