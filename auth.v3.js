@@ -71,16 +71,16 @@ async function iniciarSessio(user) {
         mostrarApp();
         mostrarInfoUsuari();
         
-        if (treballador) {
-            // És treballador → Vista simple
-            console.log('👤 Usuari és treballador:', treballador.nom);
-            ocultarMenuAdmin();
-            carregarVistaTreballadorSimple();
-        } else {
-            // És admin/editor → Dashboard complet
-            console.log('💼 Usuari és admin/editor');
-            carregarDashboard();
-        }
+        const role = currentUserProfile ? currentUserProfile.role : 'visor';
+
+		if (treballador && role === 'visor') {
+			console.log('👤 Usuari és treballador visor:', treballador.nom);
+			ocultarMenuAdmin();
+			carregarVistaTreballadorSimple();
+		} else {
+			console.log('💼 Usuari és admin/editor:', role);
+			carregarDashboard();
+}
         
         activarListeners();
         
