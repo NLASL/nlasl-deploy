@@ -2306,9 +2306,45 @@ function mostrarTascaLliure() {
 }
 
 async function veureControlHorari(id) {
-    alert('Funció veure detall registre en desenvolupament');
-}
+    const registre = controlHorari.find(function(r) { return r.id === id; });
+    if (!registre) return;
 
+    const treballador = treballadors.find(function(t) { return t.id === registre.treballador_id; });
+    const tasca = tasques.find(function(t) { return t.id === registre.tasca_id; });
+
+    let info = '';
+    info += '<strong>👤 Treballador:</strong> ' + (treballador ? treballador.nom : '-') + '<br>';
+    info += '<strong>📅 Data:</strong> ' + formatData(registre.data) + '<br>';
+    info += '<strong>🕐 Entrada:</strong> ' + (registre.hora_entrada || '-') + '<br>';
+    info += '<strong>🕐 Sortida:</strong> ' + (registre.hora_sortida || '<span style="color:#ff9800">Pendent</span>') + '<br>';
+    info += '<strong>⏱️ Hores:</strong> ' + (registre.hores_treballades ? parseFloat(registre.hores_treballades).toFixed(2) + 'h' : '-') + '<br>';
+    info += '<strong>👥 Persones:</strong> ' + (registre.num_persones || 1) + '<br>';
+    info += '<strong>🌱 Tasca:</strong> ' + (tasca ? tasca.nom : (registre.tasca_libre || '-')) + '<br>';
+    info += '<strong>🏡 Finca:</strong> ' + (registre.finca || '-') + '<br>';
+    info += '<strong>💶 Cost:</strong> ' + (registre.cost_total ? parseFloat(registre.cost_total).toFixed(2) + ' €' : '-') + '<br>';
+    if (registre.observacions) {
+        info += '<strong>📝 Observacions:</strong> ' + registre.observacions;
+    }
+
+    // Reutilitzar modal-incidencia-detall o crear un de temporal
+    let modal = document.getElementById('modal-registre-detall');
+    if (!modal) {
+        const div = document.createElement('div');
+        div.innerHTML = '<div id="modal-registre-detall" class="modal" style="display:none;">' +
+            '<div class="modal-content" style="max-width:500px;">' +
+            '<span class="close" onclick="tancarModal(\'modal-registre-detall\')">&times;</span>' +
+            '<h2>Detall Registre</h2>' +
+            '<div id="modal-registre-detall-cos"></div>' +
+            '<div class="form-actions" style="margin-top:20px;">' +
+            '<button class="btn btn-secondary" onclick="tancarModal(\'modal-registre-detall\')">Tancar</button>' +
+            '</div></div></div>';
+        document.body.appendChild(div.firstElementChild);
+        modal = document.getElementById('modal-registre-detall');
+    }
+
+    document.getElementById('modal-registre-detall-cos').innerHTML = info;
+    modal.style.display = 'block';
+}
 
 async function guardarControlHorari(event) {
     event.preventDefault();
