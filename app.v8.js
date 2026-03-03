@@ -337,8 +337,9 @@ function crearModalTractament() {
     html += '<div class="form-group"><label>Superfície Total: <span id="superficie-total">0</span> Ha</label></div>';
     
     html += '<div class="form-group"><label>Producte (Fitosanitari) *</label><select id="tractament-producte" required onchange="actualitzarDosisRecomanada()"><option value="">Seleccionar...</option></select></div>';
+    html += '<div id="info-fitosanitari" style="display:none; background: #e8f5e9; padding: 12px; border-radius: 6px; margin-bottom: 15px;"></div>';
     
-    html += '<div class="form-group"><label>Dosi *</label><div style="display: flex; gap: 10px;">';
+	html += '<div class="form-group"><label>Dosi *</label><div style="display: flex; gap: 10px;">';
     html += '<input type="number" id="tractament-dosi" required min="0" step="0.01" style="flex: 2;">';
     html += '<select id="tractament-unitat" style="flex: 1;"><option value="L/Ha">L/Ha</option><option value="kg/Ha">kg/Ha</option><option value="g/Ha">g/Ha</option></select>';
     html += '</div></div>';
@@ -455,6 +456,39 @@ function calcularQuantitatTotal() {
 
 function actualitzarDosisRecomanada() {
     calcularQuantitatTotal();
+
+    const producteId = document.getElementById('tractament-producte').value;
+    const infoDiv = document.getElementById('info-fitosanitari');
+    if (!infoDiv) return;
+
+    if (!producteId) {
+        infoDiv.style.display = 'none';
+        return;
+    }
+
+    const producte = fitosanitaris.find(function(f) { return f.id === producteId; });
+    if (!producte) {
+        infoDiv.style.display = 'none';
+        return;
+    }
+
+    let html = '';
+    if (producte.composicio) {
+        html += '<strong>Composicio:</strong> ' + producte.composicio + '<br>';
+    }
+    if (producte.dosi_recomanada) {
+        html += '<strong>Dosi recomanada:</strong> ' + producte.dosi_recomanada + '<br>';
+    }
+    if (producte.observacions) {
+        html += '<strong>Observacions / Riscos:</strong> ' + producte.observacions;
+    }
+
+    if (html) {
+        infoDiv.innerHTML = html;
+        infoDiv.style.display = 'block';
+    } else {
+        infoDiv.style.display = 'none';
+    }
 }
 
 async function obrirModalTractament() {
