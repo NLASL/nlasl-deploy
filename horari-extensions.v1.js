@@ -347,7 +347,22 @@ async function detectarIncidenciesManual() {
 // Patch de carregarVistaIncidencies per afegir el botó
 // ============================================================
 
+const _carregarVistaIncidenciesOriginal = carregarVistaIncidencies;
 
+async function carregarVistaIncidencies() {
+    await _carregarVistaIncidenciesOriginal();
+
+    // Afegir botó de detecció manual al header de la vista
+    const headerDiv = document.querySelector('.view-incidencies > div:first-child');
+    if (headerDiv && !document.getElementById('btn-detectar-incidencies')) {
+        const btn = document.createElement('button');
+        btn.id = 'btn-detectar-incidencies';
+        btn.className = 'btn btn-secondary';
+        btn.textContent = '🔍 Detectar incidències d\'ahir';
+        btn.onclick = detectarIncidenciesManual;
+        headerDiv.appendChild(btn);
+    }
+}
 
 // ============================================================
 // FILTRE CONTROL HORARI PER TREBALLADOR
@@ -477,5 +492,82 @@ function netejarFiltresTreballador() {
     if (fi) fi.value = '';
     carregarRegistresTreballadorHorari();
 }
+
+// ============================================================
+// FITXATGE RÀPID PER EDITORS QUE TAMBÉ SÓN TREBALLADORS
+// Afegeix bloc de fitxatge al dashboard per USUx
+// ============================================================
+
+async function afegirFitxatgeDashboard() {
+    const dashboard = document.querySelector('.dashboard');
+    if (!dashboard) return;
+    if (document.getElementById('bloc-fitxatge-editor')) return;
+
+    const treballador = treballadors && currentUser
+        ? treballadors.find(function(t) { return t.auth_user_id === currentUser.id; })
+        : null;
+    if (!treballador) return;
+
+    const avui = new Date().toISOString().split('T')[0];
+    const registreObert = controlHorari ? controlHorari.find(function(r) {
+        return r.treballador_id === treballador.id &&
+               r.data === avui &&
+               r.hora_entrada &&
+               !r.hora_sortida;
+    }) : null;
+
+    const bloc = document.createElement('div');
+    bloc.id = 'bloc-fitxatge-editor';
+    bloc.style.cssText = 'background:white;border-radius:12px;padding:20px;margin-bottom:25px;box-shadow:0 2px 10px rgba(0,0,0,0.1);';
+
+    let html = '<h3 style="margin-top:0;color:#333;">⏱️ El meu fitxatge</h3>';
+    html += '<div id="zona-fitxatge-editor"></div>';
+    bloc.innerHTML = html;
+
+    // Inserir al principi del dashboard
+    dashboard.insertBefore(bloc, dashboard.firstChild);
+
+    await actualitzarZonaFitxatgeEditor(treballador, registreObert);
+}
+
+async function actualitzarZonaFitxatgeEditor(treballador, registreObert) {
+    const zona = document.getElementById('zona-fitxatge-editor');
+    if (!zona) return;
+
+    if (registreObert) {
+        zona.innerHTML =
+            '<p style="color:#c62828;margin:0 0 12px 0;">Entrada oberta des de les <strong>' + registreObert.hora_entrada + '</strong></p>' +
+            '<button onclick="fitxarSortidaTreballador(\'' + treballador.id + '\')" ' +
+            'style="padding:15px 30px;font-size:18px;font-weight:bold;background:linear-gradient(135deg,#f44336,#e91e63);color:white;border:none;border-radius:10px;cursor:pointer;width:100%;">' +
+            '🔴 Fitxar Sortida</button>';
+    } else {
+        zona.innerHTML =
+            '<button onclick="fitxarEntradaTreballador(\'' + treballador.id + '\')" ' +
+            'style="padding:15px 30px;font-size:18px;font-weight:bold;background:linear-gradient(135deg,#4caf50,#8bc34a);color:white;border:none;border-radius:10px;cursor:pointer;width:100%;">' +
+            '🟢 Fitxar Entrada</button>';
+    }
+
+    // Afegir modal si no existeix
+    if (!document.getElementById('modal-fitxatge-treballador')) {
+        const div = document.createElement('div');
+        div.innerHTML = crearModalFitxatgeTreballador();
+        document.body.appendChild(div.firstElementChild);
+    }
+}
+
+// Observar quan carrega el dashboard
+const _dashboardFitxatgeObserver = new MutationObserver(function() {
+    const dashboard = document.querySelector('.dashboard');
+    if (dashboard && !document.getElementById('bloc-fitxatge-editor')) {
+        afegirFitxatgeDashboard();
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('view-container');
+    if (container) {
+        _dashboardFitxatgeObserver.observe(container, { childList: true, subtree: false });
+    }
+});
 
 console.log('✅ Horari extensions v1 carregat');
