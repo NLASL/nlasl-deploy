@@ -77,6 +77,7 @@ function hasPermission(action) {
     if (role === 'admin') return true;
     if (role === 'editor' && (action === 'insert' || action === 'update' || action === 'select')) return true;
     if (role === 'visor' && action === 'select') return true;
+    if (role === 'soci' && action === 'select') return true;
     
     return false;
 }
