@@ -167,6 +167,10 @@ async function guardarSortidaAnticipada(event) {
         });
 
         // Crear incidència de tipus sortida_anticipada
+        const motiu = motiusAbsencia.find(function(m) { return m.id === motiuId; });
+        const textMotiu = motiu ? motiu.nom : '';
+        const obsCompleta = textMotiu + (observacions ? ' - ' + observacions : '');
+        
         await createIncidencia({
             treballador_id:            treballadorId,
             control_horari_id:         registreId,
@@ -175,7 +179,7 @@ async function guardarSortidaAnticipada(event) {
             estat:                     'pendent',
             hora_entrada:              registre.hora_entrada,
             hora_sortida_real:         horaSortida,
-            observacions_treballador:  observacions,
+            observacions_treballador:  obsCompleta,
             origen:                    'manual'
         });
 
