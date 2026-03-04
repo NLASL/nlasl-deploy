@@ -2011,7 +2011,10 @@ async function carregarVistaControlHorari() {
     html += '<div><label>Data Inici:</label><input type="date" id="filtro-data-inici" onchange="aplicarFiltresHorari()"></div>';
     html += '<div><label>Data Fi:</label><input type="date" id="filtro-data-fi" onchange="aplicarFiltresHorari()"></div>';
     html += '<div><label>Treballador:</label><select id="filtro-treballador" onchange="aplicarFiltresHorari()"><option value="">Tots</option></select></div>';
-    html += '<div style="align-self: end;"><button class="btn btn-secondary" onclick="netejarFiltresHorari()">🗑️ Netejar</button></div>';
+    html += '<div style="align-self: end; display:flex; gap:8px;">' +
+    '<button class="btn btn-secondary" onclick="netejarFiltresHorari()">🗑️ Netejar</button>' +
+    '<button class="btn btn-primary" onclick="carregarTaulaControlHorari()">🔄 Actualitzar</button>' +
+    '</div>';
     html += '</div></div>';
     
     html += '<div id="resum-horari" style="margin-bottom: 20px;"></div>';
