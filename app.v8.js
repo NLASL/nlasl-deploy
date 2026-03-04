@@ -3128,7 +3128,13 @@ async function actualitzarZonaFitxatge(treballadorId, registreObert) {
         html += 'onmouseover="this.style.transform=\'scale(1.02)\'; this.style.boxShadow=\'0 8px 25px rgba(244, 67, 54, 0.5)\';" ';
         html += 'onmouseout="this.style.transform=\'scale(1)\'; this.style.boxShadow=\'0 6px 20px rgba(244, 67, 54, 0.4)\';">';
         html += '🔴 Fitxar Sortida';
-        html += '</button>';
+		html += '</button>';
+        html += '<div style="margin-top:12px;text-align:center;">' +
+            '<button id="btn-sortida-anticipada" ' +
+            'onclick="obrirModalSortidaAnticipada(\'' + treballadorId + '\')" ' +
+            'style="padding:12px 24px;font-size:14px;background:#ff9800;color:white;' +
+            'border:none;border-radius:8px;cursor:pointer;">' +
+            '⏩ Sortida anticipada (metge, tràmits...)</button></div>';
     } else {
         // No té entrada → Mostrar botó entrada
         html += '<button onclick="fitxarEntradaTreballador(\'' + treballadorId + '\')" style="';
