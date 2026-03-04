@@ -2500,7 +2500,7 @@ async function carregarVistaIncidencies() {
     
     html += '<div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">';
     html += '<h3 style="margin-top: 0;">🔍 Filtres</h3>';
-    html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 15px;">';
+    html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px;">';
     html += '<div><label>Treballador:</label><select id="filtro-incidencia-treballador" onchange="aplicarFiltresIncidencies()"><option value="">Tots</option></select></div>';
     html += '<div><label>Estat:</label><select id="filtro-incidencia-estat" onchange="aplicarFiltresIncidencies()"><option value="">Tots</option><option value="pendent">Pendents</option><option value="resolta">Resoltes</option><option value="justificada">Justificades</option></select></div>';
     html += '<div><label>Tipus:</label><select id="filtro-incidencia-tipus" onchange="aplicarFiltresIncidencies()"><option value="">Tots</option><option value="sense_entrada">Sense entrada</option><option value="sense_sortida">Sense sortida</option><option value="jornada_curta">Jornada curta</option><option value="jornada_llarga">Jornada llarga</option></select></div>';
