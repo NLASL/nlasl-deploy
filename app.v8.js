@@ -2932,22 +2932,35 @@ function calcularDiesAbsencia() {
 async function veureAbsencia(id) {
     const absencia = absencies.find(function(a) { return a.id === id; });
     if (!absencia) return;
-    
+
     const treballador = treballadors.find(function(t) { return t.id === absencia.treballador_id; });
-    
-    let info = '<strong>👤 Treballador:</strong> ' + (treballador ? treballador.nom : 'Desconegut') + '\n';
-    info += '<strong>📅 Dates:</strong> ' + formatData(absencia.data_inici) + ' - ' + formatData(absencia.data_fi) + '\n';
-    info += '<strong>📊 Dies:</strong> ' + (absencia.dies || 0) + '\n';
-    info += '<strong>🏷️ Tipus:</strong> ' + absencia.tipus + '\n';
-    if (absencia.motiu) {
-        info += '<strong>📝 Motiu:</strong> ' + absencia.motiu + '\n';
+
+    let modal = document.getElementById('modal-registre-detall');
+    if (!modal) {
+        const div = document.createElement('div');
+        div.innerHTML = '<div id="modal-registre-detall" class="modal" style="display:none;">' +
+            '<div class="modal-content" style="max-width:500px;">' +
+            '<span class="close" onclick="tancarModal(\'modal-registre-detall\')">&times;</span>' +
+            '<h2>Detall Absència</h2>' +
+            '<div id="modal-registre-detall-cos"></div>' +
+            '<div class="form-actions" style="margin-top:20px;">' +
+            '<button class="btn btn-secondary" onclick="tancarModal(\'modal-registre-detall\')">Tancar</button>' +
+            '</div></div></div>';
+        document.body.appendChild(div.firstElementChild);
+        modal = document.getElementById('modal-registre-detall');
     }
-    if (absencia.observacions) {
-        info += '<strong>💬 Observacions:</strong> ' + absencia.observacions + '\n';
-    }
-    info += '<strong>📍 Estat:</strong> ' + absencia.estat;
-    
-    alert(info);
+
+    let info = '';
+    info += '<p><strong>👤 Treballador:</strong> ' + (treballador ? treballador.nom : '-') + '</p>';
+    info += '<p><strong>📅 Dates:</strong> ' + formatData(absencia.data_inici) + ' - ' + formatData(absencia.data_fi) + '</p>';
+    info += '<p><strong>📊 Dies:</strong> ' + (absencia.dies || 0) + '</p>';
+    info += '<p><strong>🏷️ Tipus:</strong> ' + absencia.tipus + '</p>';
+    if (absencia.motiu) info += '<p><strong>📝 Motiu:</strong> ' + absencia.motiu + '</p>';
+    if (absencia.observacions) info += '<p><strong>💬 Observacions:</strong> ' + absencia.observacions + '</p>';
+    info += '<p><strong>📍 Estat:</strong> ' + absencia.estat + '</p>';
+
+    document.getElementById('modal-registre-detall-cos').innerHTML = info;
+    modal.style.display = 'block';
 }
 
 async function guardarAbsencia(event) {
