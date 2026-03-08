@@ -580,4 +580,80 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// ============================================================
+// SOL·LICITUD ABSÈNCIES DES DE VISTA TREBALLADOR
+// ============================================================
+
+async function carregarAbsenciesTreballador(treballadorId) {
+    const container = document.getElementById('absencies-treballador');
+    if (!container) return;
+
+    try {
+        const totes = await getAbsencies({ treballadorId: treballadorId });
+
+        if (totes.length === 0) {
+            container.innerHTML = '<p style="text-align:center;color:#999;">No tens cap absència sol·licitada</p>';
+            return;
+        }
+
+        let html = '<table style="width:100%;border-collapse:collapse;">';
+        html += '<thead><tr style="border-bottom:2px solid #eee;">';
+        html += '<th style="padding:10px;text-align:left;">Tipus</th>';
+        html += '<th style="padding:10px;text-align:left;">Dates</th>';
+        html += '<th style="padding:10px;text-align:center;">Dies</th>';
+        html += '<th style="padding:10px;text-align:center;">Estat</th>';
+        html += '</tr></thead><tbody>';
+
+        totes.forEach(function(a) {
+            const tipusText = {
+                'vacances': '🏖️ Vacances',
+                'baixa': '🤒 Baixa',
+                'permis': '📋 Permís',
+                'altres': '📌 Altres'
+            }[a.tipus] || a.tipus;
+
+            let estatBadge = '';
+            if (a.estat === 'pendent') {
+                estatBadge = '<span style="background:#ff9800;color:white;padding:3px 8px;border-radius:4px;font-size:11px;">⏳ Pendent</span>';
+            } else if (a.estat === 'aprovada') {
+                estatBadge = '<span style="background:#4caf50;color:white;padding:3px 8px;border-radius:4px;font-size:11px;">✅ Aprovada</span>';
+            } else if (a.estat === 'rebutjada') {
+                estatBadge = '<span style="background:#f44336;color:white;padding:3px 8px;border-radius:4px;font-size:11px;">❌ Rebutjada</span>';
+            }
+
+            html += '<tr style="border-bottom:1px solid #f5f5f5;">';
+            html += '<td style="padding:10px;">' + tipusText + '</td>';
+            html += '<td style="padding:10px;">' + formatData(a.data_inici) + ' - ' + formatData(a.data_fi) + '</td>';
+            html += '<td style="padding:10px;text-align:center;">' + (a.dies || '-') + '</td>';
+            html += '<td style="padding:10px;text-align:center;">' + estatBadge + '</td>';
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+
+    } catch (error) {
+        console.error('Error absències treballador:', error);
+        container.innerHTML = '<p style="color:red;">Error carregant absències</p>';
+    }
+}
+
+function obrirModalSolicitarAbsencia(treballadorId) {
+    // Reutilitzem el modal d'absències existent
+    document.getElementById('modal-absencia-titol').textContent = 'Sol·licitar Absència';
+    document.getElementById('form-absencia').reset();
+    document.getElementById('absencia-id').value = '';
+    document.getElementById('absencia-dies-calculats').textContent = '0';
+
+    const select = document.getElementById('absencia-treballador');
+    select.innerHTML = '';
+    const treballador = treballadors.find(function(t) { return t.id === treballadorId; });
+    if (treballador) {
+        select.innerHTML = '<option value="' + treballador.id + '">' + treballador.nom + '</option>';
+    }
+    select.disabled = true;
+
+    document.getElementById('modal-absencia').style.display = 'block';
+}
+
 console.log('✅ Horari extensions v1 carregat');
