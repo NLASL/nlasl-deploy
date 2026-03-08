@@ -3082,23 +3082,36 @@ async function carregarVistaTreballadorSimple() {
     html += '</div>';
     
     // Els meus registres
-    html += '<div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">';
+    html += '<div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px;">';
     html += '<h3 style="margin-top: 0; color: #333;">📊 Els meus registres</h3>';
     html += '<div id="registres-treballador"></div>';
     html += '</div>';
-    
+
+    // Les meves absències
+    html += '<div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">';
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">';
+    html += '<h3 style="margin: 0; color: #333;">📅 Les meves absències</h3>';
+    html += '<button class="btn btn-primary" onclick="obrirModalSolicitarAbsencia(\'' + treballador.id + '\')">➕ Sol·licitar</button>';
     html += '</div>';
-    
+    html += '<div id="absencies-treballador"></div>';
+    html += '</div>';
+
+    html += '</div>';
+
     // Modals
     html += crearModalFitxatgeTreballador();
-    
+	html += crearModalAbsencia();
+	
     container.innerHTML = html;
-    
+
     // Carregar estat fitxatge
     await actualitzarZonaFitxatge(treballador.id, registreObert);
-    
+
     // Carregar registres
     await carregarRegistresTreballador(treballador.id);
+
+    // Carregar absències
+    await carregarAbsenciesTreballador(treballador.id);
 }
 
 async function actualitzarZonaFitxatge(treballadorId, registreObert) {
