@@ -628,8 +628,34 @@ async function guardarTractament(event) {
             return;
         }
 
-        // INSERT normal
+       // INSERT normal
         for (let i = 0; i < parcellesATractar.length; i++) {
+            const parcella = parcellesATractar[i];
+            const tractament = {
+                data: data,
+                data_limit: dataLimit.toISOString().split('T')[0],
+                parcella_id: parcella.id,
+                producte_id: producteId,
+                dosi: dosi,
+                unitat: unitat,
+                superficie_tractada: parcella.superficie,
+                operador: operador || null,
+                maquinaria: maquinaria || null,
+                condicions_meteo: meteo || null,
+                observacions: observacions || null
+            };
+            
+            await createTractament(tractament);
+        }
+        
+        mostrarNotificacio('Tractament creat correctament (' + parcellesATractar.length + ' parcel·les)', 'success');
+        tancarModal('modal-tractament');
+        await carregarTaulaTractaments();
+        
+    } catch (error) {
+        console.error('Error guardant:', error);
+        mostrarNotificacio('Error: ' + error.message, 'error');
+    }
 }
 
 async function veureTractamentGrup(clau) {
