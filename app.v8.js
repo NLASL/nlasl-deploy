@@ -301,9 +301,6 @@ async function carregarTaulaTractaments() {
 				if (podeEditar) {
 			html += '<button class="btn btn-sm btn-secondary" onclick="editarTractamentGrup(\'' + clau + '\')" style="margin-right:4px;">✏️</button> ';
 }
-				if (podeEditar) {
-			html += '<button class="btn btn-sm btn-secondary" onclick="editarTractamentGrup(\'' + clau + '\')" style="margin-right:4px;">✏️</button>';
-}
 				if (podeEliminar) {
 			html += '<button class="btn btn-sm btn-danger" onclick="eliminarTractamentGrup(\'' + clau + '\')">🗑️</button>';
 }
