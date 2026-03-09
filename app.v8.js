@@ -755,6 +755,13 @@ async function editarTractamentGrup(clau) {
 
     if (grup.length === 0) return;
     const primer = grup[0];
+	
+	// Assegurar que el modal existeix al DOM
+    if (!document.getElementById('modal-tractament')) {
+        const div = document.createElement('div');
+        div.innerHTML = crearModalTractament();
+        document.body.appendChild(div.firstElementChild);
+    }
 
     // Reutilitzar modal existent
     document.getElementById('modal-tractament-titol').textContent = 'Editar Tractament';
