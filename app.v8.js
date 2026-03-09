@@ -297,10 +297,16 @@ async function carregarTaulaTractaments() {
             html += '<td>' + superficieTotal.toFixed(2) + '</td>';
             html += '<td>' + (grup.dosi || 0) + ' ' + (grup.unitat || 'L/Ha') + '</td>';
             html += '<td>';
-            html += '<button class="btn btn-sm btn-primary" onclick="veureTractamentGrup(\'' + clau + '\')">👁️</button> ';
-            if (podeEliminar) {
-                html += '<button class="btn btn-sm btn-danger" onclick="eliminarTractamentGrup(\'' + clau + '\')">🗑️</button>';
-            }
+			html += '<button class="btn btn-sm btn-primary" onclick="veureTractamentGrup(\'' + clau + '\')">👁️</button> ';
+				if (podeEditar) {
+			html += '<button class="btn btn-sm btn-secondary" onclick="editarTractamentGrup(\'' + clau + '\')" style="margin-right:4px;">✏️</button> ';
+}
+				if (podeEditar) {
+			html += '<button class="btn btn-sm btn-secondary" onclick="editarTractamentGrup(\'' + clau + '\')" style="margin-right:4px;">✏️</button>';
+}
+				if (podeEliminar) {
+			html += '<button class="btn btn-sm btn-danger" onclick="eliminarTractamentGrup(\'' + clau + '\')">🗑️</button>';
+}
             html += '</td></tr>';
         });
         
@@ -590,33 +596,40 @@ async function guardarTractament(event) {
     dataLimit.setDate(dataLimit.getDate() + placSeguretat);
     
     try {
-        for (let i = 0; i < parcellesATractar.length; i++) {
-            const parcella = parcellesATractar[i];
-            const tractament = {
-                data: data,
-                data_limit: dataLimit.toISOString().split('T')[0],
-                parcella_id: parcella.id,
-                producte_id: producteId,
-                dosi: dosi,
-                unitat: unitat,
-                superficie_tractada: parcella.superficie,
-                operador: operador || null,
-                maquinaria: maquinaria || null,
-                condicions_meteo: meteo || null,
-                observacions: observacions || null
-            };
-            
-            await createTractament(tractament);
+        const editMode = document.getElementById('form-tractament').dataset.editMode === 'true';
+        
+        if (editMode) {
+            // UPDATE — actualitzar camps comuns de tots els registres del grup
+            const editIds = document.getElementById('form-tractament').dataset.editIds.split(',');
+            const producte = fitosanitaris.find(function(f) { return f.id === producteId; });
+            const placSeguretat = producte ? (producte.plac || 0) : 0;
+            const dataLimit = new Date(data);
+            dataLimit.setDate(dataLimit.getDate() + placSeguretat);
+
+            for (let i = 0; i < editIds.length; i++) {
+                await updateTractament(editIds[i], {
+                    data: data,
+                    data_limit: dataLimit.toISOString().split('T')[0],
+                    producte_id: producteId,
+                    dosi: dosi,
+                    unitat: unitat,
+                    operador: operador || null,
+                    maquinaria: maquinaria || null,
+                    condicions_meteo: meteo || null,
+                    observacions: observacions || null
+                });
+            }
+
+            document.getElementById('form-tractament').dataset.editMode = 'false';
+            document.getElementById('form-tractament').dataset.editIds = '';
+            mostrarNotificacio('Tractament actualitzat correctament', 'success');
+            tancarModal('modal-tractament');
+            await carregarTaulaTractaments();
+            return;
         }
-        
-        mostrarNotificacio('Tractament creat correctament (' + parcellesATractar.length + ' parcel·les)', 'success');
-        tancarModal('modal-tractament');
-        await carregarTaulaTractaments();
-        
-    } catch (error) {
-        console.error('Error guardant:', error);
-        mostrarNotificacio('Error: ' + error.message, 'error');
-    }
+
+        // INSERT normal
+        for (let i = 0; i < parcellesATractar.length; i++) {
 }
 
 async function veureTractamentGrup(clau) {
@@ -702,6 +715,54 @@ async function veureTractamentGrup(clau) {
     html += '</div></div>';
     
     document.body.insertAdjacentHTML('beforeend', html);
+}
+async function editarTractamentGrup(clau) {
+    // Reconstruir el grup
+    const parts = clau.split('-');
+    // clau = data + '-' + producte_id + '-' + finca (data té format YYYY-MM-DD = 3 parts)
+    const data = parts[0] + '-' + parts[1] + '-' + parts[2];
+    const producteId = parts[3];
+    const finca = parts.slice(4).join('-');
+
+    const grup = tractaments.filter(function(t) {
+        const p = parcelles.find(function(pa) { return pa.id === t.parcella_id; });
+        const f = p ? (p.finca || 'Sense finca') : 'Sense finca';
+        return t.data === data && t.producte_id === producteId && f === finca;
+    });
+
+    if (grup.length === 0) return;
+    const primer = grup[0];
+
+    // Reutilitzar modal existent
+    document.getElementById('modal-tractament-titol').textContent = 'Editar Tractament';
+    document.getElementById('form-tractament').reset();
+
+    // Guardar IDs dels registres a editar
+    document.getElementById('form-tractament').dataset.editIds = grup.map(function(t) { return t.id; }).join(',');
+    document.getElementById('form-tractament').dataset.editMode = 'true';
+
+    // Omplir camps
+    document.getElementById('tractament-data').value = primer.data;
+    document.getElementById('tractament-dosi').value = primer.dosi || '';
+    document.getElementById('tractament-unitat').value = primer.unitat || 'L/Ha';
+    document.getElementById('tractament-operador').value = primer.operador || '';
+    document.getElementById('tractament-maquinaria').value = primer.maquinaria || '';
+    document.getElementById('tractament-meteo').value = primer.meteo || '';
+    document.getElementById('tractament-observacions').value = primer.observacions || '';
+
+    // Carregar productes i seleccionar
+    const selectProducte = document.getElementById('tractament-producte');
+    selectProducte.innerHTML = '<option value="">Seleccionar...</option>';
+    const fitosanitarisOrdenats = fitosanitaris.slice().sort(function(a, b) {
+        return (a.nom || '').localeCompare(b.nom || '');
+    });
+    fitosanitarisOrdenats.forEach(function(f) {
+        selectProducte.innerHTML += '<option value="' + f.id + '">' + f.nom + '</option>';
+    });
+    selectProducte.value = producteId;
+    actualitzarDosisRecomanada();
+
+    document.getElementById('modal-tractament').style.display = 'block';
 }
 
 async function eliminarTractamentGrup(clau) {
