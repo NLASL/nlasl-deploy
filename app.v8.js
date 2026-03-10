@@ -260,7 +260,7 @@ async function carregarTaulaTractaments() {
             const t = tractaments[i];
             const parcella = parcelles.find(function(p) { return p.id === t.parcella_id; });
             const finca = parcella ? (parcella.finca || 'Sense finca') : 'Sense finca';
-            const clau = t.data + '-' + t.producte_id + '-' + finca;
+            const clau = t.data + '|' + t.producte_id + '|' + finca;
             if (!grups[clau]) {
                 grups[clau] = {
                     data: t.data,
@@ -660,7 +660,7 @@ async function veureTractamentGrup(clau) {
     const grupTractaments = tractaments.filter(function(t) {
         const parcella = parcelles.find(function(p) { return p.id === t.parcella_id; });
         const finca = parcella ? (parcella.finca || 'Sense finca') : 'Sense finca';
-        return (t.data + '-' + t.producte_id + '-' + finca) === clau;
+        return (t.data + '|' + t.producte_id + '|' + finca) === clau;
     });
     
     if (grupTractaments.length === 0) return;
@@ -741,11 +741,10 @@ async function veureTractamentGrup(clau) {
 }
 async function editarTractamentGrup(clau) {
     // Reconstruir el grup
-    const parts = clau.split('-');
-    // clau = data + '-' + producte_id + '-' + finca (data té format YYYY-MM-DD = 3 parts)
-    const data = parts[0] + '-' + parts[1] + '-' + parts[2];
-    const producteId = parts[3];
-    const finca = parts.slice(4).join('-');
+    const parts = clau.split('|');
+	const data = parts[0];
+	const producteId = parts[1];
+	const finca = parts[2];
 
     const grup = tractaments.filter(function(t) {
         const p = parcelles.find(function(pa) { return pa.id === t.parcella_id; });
@@ -802,7 +801,7 @@ async function eliminarTractamentGrup(clau) {
         const grup = tractaments.filter(function(t) {
             const parcella = parcelles.find(function(p) { return p.id === t.parcella_id; });
             const finca = parcella ? (parcella.finca || 'Sense finca') : 'Sense finca';
-            return (t.data + '-' + t.producte_id + '-' + finca) === clau;
+            return (t.data + '|' + t.producte_id + '|' + finca) === clau;
         });
         
         for (let i = 0; i < grup.length; i++) {
