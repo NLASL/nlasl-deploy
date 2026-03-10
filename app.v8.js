@@ -765,18 +765,36 @@ async function editarTractamentGrup(clau) {
     // Reutilitzar modal existent
     document.getElementById('modal-tractament-titol').textContent = 'Editar Tractament';
     document.getElementById('form-tractament').reset();
-
-    // Guardar IDs dels registres a editar
     document.getElementById('form-tractament').dataset.editIds = grup.map(function(t) { return t.id; }).join(',');
     document.getElementById('form-tractament').dataset.editMode = 'true';
 
+    // Carregar finques i parcel·les
+    const selectFinca = document.getElementById('tractament-finca');
+    const selectFincaVarietat = document.getElementById('tractament-finca-varietat');
+    const selectParcelles = document.getElementById('tractament-parcelles');
+
+    selectFinca.innerHTML = '<option value="">Seleccionar...</option>';
+    selectFincaVarietat.innerHTML = '<option value="">Seleccionar...</option>';
+    selectParcelles.innerHTML = '';
+
+    finques.forEach(function(f) {
+        selectFinca.innerHTML += '<option value="' + f + '">' + f + '</option>';
+        selectFincaVarietat.innerHTML += '<option value="' + f + '">' + f + '</option>';
+    });
+
+    parcelles.forEach(function(p) {
+        selectParcelles.innerHTML += '<option value="' + p.id + '">' + p.nom + ' (' + p.superficie + ' Ha)</option>';
+    });
+
     // Omplir camps
     document.getElementById('tractament-data').value = primer.data;
+    selectFinca.value = finca;
     document.getElementById('tractament-dosi').value = primer.dosi || '';
     document.getElementById('tractament-unitat').value = primer.unitat || 'L/Ha';
     document.getElementById('tractament-operador').value = primer.operador || '';
     document.getElementById('tractament-maquinaria').value = primer.maquinaria || '';
     document.getElementById('tractament-meteo').value = primer.meteo || '';
+    document.getElementById('tractament-observacions').value = primer.observacions || '';
     document.getElementById('tractament-observacions').value = primer.observacions || '';
 
     // Carregar productes i seleccionar
