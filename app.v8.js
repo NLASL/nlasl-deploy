@@ -1676,7 +1676,8 @@ function crearModalFitosanitari() {
         '<option value="">Seleccionar...</option><option value="Fungicida">Fungicida</option><option value="Insecticida">Insecticida</option>' +
         '<option value="Herbicida">Herbicida</option><option value="Acaricida">Acaricida</option><option value="Altres">Altres</option></select></div>' +
         '<div class="form-group"><label>Matèria Activa</label><input type="text" id="fitosanitari-materia"></div>' +
-        '<div class="form-group"><label>Registre MAPA</label><input type="text" id="fitosanitari-registre"></div>' +
+		'<div class="form-group"><label>IRAC</label><input type="text" id="fitosanitari-irac" placeholder="Ex: 1A / 3A"></div>' +
+		'<div class="form-group"><label>Registre MAPA</label><input type="text" id="fitosanitari-registre"></div>' +
         '<div class="form-group"><label>Plaç Seguretat (dies)</label><input type="number" id="fitosanitari-plac" min="0"></div>' +
         '<div class="form-group"><label>Observacions</label><textarea id="fitosanitari-observacions" rows="3"></textarea></div>' +
         '<div class="form-actions"><button type="button" class="btn btn-secondary" onclick="tancarModal(\'modal-fitosanitari\')">Cancel·lar</button>' +
@@ -1723,6 +1724,7 @@ async function editarFitosanitari(id) {
     document.getElementById('fitosanitari-nom').value = producte.nom || '';
     document.getElementById('fitosanitari-tipus').value = producte.tipus || '';
     document.getElementById('fitosanitari-materia').value = producte.materia_activa || '';
+    document.getElementById('fitosanitari-irac').value = producte.irac || '';
     document.getElementById('fitosanitari-registre').value = producte.registre || '';
     document.getElementById('fitosanitari-plac').value = producte.plac || '';
     document.getElementById('fitosanitari-observacions').value = producte.observacions || '';
@@ -1738,10 +1740,11 @@ async function guardarFitosanitari(event) {
     event.preventDefault();
     
     const id = document.getElementById('fitosanitari-id').value;
-    const dades = {
+	const dades = {
         nom: document.getElementById('fitosanitari-nom').value.trim(),
         tipus: document.getElementById('fitosanitari-tipus').value,
         materia_activa: document.getElementById('fitosanitari-materia').value.trim(),
+        irac: document.getElementById('fitosanitari-irac').value.trim() || null,
         registre: document.getElementById('fitosanitari-registre').value.trim(),
         plac: parseInt(document.getElementById('fitosanitari-plac').value) || 0,
         observacions: document.getElementById('fitosanitari-observacions').value.trim()
