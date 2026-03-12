@@ -506,9 +506,9 @@ async function obrirModalTractament() {
 	checksContainer.innerHTML = '';
 	finques.forEach(function(finca) {
     checksContainer.innerHTML += 
-        '<label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:2px solid #ddd;border-radius:8px;cursor:pointer;background:white;">' +
-        '<input type="checkbox" value="' + finca + '" onchange="actualitzarParcellesSeleccionades()" style="margin:0;">' +
-        finca + '</label>';
+    '<label style="display:flex;align-items:center;gap:6px;padding:4px 0;cursor:pointer;font-size:13px;">' +
+    '<input type="checkbox" value="' + finca + '" onchange="actualitzarParcellesSeleccionades()" style="margin:0;">' +
+    finca + '</label>';
 });
 
 finques.forEach(function(finca) {
