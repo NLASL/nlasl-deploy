@@ -21,11 +21,11 @@ if (session) {
 }
     
     // Listener canvis auth
-  supabaseClient.auth.onAuthStateChange(async (event, session) => {
+ supabaseClient.auth.onAuthStateChange(async (event, session) => {
     console.log('Auth event:', event);
     
     if (event === 'SIGNED_IN' && session) {
-        if (currentUser) {
+        if (typeof currentUser !== 'undefined' && currentUser) {
             console.log('🔄 Sessió refrescada, ignorant reinici');
             return;
         }
