@@ -769,19 +769,24 @@ async function editarTractamentGrup(clau) {
     document.getElementById('form-tractament').dataset.editIds = grup.map(function(t) { return t.id; }).join(',');
     document.getElementById('form-tractament').dataset.editMode = 'true';
 
-    // Carregar finques i parcel·les
-    const selectFinca = document.getElementById('tractament-finca');
+ // Carregar finques i parcel·les
     const selectFincaVarietat = document.getElementById('tractament-finca-varietat');
-    const selectParcelles = document.getElementById('tractament-parcelles');
-
-    selectFinca.innerHTML = '<option value="">Seleccionar...</option>';
     selectFincaVarietat.innerHTML = '<option value="">Seleccionar...</option>';
-    selectParcelles.innerHTML = '';
 
+    const checksContainer = document.getElementById('tractament-finques-checks');
+    checksContainer.innerHTML = '';
     finques.forEach(function(f) {
-        selectFinca.innerHTML += '<option value="' + f + '">' + f + '</option>';
+        checksContainer.innerHTML += 
+            '<div style="padding:4px 0;display:table;width:100%;">' +
+            '<input type="checkbox" value="' + f + '" onchange="actualitzarParcellesSeleccionades()" style="display:table-cell;vertical-align:middle;width:20px;">' +
+            '<span style="font-size:13px;display:table-cell;vertical-align:middle;padding-left:8px;color:black;text-align:left;width:100%;">' + f + '</span>' +
+            '</div>';
         selectFincaVarietat.innerHTML += '<option value="' + f + '">' + f + '</option>';
     });
+
+    // Seleccionar la finca del grup
+    const checkFinca = checksContainer.querySelector('input[value="' + finca + '"]');
+    if (checkFinca) checkFinca.checked = true;
 
     parcelles.forEach(function(p) {
         selectParcelles.innerHTML += '<option value="' + p.id + '">' + p.nom + ' (' + p.superficie + ' Ha)</option>';
