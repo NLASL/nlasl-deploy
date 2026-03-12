@@ -509,7 +509,7 @@ async function obrirModalTractament() {
 	checksContainer.innerHTML += 
     '<div style="padding:4px 0;overflow:hidden;">' +
     '<input type="checkbox" value="' + finca + '" onchange="actualitzarParcellesSeleccionades()" style="float:left;margin-top:3px;margin-right:8px;">' +
-    '<span style="font-size:13px;display:block;overflow:hidden;">' + finca + '</span>' +
+    '<span style="font-size:13px;display:block;overflow:hidden;color:#333;">' + finca + '</span>' +
     '</div>';
 });
 
