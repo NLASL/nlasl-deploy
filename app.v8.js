@@ -3527,22 +3527,15 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Reconnexió automàtica quan l'app torna a primer pla
-	document.addEventListener('visibilitychange', function() {
+document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'visible' && currentUser) {
-        console.log('🔄 App tornada a primer pla, refrescant dades...');
-        mostrarNotificacio('🔄 Refrescant dades...', 'info');
-        
         setTimeout(function() {
             Promise.all([
                 getTreballadors().then(function(d) { treballadors = d; }),
                 getParcellas().then(function(d) { parcelles = d; }),
                 getControlHorari().then(function(d) { controlHorari = d; }),
             ]).then(function() {
-                const vistaActiva = document.querySelector('.nav-btn.active');
-                if (vistaActiva) {
-                    const vista = vistaActiva.getAttribute('data-view');
-                    if (vista) canviarVista(vista);
-                }
+                mostrarNotificacio('✅ Dades actualitzades', 'success');
             }).catch(function(e) {
                 console.error('Error refrescant:', e);
             });
