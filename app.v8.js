@@ -788,18 +788,16 @@ async function editarTractamentGrup(clau) {
     const checkFinca = checksContainer.querySelector('input[value="' + finca + '"]');
     if (checkFinca) checkFinca.checked = true;
 
-      // Omplir camps
+     // Omplir camps
     document.getElementById('tractament-data').value = primer.data;
-    selectFinca.value = finca;
     document.getElementById('tractament-dosi').value = primer.dosi || '';
     document.getElementById('tractament-unitat').value = primer.unitat || 'L/Ha';
     document.getElementById('tractament-operador').value = primer.operador || '';
     document.getElementById('tractament-maquinaria').value = primer.maquinaria || '';
     document.getElementById('tractament-meteo').value = primer.meteo || '';
     document.getElementById('tractament-observacions').value = primer.observacions || '';
-    document.getElementById('tractament-observacions').value = primer.observacions || '';
-
-    // Carregar productes i seleccionar
+ 
+ // Carregar productes i seleccionar
     const selectProducte = document.getElementById('tractament-producte');
     selectProducte.innerHTML = '<option value="">Seleccionar...</option>';
     const fitosanitarisOrdenats = fitosanitaris.slice().sort(function(a, b) {
