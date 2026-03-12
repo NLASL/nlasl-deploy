@@ -203,17 +203,5 @@ async function tancarSessio() {
     }
 }
 
-	console.log('✅ Auth system v3 carregat');
-        await supabaseClient.auth.signOut();
-        currentUser = null;
-        currentUserProfile = null;
-        mostrarPantallaLogin();
-        mostrarNotificacio('Sessió tancada', 'success');
-    } catch (error) {
-        console.error('Error tancant sessió:', error);
-        mostrarNotificacio('Error tancant sessió', 'error');
-    }
-}
-
-	console.log('✅ Auth system v3 carregat');
+console.log('✅ Auth system v3 carregat');
 });
