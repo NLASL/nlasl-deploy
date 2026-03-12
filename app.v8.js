@@ -3533,10 +3533,11 @@ document.addEventListener('visibilitychange', function() {
         mostrarNotificacio('🔄 Refrescant dades...', 'info');
         
         // Recarregar dades globals
-        Promise.all([
-            getTreballadors().then(function(d) { treballadors = d; }),
-            getParcellas().then(function(d) { parcelles = d; }),
-        ]).then(function() {
+       Promise.all([
+			getTreballadors().then(function(d) { treballadors = d; }),
+			getParcellas().then(function(d) { parcelles = d; }),
+			getControlHorari().then(function(d) { controlHorari = d; }),
+		]).then(function() {
             // Recarregar la vista actual
             const vistaActiva = document.querySelector('.nav-btn.active');
             if (vistaActiva) {
