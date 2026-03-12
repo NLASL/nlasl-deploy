@@ -788,11 +788,7 @@ async function editarTractamentGrup(clau) {
     const checkFinca = checksContainer.querySelector('input[value="' + finca + '"]');
     if (checkFinca) checkFinca.checked = true;
 
-    parcelles.forEach(function(p) {
-        selectParcelles.innerHTML += '<option value="' + p.id + '">' + p.nom + ' (' + p.superficie + ' Ha)</option>';
-    });
-
-    // Omplir camps
+      // Omplir camps
     document.getElementById('tractament-data').value = primer.data;
     selectFinca.value = finca;
     document.getElementById('tractament-dosi').value = primer.dosi || '';
