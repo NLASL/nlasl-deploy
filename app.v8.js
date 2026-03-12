@@ -324,20 +324,18 @@ function crearModalTractament() {
     
     html += '<div class="form-group"><label>Data Tractament *</label><input type="date" id="tractament-data" required></div>';
     
-    html += '<div class="form-group"><label>Selecció Parcel·les *</label>';
-    html += '<div style="display: flex; gap: 15px; margin-top: 10px;">';
-    html += '<label style="flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: white; transition: all 0.2s;" onmouseover="this.style.borderColor=\'#4CAF50\'" onmouseout="if(!this.querySelector(\'input\').checked) this.style.borderColor=\'#ddd\'">';
-    html += '<input type="radio" name="seleccio-tipus" value="finca" onchange="canviarTipusSeleccio(); document.querySelectorAll(\'label\').forEach(l => l.style.background=\'white\'); this.parentElement.style.background=\'#e8f5e9\'; document.querySelectorAll(\'label\').forEach(l => l.style.borderColor=\'#ddd\'); this.parentElement.style.borderColor=\'#4CAF50\';" checked style="margin: 0;"> <span style="font-weight: 500;">🗺️ Per Finca</span></label>';
-    html += '<label style="flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: white; transition: all 0.2s;" onmouseover="this.style.borderColor=\'#4CAF50\'" onmouseout="if(!this.querySelector(\'input\').checked) this.style.borderColor=\'#ddd\'">';
-    html += '<input type="radio" name="seleccio-tipus" value="varietat" onchange="canviarTipusSeleccio(); document.querySelectorAll(\'label\').forEach(l => l.style.background=\'white\'); this.parentElement.style.background=\'#e8f5e9\'; document.querySelectorAll(\'label\').forEach(l => l.style.borderColor=\'#ddd\'); this.parentElement.style.borderColor=\'#4CAF50\';" style="margin: 0;"> <span style="font-weight: 500;">🌾 Per Varietat</span></label>';
-    html += '<label style="flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: white; transition: all 0.2s;" onmouseover="this.style.borderColor=\'#4CAF50\'" onmouseout="if(!this.querySelector(\'input\').checked) this.style.borderColor=\'#ddd\'">';
-    html += '<input type="radio" name="seleccio-tipus" value="manual" onchange="canviarTipusSeleccio(); document.querySelectorAll(\'label\').forEach(l => l.style.background=\'white\'); this.parentElement.style.background=\'#e8f5e9\'; document.querySelectorAll(\'label\').forEach(l => l.style.borderColor=\'#ddd\'); this.parentElement.style.borderColor=\'#4CAF50\';" style="margin: 0;"> <span style="font-weight: 500;">📍 Selecció Manual</span></label>';
-    html += '</div></div>';
+	html += '<div class="form-group"><label>Selecció Parcel·les *</label>';
+	html += '<div style="display: flex; gap: 15px; margin-top: 10px;">';
+	html += '<label style="flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: #e8f5e9; border-color: #4CAF50;" >';
+	html += '<input type="radio" name="seleccio-tipus" value="finca" onchange="canviarTipusSeleccio();" checked style="margin: 0;"> <span style="font-weight: 500;">🗺️ Per Finques</span></label>';
+	html += '<label style="flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: white;" >';
+	html += '<input type="radio" name="seleccio-tipus" value="varietat" onchange="canviarTipusSeleccio();" style="margin: 0;"> <span style="font-weight: 500;">🌾 Per Varietat</span></label>';
+	html += '</div></div>';
     
-    html += '<div id="seleccio-finca" class="form-group"><label>Finca</label><select id="tractament-finca" onchange="actualitzarParcellesSeleccionades()"><option value="">Seleccionar...</option></select></div>';
+	html += '<div id="seleccio-finca" class="form-group"><label>Selecciona Finques</label><div id="tractament-finques-checks" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;"></div></div>';
     html += '<div id="seleccio-varietat" class="form-group" style="display:none;"><label>Finca</label><select id="tractament-finca-varietat" onchange="actualitzarVarietatsDisponibles()"><option value="">Seleccionar...</option></select>';
     html += '<label style="margin-top: 10px;">Varietat</label><select id="tractament-varietat" onchange="actualitzarParcellesSeleccionades()"><option value="">Seleccionar...</option></select></div>';
-    html += '<div id="seleccio-manual" class="form-group" style="display:none;"><label>Parcel·les (selecció múltiple)</label><select id="tractament-parcelles" multiple size="10" onchange="calcularSuperficieTotal()"></select></div>';
+    html += '<div id="seleccio-manual" class="form-group" style="display:none;">...</div>';
     
     html += '<div class="form-group"><label>Superfície Total: <span id="superficie-total">0</span> Ha</label></div>';
     
@@ -366,11 +364,8 @@ function crearModalTractament() {
 
 function canviarTipusSeleccio() {
     const tipus = document.querySelector('input[name="seleccio-tipus"]:checked').value;
-    
     document.getElementById('seleccio-finca').style.display = tipus === 'finca' ? 'block' : 'none';
     document.getElementById('seleccio-varietat').style.display = tipus === 'varietat' ? 'block' : 'none';
-    document.getElementById('seleccio-manual').style.display = tipus === 'manual' ? 'block' : 'none';
-    
     actualitzarParcellesSeleccionades();
 }
 
@@ -399,15 +394,14 @@ function actualitzarVarietatsDisponibles() {
 
 function actualitzarParcellesSeleccionades() {
     const tipus = document.querySelector('input[name="seleccio-tipus"]:checked').value;
-    
+
     if (tipus === 'finca') {
-        const finca = document.getElementById('tractament-finca').value;
-        if (finca) {
-            const parcellesFinca = parcelles.filter(function(p) { return p.finca === finca; });
-            calcularSuperficieTotal(parcellesFinca);
-        } else {
-            calcularSuperficieTotal([]);
-        }
+        const checks = document.querySelectorAll('#tractament-finques-checks input[type="checkbox"]:checked');
+        const fincesSeleccionades = Array.from(checks).map(function(c) { return c.value; });
+        const parcellesFinca = parcelles.filter(function(p) { 
+            return fincesSeleccionades.includes(p.finca); 
+        });
+        calcularSuperficieTotal(parcellesFinca);
     } else if (tipus === 'varietat') {
         const finca = document.getElementById('tractament-finca-varietat').value;
         const varietat = document.getElementById('tractament-varietat').value;
@@ -419,8 +413,6 @@ function actualitzarParcellesSeleccionades() {
         } else {
             calcularSuperficieTotal([]);
         }
-    } else {
-        calcularSuperficieTotal();
     }
 }
 
@@ -503,25 +495,25 @@ async function obrirModalTractament() {
     const avui = new Date().toISOString().split('T')[0];
     document.getElementById('tractament-data').value = avui;
     
-    const selectFinca = document.getElementById('tractament-finca');
     const selectFincaVarietat = document.getElementById('tractament-finca-varietat');
-    const selectParcelles = document.getElementById('tractament-parcelles');
-    const selectProducte = document.getElementById('tractament-producte');
-    
-    selectFinca.innerHTML = '<option value="">Seleccionar...</option>';
-    selectFincaVarietat.innerHTML = '<option value="">Seleccionar...</option>';
-    selectParcelles.innerHTML = '';
-    selectProducte.innerHTML = '<option value="">Seleccionar...</option>';
-    
-    finques.forEach(function(finca) {
-        selectFinca.innerHTML += '<option value="' + finca + '">' + finca + '</option>';
-        selectFincaVarietat.innerHTML += '<option value="' + finca + '">' + finca + '</option>';
-    });
-    
-    parcelles.forEach(function(p) {
-        selectParcelles.innerHTML += '<option value="' + p.id + '">' + p.nom + ' (' + p.superficie + ' Ha)</option>';
-    });
-    
+	const selectProducte = document.getElementById('tractament-producte');
+
+	selectFincaVarietat.innerHTML = '<option value="">Seleccionar...</option>';
+	selectProducte.innerHTML = '<option value="">Seleccionar...</option>';
+
+	// Carregar checkboxes de finques
+	const checksContainer = document.getElementById('tractament-finques-checks');
+	checksContainer.innerHTML = '';
+	finques.forEach(function(finca) {
+    checksContainer.innerHTML += 
+        '<label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:2px solid #ddd;border-radius:8px;cursor:pointer;background:white;">' +
+        '<input type="checkbox" value="' + finca + '" onchange="actualitzarParcellesSeleccionades()" style="margin:0;">' +
+        finca + '</label>';
+});
+
+finques.forEach(function(finca) {
+    selectFincaVarietat.innerHTML += '<option value="' + finca + '">' + finca + '</option>';
+});
     // Ordenar fitosanitaris alfabèticament
     const fitosanitarisOrdenats = fitosanitaris.slice().sort(function(a, b) {
         return (a.nom || '').localeCompare(b.nom || '');
@@ -562,9 +554,16 @@ async function guardarTractament(event) {
     let parcellesATractar = [];
     
     if (tipus === 'finca') {
-        const finca = document.getElementById('tractament-finca').value;
-        parcellesATractar = parcelles.filter(function(p) { return p.finca === finca; });
-    } else if (tipus === 'varietat') {
+    const checks = document.querySelectorAll('#tractament-finques-checks input[type="checkbox"]:checked');
+    const fincesSeleccionades = Array.from(checks).map(function(c) { return c.value; });
+    if (fincesSeleccionades.length === 0) {
+        mostrarNotificacio('Cal seleccionar almenys una finca', 'error');
+        return;
+    }
+    parcellesATractar = parcelles.filter(function(p) { 
+        return fincesSeleccionades.includes(p.finca); 
+    });
+	} else if (tipus === 'varietat') {
         const finca = document.getElementById('tractament-finca-varietat').value;
         const varietat = document.getElementById('tractament-varietat').value;
         parcellesATractar = parcelles.filter(function(p) { 
