@@ -332,7 +332,7 @@ function crearModalTractament() {
 	html += '<input type="radio" name="seleccio-tipus" value="varietat" onchange="canviarTipusSeleccio();" style="margin: 0;"> <span style="font-weight: 500;">🌾 Per Varietat</span></label>';
 	html += '</div></div>';
     
-	html += '<div id="seleccio-finca" class="form-group"><label>Selecciona Finques</label><div id="tractament-finques-checks" style="display:block; margin-top:8px;"></div></div>';
+	html += '<div id="seleccio-finca" class="form-group"><label>Selecciona Finques</label><div id="tractament-finques-checks" style="display:block; margin-top:8px; width:100%;"></div></div>';
     html += '<div id="seleccio-varietat" class="form-group" style="display:none;"><label>Finca</label><select id="tractament-finca-varietat" onchange="actualitzarVarietatsDisponibles()"><option value="">Seleccionar...</option></select>';
     html += '<label style="margin-top: 10px;">Varietat</label><select id="tractament-varietat" onchange="actualitzarParcellesSeleccionades()"><option value="">Seleccionar...</option></select></div>';
     html += '<div id="seleccio-manual" class="form-group" style="display:none;">...</div>';
