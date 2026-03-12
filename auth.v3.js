@@ -204,4 +204,3 @@ async function tancarSessio() {
 }
 
 	console.log('✅ Auth system v3 carregat');
-}
