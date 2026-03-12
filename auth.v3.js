@@ -21,15 +21,18 @@ if (session) {
 }
     
     // Listener canvis auth
-    supabaseClient.auth.onAuthStateChange(async (event, session) => {
-        console.log('Auth event:', event);
-        
-        if (event === 'SIGNED_IN' && session) {
-            await iniciarSessio(session.user);
-        } else if (event === 'SIGNED_OUT') {
-            mostrarPantallaLogin();
+  supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    console.log('Auth event:', event);
+    
+    if (event === 'SIGNED_IN' && session) {
+        if (currentUser) {
+            console.log('🔄 Sessió refrescada, ignorant reinici');
+            return;
         }
-    });
+        await iniciarSessio(session.user);
+    } else if (event === 'SIGNED_OUT') {
+        mostrarPantallaLogin();
+    }
 });
 
 // Iniciar sessió
