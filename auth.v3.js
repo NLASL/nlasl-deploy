@@ -1,25 +1,47 @@
 // ============================================================
 // AUTH SYSTEM v3 - Amb suport treballadors
 // ============================================================
-
 let currentUser = null;
 let currentUserProfile = null;
+let ignorarProximSignedIn = false;
 
-document.addEventListener('DOMContentLoaded', async function() {
-    console.log('馃殌 Iniciant aplicaci贸...');
-    
-    const { data: { session } } = await supabaseClient.auth.getSession();
-
-console.log('馃搷 Session:', session);  // DEBUG
-
-if (session) {
-    console.log('馃搷 T茅 sessi贸, carregant...');
-    await iniciarSessio(session.user);
-} else {
-    console.log('馃搷 NO t茅 sessi贸, mostrant login...');
-    mostrarPantallaLogin();
+// Login amb email/password
+async function login(event) {
+    event.preventDefault();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const errorDiv = document.getElementById('login-error');
+    try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
+        if (error) throw error;
+        console.log('? Login correcte');
+    } catch (error) {
+        console.error('? Error login:', error);
+        errorDiv.textContent = 'Email o contrasenya incorrectes';
+        errorDiv.style.display = 'block';
+    }
 }
- 
+
+// Tancar sessió
+async function tancarSessio() {
+    try {
+        ignorarProximSignedIn = true;
+        await supabaseClient.auth.signOut();
+        currentUser = null;
+        currentUserProfile = null;
+        mostrarPantallaLogin();
+        mostrarNotificacio('Sessió tancada', 'success');
+    } catch (error) {
+        console.error('Error tancant sessió:', error);
+        mostrarNotificacio('Error tancant sessió', 'error');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', async function() { 
+
 let ignorarProximSignedIn = false;
 
 // Listener canvis auth
@@ -171,45 +193,6 @@ function mostrarInfoUsuari() {
         '<span class="user-badge ' + badgeClass + '">' + rolText + '</span>';
 }
 
-// Login amb email/password
-async function login(event) {
-    event.preventDefault();
-    
-    const email = document.getElementById('login-email').value.trim();
-    const password = document.getElementById('login-password').value;
-    const errorDiv = document.getElementById('login-error');
-    
-    try {
-        const { data, error } = await supabaseClient.auth.signInWithPassword({
-            email: email,
-            password: password
-        });
-        
-        if (error) throw error;
-        
-        console.log('鉁?Login correcte');
-        
-    } catch (error) {
-        console.error('鉂?Error login:', error);
-        errorDiv.textContent = 'Email o contrasenya incorrectes';
-        errorDiv.style.display = 'block';
-    }
-}
-
-// Tancar sessi贸
-async function tancarSessio() {
-    try {
-        ignorarProximSignedIn = true;
-        await supabaseClient.auth.signOut();
-        currentUser = null;
-        currentUserProfile = null;
-        mostrarPantallaLogin();
-        mostrarNotificacio('Sessió tancada', 'success');
-    } catch (error) {
-        console.error('Error tancant sessió:', error);
-        mostrarNotificacio('Error tancant sessió', 'error');
-    }
-}
 
 console.log('鉁?Auth system v3 carregat');
 });
