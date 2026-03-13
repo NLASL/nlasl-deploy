@@ -19,18 +19,25 @@ if (session) {
     console.log('üìç NO t√© sessi√≥, mostrant login...');
     mostrarPantallaLogin();
 }
-    
-    // Listener canvis auth
- supabaseClient.auth.onAuthStateChange(async (event, session) => {
+ 
+let ignorarProximSignedIn = false;
+
+// Listener canvis auth
+supabaseClient.auth.onAuthStateChange(async (event, session) => {
     console.log('Auth event:', event);
     
     if (event === 'SIGNED_IN' && session) {
+        if (ignorarProximSignedIn) {
+            ignorarProximSignedIn = false;
+            return;
+        }
         if (typeof currentUser !== 'undefined' && currentUser) {
-            console.log('üîÑ Sessi√≥ refrescada, ignorant reinici');
+            console.log('?? Sessi®Æ refrescada, ignorant reinici');
             return;
         }
         await iniciarSessio(session.user);
     } else if (event === 'SIGNED_OUT') {
+        ignorarProximSignedIn = false;
         mostrarPantallaLogin();
     }
 });
@@ -39,18 +46,18 @@ if (session) {
 async function iniciarSessio(user) {
     try {
         currentUser = user;
-        console.log('‚úÖ Usuari autenticat:', user.email);
+        console.log('‚ú?Usuari autenticat:', user.email);
         
         // Carregar perfil
         currentUserProfile = await getUserProfile(user.id);
         
         if (!currentUserProfile) {
-            console.error('‚ùå No s\'ha trobat el perfil de l\'usuari');
+            console.error('‚ù?No s\'ha trobat el perfil de l\'usuari');
             await supabaseClient.auth.signOut();
             return;
         }
         
-        console.log('‚úÖ Perfil carregat:', currentUserProfile);
+        console.log('‚ú?Perfil carregat:', currentUserProfile);
         
         // Carregar dades necess√†ries
         parcelles = await getParcellas();
@@ -180,10 +187,10 @@ async function login(event) {
         
         if (error) throw error;
         
-        console.log('‚úÖ Login correcte');
+        console.log('‚ú?Login correcte');
         
     } catch (error) {
-        console.error('‚ùå Error login:', error);
+        console.error('‚ù?Error login:', error);
         errorDiv.textContent = 'Email o contrasenya incorrectes';
         errorDiv.style.display = 'block';
     }
@@ -192,16 +199,17 @@ async function login(event) {
 // Tancar sessi√≥
 async function tancarSessio() {
     try {
+        ignorarProximSignedIn = true;
         await supabaseClient.auth.signOut();
         currentUser = null;
         currentUserProfile = null;
         mostrarPantallaLogin();
-        mostrarNotificacio('Sessi√≥ tancada', 'success');
+        mostrarNotificacio('Sessi®Æ tancada', 'success');
     } catch (error) {
-        console.error('Error tancant sessi√≥:', error);
-        mostrarNotificacio('Error tancant sessi√≥', 'error');
+        console.error('Error tancant sessi®Æ:', error);
+        mostrarNotificacio('Error tancant sessi®Æ', 'error');
     }
 }
 
-console.log('‚úÖ Auth system v3 carregat');
+console.log('‚ú?Auth system v3 carregat');
 });
