@@ -39,6 +39,22 @@ async function tancarSessio() {
         mostrarNotificacio('Error tancant sessi��', 'error');
     }
 }
+// Mostrar pantalla de login
+function mostrarPantallaLogin() {
+    console.log('📍 Executant mostrarPantallaLogin...');
+    const loginScreen = document.getElementById('login-screen');
+    const appScreen = document.getElementById('app-screen');
+    
+    console.log('📍 loginScreen exists?', !!loginScreen);
+    console.log('📍 appScreen exists?', !!appScreen);
+    
+    if (loginScreen) loginScreen.style.display = 'flex';
+    if (appScreen) appScreen.style.display = 'none';
+    
+    const errorDiv = document.getElementById('login-error');
+    if (errorDiv) errorDiv.style.display = 'none';
+}
+
 
 document.addEventListener('DOMContentLoaded', async function() { 
 
@@ -150,21 +166,7 @@ function ocultarMenuAdmin() {
         nav.insertBefore(btn, nav.firstChild);
     }
 }
-// Mostrar pantalla de login
-function mostrarPantallaLogin() {
-    console.log('📍 Executant mostrarPantallaLogin...');
-    const loginScreen = document.getElementById('login-screen');
-    const appScreen = document.getElementById('app-screen');
-    
-    console.log('📍 loginScreen exists?', !!loginScreen);
-    console.log('📍 appScreen exists?', !!appScreen);
-    
-    if (loginScreen) loginScreen.style.display = 'flex';
-    if (appScreen) appScreen.style.display = 'none';
-    
-    const errorDiv = document.getElementById('login-error');
-    if (errorDiv) errorDiv.style.display = 'none';
-}
+
 
 // Mostrar aplicació
 function mostrarApp() {
