@@ -1951,7 +1951,8 @@ async function carregarTaulaTreballadors() {
     if (!tbody) return;
     
     try {
-        treballadors = await getTreballadors();
+        const role = currentUserProfile ? currentUserProfile.role : '';
+		treballadors = await getTreballadors(role === 'admin');
         
         if (treballadors.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hi ha treballadors</td></tr>';
@@ -1964,23 +1965,48 @@ async function carregarTaulaTreballadors() {
         const mostrarPreu = role === 'admin' || role === 'editor';
         
         tbody.innerHTML = treballadors.map(function(t) {
-            const estat = t.actiu ? '<span style="color: green;">✓ Actiu</span>' : '<span style="color: gray;">✗ Inactiu</span>';
-            let accions = '<button class="btn btn-sm btn-primary" onclick="veureTreballador(\'' + t.id + '\')">👁️</button> ';
-            if (podeEditar) {
-                accions += '<button class="btn btn-sm btn-secondary" onclick="editarTreballador(\'' + t.id + '\')">✏️</button> ';
-            }
-            if (podeEliminar) {
-                accions += '<button class="btn btn-sm btn-danger" onclick="eliminarTreballador(\'' + t.id + '\')">🗑️</button>';
-            }
-            
-            const preu = mostrarPreu ? ((t.preu_hora || 0).toFixed(2) + ' €') : '-';
-            
-            return '<tr><td><strong>' + (t.nom || '-') + '</strong></td><td>' + (t.tipus || 'Propi') + '</td><td>' + (t.codi_usuari || '-') + '</td><td>' + (t.categoria || '-') + '</td><td>' + preu + '</td><td>' + estat + '</td><td>' + accions + '</td></tr>';
-        }).join('');
+			let estat;
+			if (t.eliminat) {
+				estat = '<span style="color: red;">🔴 Eliminat</span>';
+			} else if (t.actiu) {
+				estat = '<span style="color: green;">✓ Actiu</span>';
+			} else {
+				estat = '<span style="color: gray;">✗ Inactiu</span>';
+			}
+
+			let accions = '<button class="btn btn-sm btn-primary" onclick="veureTreballador(\'' + t.id + '\')">👁️</button> ';
+			if (t.eliminat) {
+				if (podeEditar) {
+					accions += '<button class="btn btn-sm btn-success" onclick="reactivarTreballador(\'' + t.id + '\')">♻️ Reactivar</button>';
+				}
+			} else {
+				if (podeEditar) {
+					accions += '<button class="btn btn-sm btn-secondary" onclick="editarTreballador(\'' + t.id + '\')">✏️</button> ';
+				}
+			if (podeEliminar) {
+				accions += '<button class="btn btn-sm btn-danger" onclick="eliminarTreballador(\'' + t.id + '\')">🗑️</button>';
+			}
+		}
+	
+		const preu = mostrarPreu ? ((t.preu_hora || 0).toFixed(2) + ' €') : '-';
+
+		return '<tr style="' + (t.eliminat ? 'opacity:0.6;background:#fff5f5;' : '') + '"><td><strong>' + (t.nom || '-') + '</strong></td><td>' + (t.tipus || 'Propi') + '</td><td>' + (t.codi_usuari || '-') + '</td><td>' + (t.categoria || '-') + '</td><td>' + preu + '</td><td>' + estat + '</td><td>' + accions + '</td></tr>';
+}).join('');
         
     } catch (error) {
         console.error('Error:', error);
         tbody.innerHTML = '<tr><td colspan="6">Error carregant dades</td></tr>';
+    }
+}
+
+async function reactivarTreballador(id) {
+    if (!confirm('Vols reactivar aquest treballador?')) return;
+    try {
+        await updateTreballador(id, { eliminat: false, eliminat_per: null, eliminat_at: null });
+        mostrarNotificacio('✅ Treballador reactivat', 'success');
+        await carregarTaulaTreballadors();
+    } catch (error) {
+        mostrarNotificacio('Error: ' + error.message, 'error');
     }
 }
 
