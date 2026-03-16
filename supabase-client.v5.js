@@ -227,24 +227,35 @@ async function getTreballadors() {
     const { data, error } = await supabaseClient
         .from('treballadors_amb_ban')
         .select('*')
+        .eq('eliminat', false)
         .order('nom');
     if (error) throw error;
     return data || [];
 }
 
 async function createTreballador(treballador) {
+    const treballadorAudit = {
+        ...treballador,
+        creat_per: currentUser ? currentUser.id : null,
+        creat_at: new Date().toISOString()
+    };
     const { data, error } = await supabaseClient
         .from('treballadors')
-        .insert([treballador])
+        .insert([treballadorAudit])
         .select();
     if (error) throw error;
     return data[0];
 }
 
 async function updateTreballador(id, treballador) {
+    const treballadorAudit = {
+        ...treballador,
+        modificat_per: currentUser ? currentUser.id : null,
+        modificat_at: new Date().toISOString()
+    };
     const { data, error } = await supabaseClient
         .from('treballadors')
-        .update(treballador)
+        .update(treballadorAudit)
         .eq('id', id)
         .select();
     if (error) throw error;
@@ -254,7 +265,11 @@ async function updateTreballador(id, treballador) {
 async function deleteTreballador(id) {
     const { error } = await supabaseClient
         .from('treballadors')
-        .delete()
+        .update({
+            eliminat: true,
+            eliminat_per: currentUser ? currentUser.id : null,
+            eliminat_at: new Date().toISOString()
+        })
         .eq('id', id);
     if (error) throw error;
 }
@@ -267,6 +282,7 @@ async function getControlHorari(filtres) {
     let query = supabaseClient
         .from('control_horari')
         .select('*')
+        .eq('eliminat', false)
         .order('data', { ascending: false });
     
     if (filtres) {
@@ -287,18 +303,28 @@ async function getControlHorari(filtres) {
 }
 
 async function createControlHorari(registre) {
+    const registreAudit = {
+        ...registre,
+        creat_per: currentUser ? currentUser.id : null,
+        creat_at: new Date().toISOString()
+    };
     const { data, error } = await supabaseClient
         .from('control_horari')
-        .insert([registre])
+        .insert([registreAudit])
         .select();
     if (error) throw error;
     return data[0];
 }
 
 async function updateControlHorari(id, registre) {
+    const registreAudit = {
+        ...registre,
+        modificat_per: currentUser ? currentUser.id : null,
+        modificat_at: new Date().toISOString()
+    };
     const { data, error } = await supabaseClient
         .from('control_horari')
-        .update(registre)
+        .update(registreAudit)
         .eq('id', id)
         .select();
     if (error) throw error;
@@ -308,7 +334,11 @@ async function updateControlHorari(id, registre) {
 async function deleteControlHorari(id) {
     const { error } = await supabaseClient
         .from('control_horari')
-        .delete()
+        .update({
+            eliminat: true,
+            eliminat_per: currentUser ? currentUser.id : null,
+            eliminat_at: new Date().toISOString()
+        })
         .eq('id', id);
     if (error) throw error;
 }
@@ -366,6 +396,7 @@ async function getIncidencies(filtres) {
     let query = supabaseClient
         .from('incidencies')
         .select('*')
+        .eq('eliminat', false)
         .order('data', { ascending: false });
     
     if (filtres) {
@@ -383,18 +414,28 @@ async function getIncidencies(filtres) {
 }
 
 async function createIncidencia(incidencia) {
+    const incidenciaAudit = {
+        ...incidencia,
+        creat_per: currentUser ? currentUser.id : null,
+        creat_at: new Date().toISOString()
+    };
     const { data, error } = await supabaseClient
         .from('incidencies')
-        .insert([incidencia])
+        .insert([incidenciaAudit])
         .select();
     if (error) throw error;
     return data[0];
 }
 
 async function updateIncidencia(id, incidencia) {
+    const incidenciaAudit = {
+        ...incidencia,
+        modificat_per: currentUser ? currentUser.id : null,
+        modificat_at: new Date().toISOString()
+    };
     const { data, error } = await supabaseClient
         .from('incidencies')
-        .update(incidencia)
+        .update(incidenciaAudit)
         .eq('id', id)
         .select();
     if (error) throw error;
@@ -404,7 +445,11 @@ async function updateIncidencia(id, incidencia) {
 async function deleteIncidencia(id) {
     const { error } = await supabaseClient
         .from('incidencies')
-        .delete()
+        .update({
+            eliminat: true,
+            eliminat_per: currentUser ? currentUser.id : null,
+            eliminat_at: new Date().toISOString()
+        })
         .eq('id', id);
     if (error) throw error;
 }
@@ -417,6 +462,7 @@ async function getAbsencies(filtres) {
     let query = supabaseClient
         .from('absencies')
         .select('*')
+        .eq('eliminat', false)
         .order('data_inici', { ascending: false });
     
     if (filtres) {
@@ -437,18 +483,28 @@ async function getAbsencies(filtres) {
 }
 
 async function createAbsencia(absencia) {
+    const absenciaAudit = {
+        ...absencia,
+        creat_per: currentUser ? currentUser.id : null,
+        creat_at: new Date().toISOString()
+    };
     const { data, error } = await supabaseClient
         .from('absencies')
-        .insert([absencia])
+        .insert([absenciaAudit])
         .select();
     if (error) throw error;
     return data[0];
 }
 
 async function updateAbsencia(id, absencia) {
+    const absenciaAudit = {
+        ...absencia,
+        modificat_per: currentUser ? currentUser.id : null,
+        modificat_at: new Date().toISOString()
+    };
     const { data, error } = await supabaseClient
         .from('absencies')
-        .update(absencia)
+        .update(absenciaAudit)
         .eq('id', id)
         .select();
     if (error) throw error;
@@ -458,7 +514,11 @@ async function updateAbsencia(id, absencia) {
 async function deleteAbsencia(id) {
     const { error } = await supabaseClient
         .from('absencies')
-        .delete()
+        .update({
+            eliminat: true,
+            eliminat_per: currentUser ? currentUser.id : null,
+            eliminat_at: new Date().toISOString()
+        })
         .eq('id', id);
     if (error) throw error;
 }
