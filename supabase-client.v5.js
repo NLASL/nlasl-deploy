@@ -274,6 +274,21 @@ async function deleteTreballador(id) {
     if (error) throw error;
 }
 
+async function getTreballadors(incloureEliminats = false) {
+    let query = supabaseClient
+        .from('treballadors_amb_ban')
+        .select('*')
+        .order('nom');
+    
+    if (!incloureEliminats) {
+        query = query.eq('eliminat', false);
+    }
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+}
+
 // ============================================================
 // CONTROL HORARI
 // ============================================================
