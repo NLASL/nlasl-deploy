@@ -1961,7 +1961,6 @@ async function carregarTaulaTreballadors() {
         
         const podeEditar = hasPermission('update');
         const podeEliminar = hasPermission('delete');
-        const role = currentUserProfile ? currentUserProfile.role : '';
         const mostrarPreu = role === 'admin' || role === 'editor';
         
         tbody.innerHTML = treballadors.map(function(t) {
