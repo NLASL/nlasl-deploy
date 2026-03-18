@@ -944,7 +944,6 @@ function crearModalFertilitzacio() {
     html += '<label style="flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: white; transition: all 0.2s;" onmouseover="this.style.borderColor=\'#4CAF50\'" onmouseout="if(!this.querySelector(\'input\').checked) this.style.borderColor=\'#ddd\'">';
     html += '<input type="radio" name="seleccio-tipus-fert" value="varietat" onchange="canviarTipusSeleccioFert(); document.querySelectorAll(\'label\').forEach(l => l.style.background=\'white\'); this.parentElement.style.background=\'#e8f5e9\'; document.querySelectorAll(\'label\').forEach(l => l.style.borderColor=\'#ddd\'); this.parentElement.style.borderColor=\'#4CAF50\';" style="margin: 0;"> <span style="font-weight: 500;">🌾 Per Varietat</span></label>';
     html += '<label style="flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: white; transition: all 0.2s;" onmouseover="this.style.borderColor=\'#4CAF50\'" onmouseout="if(!this.querySelector(\'input\').checked) this.style.borderColor=\'#ddd\'">';
-    html += '<input type="radio" name="seleccio-tipus-fert" value="manual" onchange="canviarTipusSeleccioFert(); document.querySelectorAll(\'label\').forEach(l => l.style.background=\'white\'); this.parentElement.style.background=\'#e8f5e9\'; document.querySelectorAll(\'label\').forEach(l => l.style.borderColor=\'#ddd\'); this.parentElement.style.borderColor=\'#4CAF50\';" style="margin: 0;"> <span style="font-weight: 500;">📍 Selecció Manual</span></label>';
     html += '</div></div>';
     
     html += '<div id="seleccio-finca-fert" class="form-group"><label>Selecciona Finques</label><div id="fertilitzacio-finques-checks" style="display:block;margin-top:8px;width:100%;"></div></div>';
@@ -1157,22 +1156,22 @@ async function guardarFertilitzacio(event) {
     const maquinaria = document.getElementById('fertilitzacio-maquinaria').value.trim();
     const observacions = document.getElementById('fertilitzacio-observacions').value.trim();
     
-    let parcellesAFertilitzar = [];
+let parcellesAFertilitzar = [];
     
- if (tipus === 'finca') {
+    if (tipus === 'finca') {
         const checks = document.querySelectorAll('#fertilitzacio-finques-checks input[type="checkbox"]:checked');
         const fincesSeleccionades = Array.from(checks).map(function(c) { return c.value; });
         if (fincesSeleccionades.length === 0) {
             mostrarNotificacio('Cal seleccionar almenys una finca', 'error');
             return;
         }
-        parcellesATractar = parcelles.filter(function(p) { 
+        parcellesAFertilitzar = parcelles.filter(function(p) { 
             return fincesSeleccionades.includes(p.finca); 
         });
     } else if (tipus === 'varietat') {
         const finca = document.getElementById('fertilitzacio-finca-varietat').value;
         const varietat = document.getElementById('fertilitzacio-varietat').value;
-        parcellesATractar = parcelles.filter(function(p) { 
+        parcellesAFertilitzar = parcelles.filter(function(p) { 
             return p.finca === finca && p.varietat === varietat; 
         });
     }
