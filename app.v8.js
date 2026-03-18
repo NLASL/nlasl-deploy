@@ -1036,16 +1036,6 @@ function calcularSuperficieTotalFert(parcellesSeleccionades) {
         superficie = parcellesSeleccionades.reduce(function(sum, p) {
             return sum + (parseFloat(p.superficie) || 0);
         }, 0);
-    } else {
-        const select = document.getElementById('fertilitzacio-parcelles');
-        const opcions = select.selectedOptions;
-        for (let i = 0; i < opcions.length; i++) {
-            const parcellaId = opcions[i].value;
-            const parcella = parcelles.find(function(p) { return p.id === parcellaId; });
-            if (parcella) {
-                superficie += parseFloat(parcella.superficie) || 0;
-            }
-        }
     }
     
     document.getElementById('superficie-total-fert').textContent = superficie.toFixed(2);
@@ -1170,32 +1160,21 @@ async function guardarFertilitzacio(event) {
     let parcellesAFertilitzar = [];
     
  if (tipus === 'finca') {
-    const checks = document.querySelectorAll('#fertilitzacio-finques-checks input[type="checkbox"]:checked');
-    const fincesSeleccionades = Array.from(checks).map(function(c) { return c.value; });
-    if (fincesSeleccionades.length === 0) {
-        mostrarNotificacio('Cal seleccionar almenys una finca', 'error');
-        return;
-    }
-    parcellesATractar = parcelles.filter(function(p) { 
-        return fincesSeleccionades.includes(p.finca); 
-    });
-}
+        const checks = document.querySelectorAll('#fertilitzacio-finques-checks input[type="checkbox"]:checked');
+        const fincesSeleccionades = Array.from(checks).map(function(c) { return c.value; });
+        if (fincesSeleccionades.length === 0) {
+            mostrarNotificacio('Cal seleccionar almenys una finca', 'error');
+            return;
+        }
+        parcellesATractar = parcelles.filter(function(p) { 
+            return fincesSeleccionades.includes(p.finca); 
+        });
     } else if (tipus === 'varietat') {
         const finca = document.getElementById('fertilitzacio-finca-varietat').value;
         const varietat = document.getElementById('fertilitzacio-varietat').value;
-        parcellesAFertilitzar = parcelles.filter(function(p) { 
+        parcellesATractar = parcelles.filter(function(p) { 
             return p.finca === finca && p.varietat === varietat; 
         });
-    } else {
-        const select = document.getElementById('fertilitzacio-parcelles');
-        const opcions = select.selectedOptions;
-        for (let i = 0; i < opcions.length; i++) {
-            const parcellaId = opcions[i].value;
-            const parcella = parcelles.find(function(p) { return p.id === parcellaId; });
-            if (parcella) {
-                parcellesAFertilitzar.push(parcella);
-            }
-        }
     }
     
     if (parcellesAFertilitzar.length === 0) {
