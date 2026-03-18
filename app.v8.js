@@ -947,10 +947,10 @@ function crearModalFertilitzacio() {
     html += '<input type="radio" name="seleccio-tipus-fert" value="manual" onchange="canviarTipusSeleccioFert(); document.querySelectorAll(\'label\').forEach(l => l.style.background=\'white\'); this.parentElement.style.background=\'#e8f5e9\'; document.querySelectorAll(\'label\').forEach(l => l.style.borderColor=\'#ddd\'); this.parentElement.style.borderColor=\'#4CAF50\';" style="margin: 0;"> <span style="font-weight: 500;">📍 Selecció Manual</span></label>';
     html += '</div></div>';
     
-    html += '<div id="seleccio-finca-fert" class="form-group"><label>Finca</label><select id="fertilitzacio-finca" onchange="actualitzarParcellesSeleccionadesFert()"><option value="">Seleccionar...</option></select></div>';
+    html += '<div id="seleccio-finca-fert" class="form-group"><label>Selecciona Finques</label><div id="fertilitzacio-finques-checks" style="display:block;margin-top:8px;width:100%;"></div></div>';
     html += '<div id="seleccio-varietat-fert" class="form-group" style="display:none;"><label>Finca</label><select id="fertilitzacio-finca-varietat" onchange="actualitzarVarietatsDisponiblesFert()"><option value="">Seleccionar...</option></select>';
     html += '<label style="margin-top: 10px;">Varietat</label><select id="fertilitzacio-varietat" onchange="actualitzarParcellesSeleccionadesFert()"><option value="">Seleccionar...</option></select></div>';
-    html += '<div id="seleccio-manual-fert" class="form-group" style="display:none;"><label>Parcel·les (selecció múltiple)</label><select id="fertilitzacio-parcelles" multiple size="10" onchange="calcularSuperficieTotalFert()"></select></div>';
+    
     
     html += '<div class="form-group"><label>Superfície Total: <span id="superficie-total-fert">0</span> Ha</label></div>';
     
@@ -982,7 +982,6 @@ function canviarTipusSeleccioFert() {
     const tipus = document.querySelector('input[name="seleccio-tipus-fert"]:checked').value;
     document.getElementById('seleccio-finca-fert').style.display = tipus === 'finca' ? 'block' : 'none';
     document.getElementById('seleccio-varietat-fert').style.display = tipus === 'varietat' ? 'block' : 'none';
-    document.getElementById('seleccio-manual-fert').style.display = tipus === 'manual' ? 'block' : 'none';
     actualitzarParcellesSeleccionadesFert();
 }
 
@@ -1009,15 +1008,13 @@ function actualitzarVarietatsDisponiblesFert() {
 
 function actualitzarParcellesSeleccionadesFert() {
     const tipus = document.querySelector('input[name="seleccio-tipus-fert"]:checked').value;
-    
     if (tipus === 'finca') {
-        const finca = document.getElementById('fertilitzacio-finca').value;
-        if (finca) {
-            const parcellesFinca = parcelles.filter(function(p) { return p.finca === finca; });
-            calcularSuperficieTotalFert(parcellesFinca);
-        } else {
-            calcularSuperficieTotalFert([]);
-        }
+        const checks = document.querySelectorAll('#fertilitzacio-finques-checks input[type="checkbox"]:checked');
+        const fincesSeleccionades = Array.from(checks).map(function(c) { return c.value; });
+        const parcellesFinca = parcelles.filter(function(p) { 
+            return fincesSeleccionades.includes(p.finca); 
+        });
+        calcularSuperficieTotalFert(parcellesFinca);
     } else if (tipus === 'varietat') {
         const finca = document.getElementById('fertilitzacio-finca-varietat').value;
         const varietat = document.getElementById('fertilitzacio-varietat').value;
@@ -1029,8 +1026,6 @@ function actualitzarParcellesSeleccionadesFert() {
         } else {
             calcularSuperficieTotalFert([]);
         }
-    } else {
-        calcularSuperficieTotalFert();
     }
 }
 
@@ -1126,29 +1121,27 @@ async function obrirModalFertilitzacio() {
     const avui = new Date().toISOString().split('T')[0];
     document.getElementById('fertilitzacio-data').value = avui;
     
-    const selectFinca = document.getElementById('fertilitzacio-finca');
     const selectFincaVarietat = document.getElementById('fertilitzacio-finca-varietat');
-    const selectParcelles = document.getElementById('fertilitzacio-parcelles');
     const selectProducte = document.getElementById('fertilitzacio-producte');
     
-    selectFinca.innerHTML = '<option value="">Seleccionar...</option>';
     selectFincaVarietat.innerHTML = '<option value="">Seleccionar...</option>';
-    selectParcelles.innerHTML = '';
     selectProducte.innerHTML = '<option value="">Seleccionar...</option>';
-    
+
+    // Carregar checkboxes de finques
+    const checksContainer = document.getElementById('fertilitzacio-finques-checks');
+    checksContainer.innerHTML = '';
     finques.forEach(function(finca) {
-        selectFinca.innerHTML += '<option value="' + finca + '">' + finca + '</option>';
+        checksContainer.innerHTML += 
+            '<div style="padding:4px 0;display:table;width:100%;">' +
+            '<input type="checkbox" value="' + finca + '" onchange="actualitzarParcellesSeleccionadesFert()" style="display:table-cell;vertical-align:middle;width:20px;">' +
+            '<span style="font-size:13px;display:table-cell;vertical-align:middle;padding-left:8px;color:black;text-align:left;width:100%;">' + finca + '</span>' +
+            '</div>';
         selectFincaVarietat.innerHTML += '<option value="' + finca + '">' + finca + '</option>';
-    });
-    
-    parcelles.forEach(function(p) {
-        selectParcelles.innerHTML += '<option value="' + p.id + '">' + p.nom + ' (' + p.superficie + ' Ha)</option>';
     });
     
     const fertilitzantsOrdenats = fertilitzants.slice().sort(function(a, b) {
         return (a.nom || '').localeCompare(b.nom || '');
     });
-    
     fertilitzantsOrdenats.forEach(function(f) {
         selectProducte.innerHTML += '<option value="' + f.id + '">' + f.nom + '</option>';
     });
@@ -1159,14 +1152,6 @@ async function obrirModalFertilitzacio() {
     document.getElementById('totals-npk').style.display = 'none';
     
     document.getElementById('modal-fertilitzacio').style.display = 'block';
-    
-    setTimeout(function() {
-        const primerRadio = document.querySelector('input[name="seleccio-tipus-fert"][value="finca"]');
-        if (primerRadio && primerRadio.parentElement) {
-            primerRadio.parentElement.style.background = '#e8f5e9';
-            primerRadio.parentElement.style.borderColor = '#4CAF50';
-        }
-    }, 50);
 }
 
 async function guardarFertilitzacio(event) {
@@ -1184,9 +1169,17 @@ async function guardarFertilitzacio(event) {
     
     let parcellesAFertilitzar = [];
     
-    if (tipus === 'finca') {
-        const finca = document.getElementById('fertilitzacio-finca').value;
-        parcellesAFertilitzar = parcelles.filter(function(p) { return p.finca === finca; });
+ if (tipus === 'finca') {
+    const checks = document.querySelectorAll('#fertilitzacio-finques-checks input[type="checkbox"]:checked');
+    const fincesSeleccionades = Array.from(checks).map(function(c) { return c.value; });
+    if (fincesSeleccionades.length === 0) {
+        mostrarNotificacio('Cal seleccionar almenys una finca', 'error');
+        return;
+    }
+    parcellesATractar = parcelles.filter(function(p) { 
+        return fincesSeleccionades.includes(p.finca); 
+    });
+}
     } else if (tipus === 'varietat') {
         const finca = document.getElementById('fertilitzacio-finca-varietat').value;
         const varietat = document.getElementById('fertilitzacio-varietat').value;
