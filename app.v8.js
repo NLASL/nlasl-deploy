@@ -938,13 +938,12 @@ function crearModalFertilitzacio() {
     html += '<div class="form-group"><label>Data Fertilització *</label><input type="date" id="fertilitzacio-data" required></div>';
     
     html += '<div class="form-group"><label>Selecció Parcel·les *</label>';
-    html += '<div style="display: flex; gap: 15px; margin-top: 10px;">';
-    html += '<label style="flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: white; transition: all 0.2s;" onmouseover="this.style.borderColor=\'#4CAF50\'" onmouseout="if(!this.querySelector(\'input\').checked) this.style.borderColor=\'#ddd\'">';
-    html += '<input type="radio" name="seleccio-tipus-fert" value="finca" onchange="canviarTipusSeleccioFert(); document.querySelectorAll(\'label\').forEach(l => l.style.background=\'white\'); this.parentElement.style.background=\'#e8f5e9\'; document.querySelectorAll(\'label\').forEach(l => l.style.borderColor=\'#ddd\'); this.parentElement.style.borderColor=\'#4CAF50\';" checked style="margin: 0;"> <span style="font-weight: 500;">🗺️ Per Finca</span></label>';
-    html += '<label style="flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: white; transition: all 0.2s;" onmouseover="this.style.borderColor=\'#4CAF50\'" onmouseout="if(!this.querySelector(\'input\').checked) this.style.borderColor=\'#ddd\'">';
-    html += '<input type="radio" name="seleccio-tipus-fert" value="varietat" onchange="canviarTipusSeleccioFert(); document.querySelectorAll(\'label\').forEach(l => l.style.background=\'white\'); this.parentElement.style.background=\'#e8f5e9\'; document.querySelectorAll(\'label\').forEach(l => l.style.borderColor=\'#ddd\'); this.parentElement.style.borderColor=\'#4CAF50\';" style="margin: 0;"> <span style="font-weight: 500;">🌾 Per Varietat</span></label>';
-    html += '<label style="flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: white; transition: all 0.2s;" onmouseover="this.style.borderColor=\'#4CAF50\'" onmouseout="if(!this.querySelector(\'input\').checked) this.style.borderColor=\'#ddd\'">';
-    html += '</div></div>';
+	html += '<div style="display: flex; gap: 15px; margin-top: 10px;">';
+	html += '<label style="flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: #e8f5e9; border-color: #4CAF50;">';
+	html += '<input type="radio" name="seleccio-tipus-fert" value="finca" onchange="canviarTipusSeleccioFert();" checked style="margin: 0;"> <span style="font-weight: 500;">🗺️ Per Finques</span></label>';
+	html += '<label style="flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: white;">';
+	html += '<input type="radio" name="seleccio-tipus-fert" value="varietat" onchange="canviarTipusSeleccioFert();" style="margin: 0;"> <span style="font-weight: 500;">🌾 Per Varietat</span></label>';
+	html += '</div></div>';
     
     html += '<div id="seleccio-finca-fert" class="form-group"><label>Selecciona Finques</label><div id="fertilitzacio-finques-checks" style="display:block;margin-top:8px;width:100%;"></div></div>';
     html += '<div id="seleccio-varietat-fert" class="form-group" style="display:none;"><label>Finca</label><select id="fertilitzacio-finca-varietat" onchange="actualitzarVarietatsDisponiblesFert()"><option value="">Seleccionar...</option></select>';
