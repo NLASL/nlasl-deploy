@@ -202,16 +202,16 @@ async function carregarDashboard() {
     const alertes = [];
 
     if (role === 'admin' || role === 'editor') {
-        if (absenciesPendents.length > 0) {
-            alertes.push({ color: '#ff9800', icon: '📅', text: absenciesPendents.length + (absenciesPendents.length > 1 ? ' absències pendents' : ' absència pendent') + ' d\'aprovació'
-        }
-        if (incidenciesPendents.length > 0) {
-            alertes.push({ color: '#f44336', icon: '⚠️', text: incidenciesPendents.length + (incidenciesPendents.length > 1 ? ' incidències pendents' : ' incidència pendent') + ' de resoldre'
-        }
-        if (entradesObertes.length > 0) {
-            alertes.push({ color: '#2196f3', icon: '⏰', text: entradesObertes.length + ' treballador' + (entradesObertes.length > 1 ? 's' : '') + ' amb entrada oberta sense sortida', accio: 'canviarVista(\'control-horari\')' });
-        }
+    if (absenciesPendents.length > 0) {
+        alertes.push({ color: '#ff9800', icon: '📅', text: absenciesPendents.length + (absenciesPendents.length > 1 ? ' absències pendents' : ' absència pendent') + ' d\'aprovació', accio: 'canviarVista(\'absencies\')' });
     }
+    if (incidenciesPendents.length > 0) {
+        alertes.push({ color: '#f44336', icon: '⚠️', text: incidenciesPendents.length + (incidenciesPendents.length > 1 ? ' incidències pendents' : ' incidència pendent') + ' de resoldre', accio: 'canviarVista(\'incidencies\')' });
+    }
+    if (entradesObertes.length > 0) {
+        alertes.push({ color: '#2196f3', icon: '⏰', text: entradesObertes.length + ' treballador' + (entradesObertes.length > 1 ? 's' : '') + ' amb entrada oberta sense sortida', accio: 'canviarVista(\'control-horari\')' });
+    }
+}
 
     if (alertes.length > 0) {
         html += '<div style="margin-bottom:30px;">';
