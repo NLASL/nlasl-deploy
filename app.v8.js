@@ -132,7 +132,10 @@ function canviarVista(vista) {
         case 'absencies':
             carregarVistaAbsencies();
             break;
-        default:
+		case 'alertes':
+            carregarVistaAlertes();
+            break;
+		default:
             container.innerHTML = '<p>Vista no trobada</p>';
     }
 }
@@ -241,7 +244,7 @@ async function carregarDashboard() {
         html += '<div style="margin-bottom:30px;">';
         html += '<h3>🔔 Alertes</h3>';
         html += '<div style="display:flex;flex-direction:column;gap:10px;">';
-        alertesArray.forEach(function(a) {
+        alertes.forEach(function(a) {
             html += '<div onclick="' + a.accio + '" style="display:flex;align-items:center;gap:12px;padding:14px 18px;background:white;border-left:4px solid ' + a.color + ';border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;transition:transform 0.1s;" onmouseover="this.style.transform=\'translateX(4px)\'" onmouseout="this.style.transform=\'translateX(0)\'">';
             html += '<span style="font-size:22px;">' + a.icon + '</span>';
             html += '<span style="font-size:15px;font-weight:500;color:#333;">' + a.text + '</span>';
@@ -273,6 +276,148 @@ async function carregarDashboard() {
 function seleccionarFinca(finca) {
     fincaSeleccionada = finca || null;
     carregarDashboard();
+}
+
+async function carregarVistaAlertes() {
+    const container = document.getElementById('view-container');
+    const podeEditar = hasPermission('update');
+    const podeCrear = hasPermission('insert');
+
+    let html = '<div class="view-alertes">';
+    html += '<div style="display:flex;justify-content:space-between;margin-bottom:20px;">';
+    html += '<h2>🔔 Alertes i Calendari</h2>';
+    if (podeCrear) {
+        html += '<button class="btn btn-primary" onclick="obrirModalAlerta()">➕ Nova Alerta</button>';
+    }
+    html += '</div>';
+    html += '<div class="table-container"><table class="data-table">';
+    html += '<thead><tr><th>Títol</th><th>Tipus</th><th>Data Inici</th><th>Data Fi</th><th>Dies Avis</th><th>Repetició</th><th>Estat</th><th>Accions</th></tr></thead>';
+    html += '<tbody id="tbody-alertes"><tr><td colspan="8">Carregant...</td></tr></tbody>';
+    html += '</table></div></div>';
+
+    html += crearModalAlerta();
+
+    container.innerHTML = html;
+    await carregarTaulaAlertes();
+}
+
+async function carregarTaulaAlertes() {
+    const tbody = document.getElementById('tbody-alertes');
+    if (!tbody) return;
+
+    try {
+        const totes = await supabaseClient.from('alertes').select('*').order('data_inici');
+        if (totes.error) throw totes.error;
+        const dades = totes.data || [];
+
+        if (dades.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No hi ha alertes</td></tr>';
+            return;
+        }
+
+        const podeEditar = hasPermission('update');
+        const podeEliminar = hasPermission('delete');
+
+        tbody.innerHTML = dades.map(function(a) {
+            const tipus = { fiscal: '💰 Fiscal', agricola: '🌱 Agrícola', laboral: '👥 Laboral', altres: '📌 Altres' }[a.tipus] || a.tipus;
+            const estat = a.activa ? '<span style="color:green;">✓ Activa</span>' : '<span style="color:gray;">✗ Inactiva</span>';
+            const repeticio = a.repeticio_anual ? '🔄 Anual' : '-';
+            let accions = '';
+            if (podeEditar) accions += '<button class="btn btn-sm btn-secondary" onclick="editarAlerta(\'' + a.id + '\')">✏️</button> ';
+            if (podeEliminar) accions += '<button class="btn btn-sm btn-danger" onclick="eliminarAlerta(\'' + a.id + '\')">🗑️</button>';
+            return '<tr><td><strong>' + a.titol + '</strong>' + (a.descripcio ? '<br><small style="color:#999;">' + a.descripcio + '</small>' : '') + '</td><td>' + tipus + '</td><td>' + formatData(a.data_inici) + '</td><td>' + (a.data_fi ? formatData(a.data_fi) : '-') + '</td><td>' + (a.dies_avis || 30) + ' dies</td><td>' + repeticio + '</td><td>' + estat + '</td><td>' + accions + '</td></tr>';
+        }).join('');
+
+    } catch (error) {
+        tbody.innerHTML = '<tr><td colspan="8">Error: ' + error.message + '</td></tr>';
+    }
+}
+
+function crearModalAlerta() {
+    let html = '<div id="modal-alerta" class="modal" style="display:none;">';
+    html += '<div class="modal-content" style="max-width:600px;">';
+    html += '<span class="close" onclick="tancarModal(\'modal-alerta\')">&times;</span>';
+    html += '<h2 id="modal-alerta-titol">Nova Alerta</h2>';
+    html += '<form id="form-alerta" onsubmit="guardarAlerta(event)">';
+    html += '<input type="hidden" id="alerta-id">';
+    html += '<div class="form-group"><label>Títol *</label><input type="text" id="alerta-titol" required></div>';
+    html += '<div class="form-group"><label>Descripció</label><textarea id="alerta-descripcio" rows="2"></textarea></div>';
+    html += '<div class="form-group"><label>Tipus *</label><select id="alerta-tipus" required><option value="">Seleccionar...</option><option value="fiscal">💰 Fiscal</option><option value="agricola">🌱 Agrícola</option><option value="laboral">👥 Laboral</option><option value="altres">📌 Altres</option></select></div>';
+    html += '<div class="form-group"><label>Data Inici *</label><input type="date" id="alerta-data-inici" required></div>';
+    html += '<div class="form-group"><label>Data Fi</label><input type="date" id="alerta-data-fi"></div>';
+    html += '<div class="form-group"><label>Dies d\'avis previ</label><input type="number" id="alerta-dies-avis" value="30" min="1"></div>';
+    html += '<div class="form-group"><label><input type="checkbox" id="alerta-repeticio" style="margin-right:8px;">Repetició anual</label></div>';
+    html += '<div class="form-group"><label><input type="checkbox" id="alerta-activa" checked style="margin-right:8px;">Activa</label></div>';
+    html += '<div class="form-actions"><button type="button" class="btn btn-secondary" onclick="tancarModal(\'modal-alerta\')">Cancel·lar</button>';
+    html += '<button type="submit" class="btn btn-primary">Guardar</button></div>';
+    html += '</form></div></div>';
+    return html;
+}
+
+function obrirModalAlerta() {
+    document.getElementById('modal-alerta-titol').textContent = 'Nova Alerta';
+    document.getElementById('form-alerta').reset();
+    document.getElementById('alerta-id').value = '';
+    document.getElementById('alerta-activa').checked = true;
+    document.getElementById('alerta-dies-avis').value = 30;
+    document.getElementById('modal-alerta').style.display = 'block';
+}
+
+async function editarAlerta(id) {
+    const { data, error } = await supabaseClient.from('alertes').select('*').eq('id', id).single();
+    if (error) return;
+    document.getElementById('modal-alerta-titol').textContent = 'Editar Alerta';
+    document.getElementById('alerta-id').value = data.id;
+    document.getElementById('alerta-titol').value = data.titol || '';
+    document.getElementById('alerta-descripcio').value = data.descripcio || '';
+    document.getElementById('alerta-tipus').value = data.tipus || '';
+    document.getElementById('alerta-data-inici').value = data.data_inici || '';
+    document.getElementById('alerta-data-fi').value = data.data_fi || '';
+    document.getElementById('alerta-dies-avis').value = data.dies_avis || 30;
+    document.getElementById('alerta-repeticio').checked = data.repeticio_anual || false;
+    document.getElementById('alerta-activa').checked = data.activa !== false;
+    document.getElementById('modal-alerta').style.display = 'block';
+}
+
+async function guardarAlerta(event) {
+    event.preventDefault();
+    const id = document.getElementById('alerta-id').value;
+    const dades = {
+        titol: document.getElementById('alerta-titol').value.trim(),
+        descripcio: document.getElementById('alerta-descripcio').value.trim() || null,
+        tipus: document.getElementById('alerta-tipus').value,
+        data_inici: document.getElementById('alerta-data-inici').value,
+        data_fi: document.getElementById('alerta-data-fi').value || null,
+        dies_avis: parseInt(document.getElementById('alerta-dies-avis').value) || 30,
+        repeticio_anual: document.getElementById('alerta-repeticio').checked,
+        activa: document.getElementById('alerta-activa').checked
+    };
+    try {
+        if (id) {
+            await updateAlerta(id, dades);
+            mostrarNotificacio('Alerta actualitzada', 'success');
+        } else {
+            await createAlerta(dades);
+            mostrarNotificacio('Alerta creada', 'success');
+        }
+        tancarModal('modal-alerta');
+        await carregarTaulaAlertes();
+        alertes = await getAlertes();
+    } catch (error) {
+        mostrarNotificacio('Error: ' + error.message, 'error');
+    }
+}
+
+async function eliminarAlerta(id) {
+    if (!confirm('Segur que vols eliminar aquesta alerta?')) return;
+    try {
+        await deleteAlerta(id);
+        mostrarNotificacio('Alerta eliminada', 'success');
+        await carregarTaulaAlertes();
+        alertes = await getAlertes();
+    } catch (error) {
+        mostrarNotificacio('Error: ' + error.message, 'error');
+    }
 }
 
 // ============================================================
