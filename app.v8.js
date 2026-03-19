@@ -244,7 +244,7 @@ async function carregarDashboard() {
         html += '<div style="margin-bottom:30px;">';
         html += '<h3>🔔 Alertes</h3>';
         html += '<div style="display:flex;flex-direction:column;gap:10px;">';
-        alertes.forEach(function(a) {
+        alertesArray.forEach(function(a) {
             html += '<div onclick="' + a.accio + '" style="display:flex;align-items:center;gap:12px;padding:14px 18px;background:white;border-left:4px solid ' + a.color + ';border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;transition:transform 0.1s;" onmouseover="this.style.transform=\'translateX(4px)\'" onmouseout="this.style.transform=\'translateX(0)\'">';
             html += '<span style="font-size:22px;">' + a.icon + '</span>';
             html += '<span style="font-size:15px;font-weight:500;color:#333;">' + a.text + '</span>';
