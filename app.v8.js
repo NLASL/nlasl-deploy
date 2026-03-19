@@ -217,28 +217,29 @@ async function carregarDashboard() {
     }
 
     // Afegir alertes de la BD
-    alertesArray.forEach(function(a) {
-        const dataInici = new Date(a.data_inici);
-        const dataFi = a.data_fi ? new Date(a.data_fi) : null;
-        const diesAvis = a.dies_avis || 30;
-        const dataAvis = new Date(dataInici);
-        dataAvis.setDate(dataAvis.getDate() - diesAvis);
-        const avuiDate = new Date(avui);
-        if (avuiDate >= dataAvis && (!dataFi || avuiDate <= dataFi)) {
-            const diesRestants = Math.ceil((dataInici - avuiDate) / 86400000);
-            let color = '#4caf50';
-            if (diesRestants <= 7) color = '#f44336';
-            else if (diesRestants <= 15) color = '#ff9800';
-            let text = a.titol;
-            if (diesRestants > 0) text += ' — d\'aquí ' + diesRestants + ' dies';
-            else if (diesRestants === 0) text += ' — avui!';
-            else text += ' — en curs';
-            const tipus = a.tipus || 'altres';
-            const icones = { fiscal: '💰', agricola: '🌱', laboral: '👥', altres: '📌' };
-            const icona = icones[tipus] || '📌';
-            alertesArray.push({ color: color, icon: icona, text: text, accio: 'canviarVista(\'alertes\')' });
-        }
-    });
+alertes.forEach(function(a) {
+    const dataInici = new Date(a.data_inici);
+    const dataFi = a.data_fi ? new Date(a.data_fi) : null;
+    const diesAvis = a.dies_avis || 30;
+    const dataAvis = new Date(dataInici);
+    dataAvis.setDate(dataAvis.getDate() - diesAvis);
+    const avuiDate = new Date(avui);
+    const dataFiEfectiva = dataFi || dataInici;
+    if (avuiDate >= dataAvis && avuiDate <= new Date(dataFiEfectiva.getTime() + 30*86400000)) {
+        const diesRestants = Math.ceil((dataInici - avuiDate) / 86400000);
+        let color = '#4caf50';
+        if (diesRestants <= 7) color = '#f44336';
+        else if (diesRestants <= 15) color = '#ff9800';
+        let text = a.titol;
+        if (diesRestants > 0) text += ' — d\'aquí ' + diesRestants + ' dies';
+        else if (diesRestants === 0) text += ' — avui!';
+        else text += ' — en curs';
+        const tipus = a.tipus || 'altres';
+        const icones = { fiscal: '💰', agricola: '🌱', laboral: '👥', altres: '📌' };
+        const icona = icones[tipus] || '📌';
+        alertesArray.push({ color: color, icon: icona, text: text, accio: 'canviarVista(\'alertes\')' });
+    }
+});
 
     if (alertesArray.length > 0) {
         html += '<div style="margin-bottom:30px;">';
