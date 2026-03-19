@@ -29,7 +29,7 @@ async function login(event) {
 async function tancarSessio() {
     try {
         ignorarProximSignedIn = true;
-        await supabaseClient.auth.signOut();
+        await supabaseClient.auth.signOut({ scope: 'global' });
         currentUser = null;
         currentUserProfile = null;
         mostrarPantallaLogin();
