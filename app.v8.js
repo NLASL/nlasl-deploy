@@ -191,7 +191,42 @@ async function carregarDashboard() {
     html += '<div class="stat-card"><div class="stat-icon">🌱</div><div class="stat-info"><div class="stat-value">' + tractaments.length + '</div><div class="stat-label">Tractaments</div></div></div>';
     html += '<div class="stat-card"><div class="stat-icon">🧪</div><div class="stat-info"><div class="stat-value">' + fitosanitaris.length + '</div><div class="stat-label">Fitosanitaris</div></div></div>';
     html += '</div>';
-    
+
+    // BLOC ALERTES
+    const absenciesPendents = absencies.filter(function(a) { return a.estat === 'pendent'; });
+    const incidenciesPendents = incidencies.filter(function(i) { return i.estat === 'pendent'; });
+    const avui = new Date().toISOString().split('T')[0];
+    const entradesObertes = controlHorari.filter(function(r) { return r.data === avui && r.hora_entrada && !r.hora_sortida; });
+
+    const role = currentUserProfile ? currentUserProfile.role : 'visor';
+    const alertes = [];
+
+    if (role === 'admin' || role === 'editor') {
+        if (absenciesPendents.length > 0) {
+            alertes.push({ color: '#ff9800', icon: '📅', text: absenciesPendents.length + ' absència' + (absenciesPendents.length > 1 ? 'es' : '') + ' pendent' + (absenciesPendents.length > 1 ? 's' : '') + ' d\'aprovació', accio: 'canviarVista(\'absencies\')' });
+        }
+        if (incidenciesPendents.length > 0) {
+            alertes.push({ color: '#f44336', icon: '⚠️', text: incidenciesPendents.length + ' incidència' + (incidenciesPendents.length > 1 ? 'es' : '') + ' pendent' + (incidenciesPendents.length > 1 ? 's' : '') + ' de resoldre', accio: 'canviarVista(\'incidencies\')' });
+        }
+        if (entradesObertes.length > 0) {
+            alertes.push({ color: '#2196f3', icon: '⏰', text: entradesObertes.length + ' treballador' + (entradesObertes.length > 1 ? 's' : '') + ' amb entrada oberta sense sortida', accio: 'canviarVista(\'control-horari\')' });
+        }
+    }
+
+    if (alertes.length > 0) {
+        html += '<div style="margin-bottom:30px;">';
+        html += '<h3>🔔 Alertes</h3>';
+        html += '<div style="display:flex;flex-direction:column;gap:10px;">';
+        alertes.forEach(function(a) {
+            html += '<div onclick="' + a.accio + '" style="display:flex;align-items:center;gap:12px;padding:14px 18px;background:white;border-left:4px solid ' + a.color + ';border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;transition:transform 0.1s;" onmouseover="this.style.transform=\'translateX(4px)\'" onmouseout="this.style.transform=\'translateX(0)\'">';
+            html += '<span style="font-size:22px;">' + a.icon + '</span>';
+            html += '<span style="font-size:15px;font-weight:500;color:#333;">' + a.text + '</span>';
+            html += '<span style="margin-left:auto;color:#999;font-size:18px;">›</span>';
+            html += '</div>';
+        });
+        html += '</div></div>';
+    }
+
     if (Object.keys(cultius).length > 0) {
         html += '<div style="margin-top: 30px;"><h3>📊 Distribució per Cultiu</h3><div class="table-container"><table class="data-table">';
         html += '<thead><tr><th>Cultiu</th><th>Parcel·les</th><th>Hectàrees</th></tr></thead><tbody>';
