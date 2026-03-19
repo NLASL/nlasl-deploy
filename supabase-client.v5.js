@@ -552,4 +552,43 @@ function subscribeToChanges(table, callback) {
         .subscribe();
 }
 
+async function getAlertes() {
+    const avui = new Date().toISOString().split('T')[0];
+    const { data, error } = await supabaseClient
+        .from('alertes')
+        .select('*')
+        .eq('activa', true)
+        .lte('data_inici', new Date(new Date().setDate(new Date().getDate() + 60)).toISOString().split('T')[0])
+        .order('data_inici');
+    if (error) throw error;
+    return data || [];
+}
+
+async function createAlerta(alerta) {
+    const { data, error } = await supabaseClient
+        .from('alertes')
+        .insert([{ ...alerta, creat_per: currentUser ? currentUser.id : null }])
+        .select();
+    if (error) throw error;
+    return data[0];
+}
+
+async function updateAlerta(id, alerta) {
+    const { data, error } = await supabaseClient
+        .from('alertes')
+        .update(alerta)
+        .eq('id', id)
+        .select();
+    if (error) throw error;
+    return data[0];
+}
+
+async function deleteAlerta(id) {
+    const { error } = await supabaseClient
+        .from('alertes')
+        .delete()
+        .eq('id', id);
+    if (error) throw error;
+}
+
 console.log('✅ Supabase client v5 carregat');

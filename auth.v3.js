@@ -93,7 +93,7 @@ async function iniciarSessio(user) {
         
         console.log('‚ú?Perfil carregat:', currentUserProfile);
         
-        // Carregar dades necess√†ries
+       // Carregar dades necess®§ries
         parcelles = await getParcellas();
         finques = await getFinques();
         treballadors = await getTreballadors();
@@ -106,6 +106,7 @@ async function iniciarSessio(user) {
         motiusAbsencia = await getMotiusAbsencia();
         incidencies = await getIncidencies();
         absencies = await getAbsencies();
+        alertes = await getAlertes();
         
         // Detectar si √©s treballador
         const treballador = treballadors.find(function(t) { 

@@ -16,6 +16,7 @@ let motiusAbsencia = [];
 let incidencies = [];
 let absencies = [];
 let finques = [];
+let alertes = [];
 let fincaSeleccionada = null;
 let vistaActual = 'dashboard';
 
@@ -192,32 +193,55 @@ async function carregarDashboard() {
     html += '<div class="stat-card"><div class="stat-icon">🧪</div><div class="stat-info"><div class="stat-value">' + fitosanitaris.length + '</div><div class="stat-label">Fitosanitaris</div></div></div>';
     html += '</div>';
 
-    // BLOC ALERTES
+ // BLOC ALERTES
     const absenciesPendents = absencies.filter(function(a) { return a.estat === 'pendent'; });
     const incidenciesPendents = incidencies.filter(function(i) { return i.estat === 'pendent'; });
     const avui = new Date().toISOString().split('T')[0];
     const entradesObertes = controlHorari.filter(function(r) { return r.data === avui && r.hora_entrada && !r.hora_sortida; });
-
     const role = currentUserProfile ? currentUserProfile.role : 'visor';
-    const alertes = [];
+    const alertesArray = [];
 
     if (role === 'admin' || role === 'editor') {
-    if (absenciesPendents.length > 0) {
-        alertes.push({ color: '#ff9800', icon: '📅', text: absenciesPendents.length + (absenciesPendents.length > 1 ? ' absències pendents' : ' absència pendent') + ' d\'aprovació', accio: 'canviarVista(\'absencies\')' });
+        if (absenciesPendents.length > 0) {
+            alertesArray.push({ color: '#ff9800', icon: '📅', text: absenciesPendents.length + (absenciesPendents.length > 1 ? ' absències pendents' : ' absència pendent') + ' d\'aprovació', accio: 'canviarVista(\'absencies\')' });
+        }
+        if (incidenciesPendents.length > 0) {
+            alertesArray.push({ color: '#f44336', icon: '⚠️', text: incidenciesPendents.length + (incidenciesPendents.length > 1 ? ' incidències pendents' : ' incidència pendent') + ' de resoldre', accio: 'canviarVista(\'incidencies\')' });
+        }
+        if (entradesObertes.length > 0) {
+            alertesArray.push({ color: '#2196f3', icon: '⏰', text: entradesObertes.length + ' treballador' + (entradesObertes.length > 1 ? 's' : '') + ' amb entrada oberta sense sortida', accio: 'canviarVista(\'control-horari\')' });
+        }
     }
-    if (incidenciesPendents.length > 0) {
-        alertes.push({ color: '#f44336', icon: '⚠️', text: incidenciesPendents.length + (incidenciesPendents.length > 1 ? ' incidències pendents' : ' incidència pendent') + ' de resoldre', accio: 'canviarVista(\'incidencies\')' });
-    }
-    if (entradesObertes.length > 0) {
-        alertes.push({ color: '#2196f3', icon: '⏰', text: entradesObertes.length + ' treballador' + (entradesObertes.length > 1 ? 's' : '') + ' amb entrada oberta sense sortida', accio: 'canviarVista(\'control-horari\')' });
-    }
-}
 
-    if (alertes.length > 0) {
+    // Afegir alertes de la BD
+    alertesArray.forEach(function(a) {
+        const dataInici = new Date(a.data_inici);
+        const dataFi = a.data_fi ? new Date(a.data_fi) : null;
+        const diesAvis = a.dies_avis || 30;
+        const dataAvis = new Date(dataInici);
+        dataAvis.setDate(dataAvis.getDate() - diesAvis);
+        const avuiDate = new Date(avui);
+        if (avuiDate >= dataAvis && (!dataFi || avuiDate <= dataFi)) {
+            const diesRestants = Math.ceil((dataInici - avuiDate) / 86400000);
+            let color = '#4caf50';
+            if (diesRestants <= 7) color = '#f44336';
+            else if (diesRestants <= 15) color = '#ff9800';
+            let text = a.titol;
+            if (diesRestants > 0) text += ' — d\'aquí ' + diesRestants + ' dies';
+            else if (diesRestants === 0) text += ' — avui!';
+            else text += ' — en curs';
+            const tipus = a.tipus || 'altres';
+            const icones = { fiscal: '💰', agricola: '🌱', laboral: '👥', altres: '📌' };
+            const icona = icones[tipus] || '📌';
+            alertesArray.push({ color: color, icon: icona, text: text, accio: 'canviarVista(\'alertes\')' });
+        }
+    });
+
+    if (alertesArray.length > 0) {
         html += '<div style="margin-bottom:30px;">';
         html += '<h3>🔔 Alertes</h3>';
         html += '<div style="display:flex;flex-direction:column;gap:10px;">';
-        alertes.forEach(function(a) {
+        alertesArray.forEach(function(a) {
             html += '<div onclick="' + a.accio + '" style="display:flex;align-items:center;gap:12px;padding:14px 18px;background:white;border-left:4px solid ' + a.color + ';border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;transition:transform 0.1s;" onmouseover="this.style.transform=\'translateX(4px)\'" onmouseout="this.style.transform=\'translateX(0)\'">';
             html += '<span style="font-size:22px;">' + a.icon + '</span>';
             html += '<span style="font-size:15px;font-weight:500;color:#333;">' + a.text + '</span>';
