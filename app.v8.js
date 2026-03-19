@@ -877,7 +877,7 @@ async function carregarTaulaFertilitzacions() {
             const f = fertilitzacions[i];
             const parcella = parcelles.find(function(p) { return p.id === f.parcella_id; });
             const finca = parcella ? (parcella.finca || 'Sense finca') : 'Sense finca';
-            const clau = f.data + '-' + f.producte_id + '-' + finca;
+            const clau = f.data + '|' + f.producte_id + '|' + finca;
             if (!grups[clau]) {
                 grups[clau] = {
                     data: f.data,
@@ -891,7 +891,8 @@ async function carregarTaulaFertilitzacions() {
             grups[clau].fertilitzacions.push(f);
         }
         
-        const podeEliminar = hasPermission('delete');
+        const podeEditar = hasPermission('update');
+		const podeEliminar = hasPermission('delete');
         
         let html = '';
         Object.keys(grups).sort().reverse().forEach(function(clau) {
@@ -914,9 +915,12 @@ async function carregarTaulaFertilitzacions() {
             html += '<td>' + (grup.dosi || 0) + ' ' + (grup.unitat || 'kg/Ha') + '</td>';
             html += '<td>';
             html += '<button class="btn btn-sm btn-primary" onclick="veureFertilitzacioGrup(\'' + clau + '\')">👁️</button> ';
-            if (podeEliminar) {
-                html += '<button class="btn btn-sm btn-danger" onclick="eliminarFertilitzacioGrup(\'' + clau + '\')">🗑️</button>';
-            }
+				if (podeEditar) {
+			html += '<button class="btn btn-sm btn-secondary" onclick="editarFertilitzacioGrup(\'' + clau + '\')" style="margin-right:4px;">✏️</button> ';
+}
+				if (podeEliminar) {
+			html += '<button class="btn btn-sm btn-danger" onclick="eliminarFertilitzacioGrup(\'' + clau + '\')">🗑️</button>';
+}
             html += '</td></tr>';
         });
         
@@ -926,6 +930,71 @@ async function carregarTaulaFertilitzacions() {
         console.error('Error:', error);
         tbody.innerHTML = '<tr><td colspan="7">Error carregant dades</td></tr>';
     }
+}
+
+async function editarFertilitzacioGrup(clau) {
+    const parts = clau.split('|');
+    const data = parts[0];
+    const producteId = parts[1];
+    const finca = parts[2];
+
+    const grup = fertilitzacions.filter(function(f) {
+        const p = parcelles.find(function(pa) { return pa.id === f.parcella_id; });
+        const fi = p ? (p.finca || 'Sense finca') : 'Sense finca';
+        return f.data === data && f.producte_id === producteId && fi === finca;
+    });
+
+    if (grup.length === 0) return;
+    const primer = grup[0];
+
+    if (!document.getElementById('modal-fertilitzacio')) {
+        const div = document.createElement('div');
+        div.innerHTML = crearModalFertilitzacio();
+        document.body.appendChild(div.firstElementChild);
+    }
+
+    document.getElementById('modal-fertilitzacio-titol').textContent = 'Editar Fertilització';
+    document.getElementById('form-fertilitzacio').reset();
+    document.getElementById('form-fertilitzacio').dataset.editIds = grup.map(function(f) { return f.id; }).join(',');
+    document.getElementById('form-fertilitzacio').dataset.editMode = 'true';
+
+    const selectFincaVarietat = document.getElementById('fertilitzacio-finca-varietat');
+    const selectProducte = document.getElementById('fertilitzacio-producte');
+
+    selectFincaVarietat.innerHTML = '<option value="">Seleccionar...</option>';
+    selectProducte.innerHTML = '<option value="">Seleccionar...</option>';
+
+    const checksContainer = document.getElementById('fertilitzacio-finques-checks');
+    checksContainer.innerHTML = '';
+    finques.forEach(function(f) {
+        checksContainer.innerHTML +=
+            '<div style="padding:4px 0;display:table;width:100%;">' +
+            '<input type="checkbox" value="' + f + '" onchange="actualitzarParcellesSeleccionadesFert()" style="display:table-cell;vertical-align:middle;width:20px;">' +
+            '<span style="font-size:13px;display:table-cell;vertical-align:middle;padding-left:8px;color:black;text-align:left;width:100%;">' + f + '</span>' +
+            '</div>';
+        selectFincaVarietat.innerHTML += '<option value="' + f + '">' + f + '</option>';
+    });
+
+    const checkFinca = checksContainer.querySelector('input[value="' + finca + '"]');
+    if (checkFinca) checkFinca.checked = true;
+
+    document.getElementById('fertilitzacio-data').value = primer.data;
+    document.getElementById('fertilitzacio-dosi').value = primer.dosi || '';
+    document.getElementById('fertilitzacio-unitat').value = primer.unitat || 'kg/Ha';
+    document.getElementById('fertilitzacio-metode').value = primer.metode || '';
+    document.getElementById('fertilitzacio-operador').value = primer.operador || '';
+    document.getElementById('fertilitzacio-maquinaria').value = primer.maquinaria || '';
+    document.getElementById('fertilitzacio-observacions').value = primer.observacions || '';
+
+    const fertilitzantsOrdenats = fertilitzants.slice().sort(function(a, b) {
+        return (a.nom || '').localeCompare(b.nom || '');
+    });
+    fertilitzantsOrdenats.forEach(function(f) {
+        selectProducte.innerHTML += '<option value="' + f.id + '">' + f.nom + '</option>';
+    });
+    selectProducte.value = producteId;
+
+    document.getElementById('modal-fertilitzacio').style.display = 'block';
 }
 
 function crearModalFertilitzacio() {
@@ -1190,6 +1259,30 @@ let parcellesAFertilitzar = [];
     const kTotal = producte ? (producte.k || 0) * quantitatTotal / 100 : 0;
     
     try {
+        const editMode = document.getElementById('form-fertilitzacio').dataset.editMode === 'true';
+
+        if (editMode) {
+            const editIds = document.getElementById('form-fertilitzacio').dataset.editIds.split(',');
+            for (let i = 0; i < editIds.length; i++) {
+                await updateFertilitzacio(editIds[i], {
+                    data: data,
+                    producte_id: producteId,
+                    dosi: dosi,
+                    unitat: unitat,
+                    metode: metode || null,
+                    operador: operador || null,
+                    maquinaria: maquinaria || null,
+                    observacions: observacions || null
+                });
+            }
+            document.getElementById('form-fertilitzacio').dataset.editMode = 'false';
+            document.getElementById('form-fertilitzacio').dataset.editIds = '';
+            mostrarNotificacio('Fertilització actualitzada correctament', 'success');
+            tancarModal('modal-fertilitzacio');
+            await carregarTaulaFertilitzacions();
+            return;
+        }
+
         for (let i = 0; i < parcellesAFertilitzar.length; i++) {
             const parcella = parcellesAFertilitzar[i];
             const fertilitzacio = {
@@ -1208,7 +1301,6 @@ let parcellesAFertilitzar = [];
                 p_total: pTotal,
                 k_total: kTotal
             };
-            
             await createFertilitzacio(fertilitzacio);
         }
         
@@ -1227,7 +1319,7 @@ async function veureFertilitzacioGrup(clau) {
     const grupFertilitzacions = fertilitzacions.filter(function(f) {
         const parcella = parcelles.find(function(p) { return p.id === f.parcella_id; });
         const finca = parcella ? (parcella.finca || 'Sense finca') : 'Sense finca';
-        return (f.data + '-' + f.producte_id + '-' + finca) === clau;
+        return (f.data + '|' + f.producte_id + '|' + finca) === clau;
     });
     
     if (grupFertilitzacions.length === 0) return;
@@ -1319,7 +1411,7 @@ async function eliminarFertilitzacioGrup(clau) {
         const grup = fertilitzacions.filter(function(f) {
             const parcella = parcelles.find(function(p) { return p.id === f.parcella_id; });
             const finca = parcella ? (parcella.finca || 'Sense finca') : 'Sense finca';
-            return (f.data + '-' + f.producte_id + '-' + finca) === clau;
+            return (f.data + '|' + f.producte_id + '|' + finca) === clau;
         });
         
         for (let i = 0; i < grup.length; i++) {
