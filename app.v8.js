@@ -2421,9 +2421,9 @@ async function carregarVistaControlHorari() {
     const podeCrear = hasPermission('insert');
     
     let html = '<div class="view-control-horari">';
-   html += '<div style="display: flex; justify-content: space-between; margin-bottom: 20px;">';
+    html += '<div style="display: flex; justify-content: space-between; margin-bottom: 20px;">';
     html += '<h2>⏱️ Control Horari</h2>';
-    html += '<div style="display:flex;gap:8px;">';
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
     if (podeCrear) {
         html += '<button class="btn btn-primary" onclick="obrirModalControlHorari()">➕ Nou Registre</button>';
     }
@@ -2434,7 +2434,7 @@ async function carregarVistaControlHorari() {
     
     html += '<div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">';
     html += '<h3 style="margin-top: 0;">🔍 Filtres</h3>';
-    html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 15px;">';
+    html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">';
     html += '<div><label>Data Inici:</label><input type="date" id="filtro-data-inici" onchange="aplicarFiltresHorari()"></div>';
     html += '<div><label>Data Fi:</label><input type="date" id="filtro-data-fi" onchange="aplicarFiltresHorari()"></div>';
     html += '<div><label>Tipus:</label><select id="filtro-tipus-treballador" onchange="aplicarFiltresHorari()"><option value="">Tots</option><option value="Propi">Propi</option><option value="Soci">Soci</option><option value="Temporal">Temporal</option><option value="Alié">Autònom/ETT</option></select></div>';
