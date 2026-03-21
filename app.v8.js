@@ -2401,18 +2401,23 @@ async function carregarVistaControlHorari() {
     const podeCrear = hasPermission('insert');
     
     let html = '<div class="view-control-horari">';
-    html += '<div style="display: flex; justify-content: space-between; margin-bottom: 20px;">';
+   html += '<div style="display: flex; justify-content: space-between; margin-bottom: 20px;">';
     html += '<h2>⏱️ Control Horari</h2>';
+    html += '<div style="display:flex;gap:8px;">';
     if (podeCrear) {
         html += '<button class="btn btn-primary" onclick="obrirModalControlHorari()">➕ Nou Registre</button>';
     }
+    html += '<button class="btn btn-secondary" onclick="exportarControlHorariLaboral()">📋 Exportar Laboral</button>';
+    html += '<button class="btn btn-secondary" onclick="exportarControlHorariGestio()">📊 Exportar Gestió</button>';
+    html += '</div>';
     html += '</div>';
     
     html += '<div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">';
     html += '<h3 style="margin-top: 0;">🔍 Filtres</h3>';
-    html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 15px;">';
+    html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 15px;">';
     html += '<div><label>Data Inici:</label><input type="date" id="filtro-data-inici" onchange="aplicarFiltresHorari()"></div>';
     html += '<div><label>Data Fi:</label><input type="date" id="filtro-data-fi" onchange="aplicarFiltresHorari()"></div>';
+    html += '<div><label>Tipus:</label><select id="filtro-tipus-treballador" onchange="aplicarFiltresHorari()"><option value="">Tots</option><option value="Propi">Propi</option><option value="Soci">Soci</option><option value="Temporal">Temporal</option><option value="Alié">Autònom/ETT</option></select></div>';
     html += '<div><label>Treballador:</label><select id="filtro-treballador" onchange="aplicarFiltresHorari()"><option value="">Tots</option></select></div>';
     html += '<div style="align-self: end; display:flex; gap:8px;">' +
     '<button class="btn btn-secondary" onclick="netejarFiltresHorari()">🗑️ Netejar</button>' +
@@ -2454,11 +2459,19 @@ async function carregarTaulaControlHorari() {
         const filtres = {
             dataInici: document.getElementById('filtro-data-inici')?.value || null,
             dataFi: document.getElementById('filtro-data-fi')?.value || null,
-            treballadorId: document.getElementById('filtro-treballador')?.value || null
+            treballadorId: document.getElementById('filtro-treballador')?.value || null,
+            tipusTreballador: document.getElementById('filtro-tipus-treballador')?.value || null
         };
         
         controlHorari = await getControlHorari(filtres);
-        
+
+        // Filtrar per tipus de treballador
+        if (filtres.tipusTreballador) {
+            controlHorari = controlHorari.filter(function(r) {
+                const treb = treballadors.find(function(t) { return t.id === r.treballador_id; });
+                return treb && treb.tipus === filtres.tipusTreballador;
+            });
+        }
         if (controlHorari.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hi ha registres</td></tr>';
             document.getElementById('resum-horari').innerHTML = '';
@@ -2597,6 +2610,105 @@ function crearModalControlHorari() {
         '<div class="form-group"><label>Observacions</label><textarea id="control-horari-observacions" rows="2"></textarea></div>' +
         '<div class="form-actions"><button type="button" class="btn btn-secondary" onclick="tancarModal(\'modal-control-horari\')">Cancel·lar</button>' +
         '<button type="submit" class="btn btn-primary" id="btn-fitxar">Fitxar</button></div></form></div></div>';
+}
+
+async function exportarControlHorariLaboral() {
+    const dataInici = document.getElementById('filtro-data-inici')?.value;
+    const dataFi = document.getElementById('filtro-data-fi')?.value;
+    
+    if (!dataInici || !dataFi) {
+        mostrarNotificacio('Cal seleccionar data inici i data fi per exportar', 'error');
+        return;
+    }
+
+    // Validar màxim 90 dies
+    const dies = Math.ceil((new Date(dataFi) - new Date(dataInici)) / 86400000);
+    if (dies > 90) {
+        mostrarNotificacio('El període màxim d\'exportació és 90 dies', 'error');
+        return;
+    }
+
+    const registres = controlHorari;
+    if (registres.length === 0) {
+        mostrarNotificacio('No hi ha registres per exportar', 'error');
+        return;
+    }
+
+    // Capçalera CSV
+    let csv = 'Data;Treballador;Tipus;Categoria;Hora Entrada;Hora Sortida;Hores Totals\n';
+
+    registres.forEach(function(r) {
+        const treb = treballadors.find(function(t) { return t.id === r.treballador_id; });
+        const nom = treb ? treb.nom : 'Desconegut';
+        const tipus = treb ? treb.tipus : '-';
+        const categoria = treb ? (treb.categoria || '-') : '-';
+        const entrada = r.hora_entrada || '-';
+        const sortida = r.hora_sortida || '-';
+        const hores = r.hores_treballades ? r.hores_treballades.toFixed(2) : '-';
+
+        csv += r.data + ';' + nom + ';' + tipus + ';' + categoria + ';' + entrada + ';' + sortida + ';' + hores + '\n';
+    });
+
+    // Descarregar
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'control_horari_laboral_' + dataInici + '_' + dataFi + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+
+    mostrarNotificacio('✅ Exportació laboral completada', 'success');
+}
+
+async function exportarControlHorariGestio() {
+    const dataInici = document.getElementById('filtro-data-inici')?.value;
+    const dataFi = document.getElementById('filtro-data-fi')?.value;
+
+    if (!dataInici || !dataFi) {
+        mostrarNotificacio('Cal seleccionar data inici i data fi per exportar', 'error');
+        return;
+    }
+
+    const dies = Math.ceil((new Date(dataFi) - new Date(dataInici)) / 86400000);
+    if (dies > 90) {
+        mostrarNotificacio('El període màxim d\'exportació és 90 dies', 'error');
+        return;
+    }
+
+    const registres = controlHorari;
+    if (registres.length === 0) {
+        mostrarNotificacio('No hi ha registres per exportar', 'error');
+        return;
+    }
+
+    let csv = 'Data;Treballador;Tipus;Categoria;Hora Entrada;Hora Sortida;Hores Totals;Finca;Tasca;Cost\n';
+
+    registres.forEach(function(r) {
+        const treb = treballadors.find(function(t) { return t.id === r.treballador_id; });
+        const nom = treb ? treb.nom : 'Desconegut';
+        const tipus = treb ? treb.tipus : '-';
+        const categoria = treb ? (treb.categoria || '-') : '-';
+        const entrada = r.hora_entrada || '-';
+        const sortida = r.hora_sortida || '-';
+        const hores = r.hores_treballades ? r.hores_treballades.toFixed(2) : '-';
+        const finca = r.finca || '-';
+        const tasca = tasques.find(function(t) { return t.id === r.tasca_id; });
+        const nomTasca = tasca ? tasca.nom : (r.tasca_libre || '-');
+        const cost = r.cost_total ? r.cost_total.toFixed(2) : '-';
+
+        csv += r.data + ';' + nom + ';' + tipus + ';' + categoria + ';' + entrada + ';' + sortida + ';' + hores + ';' + finca + ';' + nomTasca + ';' + cost + '\n';
+    });
+
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'control_horari_gestio_' + dataInici + '_' + dataFi + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+
+    mostrarNotificacio('✅ Exportació gestió completada', 'success');
 }
 
 async function obrirModalControlHorari() {
