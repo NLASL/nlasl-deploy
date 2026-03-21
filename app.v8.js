@@ -34,6 +34,26 @@ const CULTIUS_VARIETATS = {
     'TRITICALE': []
 };
 
+function toggleSubmenu(id) {
+    const submenu = document.getElementById('submenu-' + id);
+    const visible = submenu.style.display === 'block';
+    tancarSubmenus();
+    if (!visible) submenu.style.display = 'block';
+}
+
+function tancarSubmenus() {
+    document.querySelectorAll('.submenu').forEach(function(s) {
+        s.style.display = 'none';
+    });
+}
+
+// Tancar submenús en clicar fora
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.nav-group')) {
+        tancarSubmenus();
+    }
+});
+
 // Funcions utilitat
 function generateId() {
     return crypto.randomUUID();

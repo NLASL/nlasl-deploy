@@ -65,17 +65,46 @@
         </header>
         
         <nav class="main-nav">
-            <button class="nav-btn active" onclick="canviarVista('dashboard')" data-view="dashboard">🏠 Inici</button>
-            <button class="nav-btn" onclick="canviarVista('parcelles')" data-view="parcelles">🗺️ Parcel·les</button>
-            <button class="nav-btn" onclick="canviarVista('tractaments')" data-view="tractaments">🌱 Tractaments</button>
-            <button class="nav-btn" onclick="canviarVista('fertilitzacions')" data-view="fertilitzacions">🌾 Fertilitzacions</button>
-            <button class="nav-btn" onclick="canviarVista('productes')" data-view="productes">📦 Productes</button>
-			<button class="nav-btn" data-view="treballadors" onclick="canviarVista('treballadors')">👥 Treballadors</button>
-			<button class="nav-btn" data-view="control-horari" onclick="canviarVista('control-horari')">⏱️ Control Horari</button>
-			<button class="nav-btn" data-view="incidencies" onclick="canviarVista('incidencies')">⚠️ Incidències</button>
-			<button class="nav-btn" data-view="absencies" onclick="canviarVista('absencies')">📅 Absències</button>
-			<button class="nav-btn" data-view="alertes" onclick="canviarVista('alertes')">🔔 Alertes</button>
-		</nav>
+    <button class="nav-btn active" onclick="canviarVista('dashboard')" data-view="dashboard">🏠 Inici</button>
+    
+    <div class="nav-group">
+        <button class="nav-btn nav-group-btn" onclick="toggleSubmenu('operacions')">🌱 Operacions ▾</button>
+        <div id="submenu-operacions" class="submenu" style="display:none;">
+            <button class="nav-btn submenu-btn" onclick="canviarVista('tractaments');tancarSubmenus();" data-view="tractaments">🌱 Tractaments</button>
+            <button class="nav-btn submenu-btn" onclick="canviarVista('fertilitzacions');tancarSubmenus();" data-view="fertilitzacions">🌾 Fertilitzacions</button>
+        </div>
+    </div>
+
+    <button class="nav-btn" onclick="canviarVista('control-horari')" data-view="control-horari">⏱️ Control Horari</button>
+
+    <div class="nav-group">
+        <button class="nav-btn nav-group-btn" onclick="toggleSubmenu('avisos')">🔔 Avisos ▾</button>
+        <div id="submenu-avisos" class="submenu" style="display:none;">
+            <button class="nav-btn submenu-btn" onclick="canviarVista('incidencies');tancarSubmenus();" data-view="incidencies">⚠️ Incidències</button>
+            <button class="nav-btn submenu-btn" onclick="canviarVista('absencies');tancarSubmenus();" data-view="absencies">📅 Absències</button>
+            <button class="nav-btn submenu-btn" onclick="canviarVista('alertes');tancarSubmenus();" data-view="alertes">🔔 Alertes</button>
+        </div>
+    </div>
+
+    <div class="nav-group">
+        <button class="nav-btn nav-group-btn" onclick="toggleSubmenu('consums')">📦 Consums ▾</button>
+        <div id="submenu-consums" class="submenu" style="display:none;">
+            <button class="nav-btn submenu-btn" disabled style="opacity:0.5;">🍎 Collita (pròximament)</button>
+            <button class="nav-btn submenu-btn" disabled style="opacity:0.5;">💧 Reg (pròximament)</button>
+            <button class="nav-btn submenu-btn" disabled style="opacity:0.5;">⛽ Gasoil (pròximament)</button>
+            <button class="nav-btn submenu-btn" disabled style="opacity:0.5;">🛒 Compres (pròximament)</button>
+        </div>
+    </div>
+
+    <div class="nav-group">
+        <button class="nav-btn nav-group-btn" onclick="toggleSubmenu('gestio')">⚙️ Gestió ▾</button>
+        <div id="submenu-gestio" class="submenu" style="display:none;">
+            <button class="nav-btn submenu-btn" onclick="canviarVista('treballadors');tancarSubmenus();" data-view="treballadors">👥 Treballadors</button>
+            <button class="nav-btn submenu-btn" onclick="canviarVista('productes');tancarSubmenus();" data-view="productes">📦 Productes</button>
+            <button class="nav-btn submenu-btn" onclick="canviarVista('parcelles');tancarSubmenus();" data-view="parcelles">🗺️ Parcel·les</button>
+        </div>
+    </div>
+</nav>
         
         <main class="main-content">
             <div id="view-container"></div>
