@@ -846,6 +846,29 @@ body {
     background: #f5f5f5 !important;
 }
 
+.submenu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 9999;
+    min-width: 200px;
+    padding: 4px 0;
+}
+
+#view-container {
+    position: relative;
+    z-index: 1;
+}
+
+.main-nav {
+    position: relative;
+    z-index: 100;
+}
+
 /* ============================================================
    FI STYLES.CSS
    ============================================================ */
