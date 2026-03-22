@@ -4049,6 +4049,12 @@ async function exportarLlibreFertilitzacionsCSV() {
     registres.forEach(function(r) {
         const p = parcelles.find(function(pa) { return pa.id === r.parcella_id; });
         const prod = fertilitzants.find(function(f) { return f.id === r.producte_id; });
+        const sup = parseFloat(r.superficie_tractada) || 0;
+        const dosi = parseFloat(r.dosi) || 0;
+        const usTotal = dosi * sup;
+        const nKg = prod ? (parseFloat(prod.n) || 0) * usTotal / 100 : 0;
+        const pKg = prod ? (parseFloat(prod.p) || 0) * usTotal / 100 : 0;
+        const kKg = prod ? (parseFloat(prod.k) || 0) * usTotal / 100 : 0;
         csv += [
             r.data,
             p ? (p.finca || '') : '',
@@ -4056,15 +4062,15 @@ async function exportarLlibreFertilitzacionsCSV() {
             p ? (p.sigpac || '') : '',
             p ? (p.cultiu || '') : '',
             p ? (p.varietat || '') : '',
-            r.superficie_tractada || '',
+            sup.toFixed(2),
             prod ? prod.nom : '',
             prod ? (prod.tipus || '') : '',
             r.dosi || '',
             r.unitat || '',
             usTotal.toFixed(2),
-			nKg.toFixed(2),
-			pKg.toFixed(2),
-			kKg.toFixed(2),
+            nKg.toFixed(2),
+            pKg.toFixed(2),
+            kKg.toFixed(2),
             r.metode || '',
             r.operador || ''
         ].join(';') + '\n';
