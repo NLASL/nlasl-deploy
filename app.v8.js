@@ -3971,9 +3971,11 @@ async function generarLlibreFertilitzacions() {
             const sup = parseFloat(r.superficie_tractada) || 0;
             const nomProd = prod ? prod.nom : '-';
             const tipusProd = prod ? (prod.tipus || '-') : '-';
-            const nKg = parseFloat(r.n_total) || 0;
-            const pKg = parseFloat(r.p_total) || 0;
-            const kKg = parseFloat(r.k_total) || 0;
+            const dosi = parseFloat(r.dosi) || 0;
+			const usTotal = dosi * sup;
+			const nKg = prod ? (parseFloat(prod.n) || 0) * usTotal / 100 : 0;
+			const pKg = prod ? (parseFloat(prod.p) || 0) * usTotal / 100 : 0;
+			const kKg = prod ? (parseFloat(prod.k) || 0) * usTotal / 100 : 0;
 
             totalN += nKg;
             totalP += pKg;
@@ -3992,7 +3994,7 @@ async function generarLlibreFertilitzacions() {
             html += '<td>' + tipusProd + '</td>';
             html += '<td>' + (r.dosi || '-') + '</td>';
             html += '<td>' + (r.unitat || '-') + '</td>';
-            html += '<td>' + (r.us_total ? parseFloat(r.us_total).toFixed(2) : '-') + '</td>';
+            html += '<td>' + usTotal.toFixed(2) + '</td>';
             html += '<td>' + nKg.toFixed(2) + '</td>';
             html += '<td>' + pKg.toFixed(2) + '</td>';
             html += '<td>' + kKg.toFixed(2) + '</td>';
@@ -4059,10 +4061,10 @@ async function exportarLlibreFertilitzacionsCSV() {
             prod ? (prod.tipus || '') : '',
             r.dosi || '',
             r.unitat || '',
-            r.us_total || '',
-            r.n_total || '',
-            r.p_total || '',
-            r.k_total || '',
+            usTotal.toFixed(2),
+			nKg.toFixed(2),
+			pKg.toFixed(2),
+			kKg.toFixed(2),
             r.metode || '',
             r.operador || ''
         ].join(';') + '\n';
