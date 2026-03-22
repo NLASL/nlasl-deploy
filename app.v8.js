@@ -135,7 +135,10 @@ function canviarVista(vista) {
         case 'treballadors':
             carregarVistaTreballadors();
             break;
-   case 'control-horari':
+		case 'informes':
+			carregarVistaInformes();
+			break;	
+    case 'control-horari':
     const role = currentUserProfile ? currentUserProfile.role : 'visor';
     const treballadorActiu = treballadors.find(function(t) { 
         return t.auth_user_id === currentUser.id; 
@@ -3859,6 +3862,220 @@ document.getElementById('fitxatge-tasca').required = false;
     });
     
     document.getElementById('modal-fitxatge-treballador').style.display = 'block';
+}
+
+async function carregarVistaInformes() {
+    const container = document.getElementById('view-container');
+    
+    const anyActual = new Date().getFullYear();
+    
+    let html = '<div class="view-informes">';
+    html += '<h2>📊 Informes</h2>';
+    
+    // BLOC LLIBRE FERTILITZACIONS
+    html += '<div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,0.1);margin-bottom:20px;">';
+    html += '<h3 style="margin-top:0;">📗 Llibre de Fertilitzacions</h3>';
+    html += '<div style="display:flex;gap:15px;align-items:flex-end;flex-wrap:wrap;">';
+    html += '<div><label>Any</label><select id="informe-fert-any" style="padding:8px;border:1px solid #ddd;border-radius:4px;">';
+    for (let a = anyActual; a >= anyActual - 3; a--) {
+        html += '<option value="' + a + '">' + a + '</option>';
+    }
+    html += '</select></div>';
+    html += '<div><label>Finca</label><select id="informe-fert-finca" style="padding:8px;border:1px solid #ddd;border-radius:4px;min-width:200px;"><option value="">Totes</option>';
+    finques.forEach(function(f) { html += '<option value="' + f + '">' + f + '</option>'; });
+    html += '</select></div>';
+    html += '<button class="btn btn-primary" onclick="generarLlibreFertilitzacions()">📗 Generar Llibre</button>';
+    html += '<button class="btn btn-secondary" onclick="exportarLlibreFertilitzacionsCSV()">⬇️ Exportar CSV</button>';
+    html += '</div>';
+    html += '<div id="taula-llibre-fertilitzacions" style="margin-top:20px;"></div>';
+    html += '</div>';
+
+    // BLOC DAN
+    html += '<div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,0.1);margin-bottom:20px;">';
+    html += '<h3 style="margin-top:0;">📋 DAN — Declaració Activitat Notificable</h3>';
+    html += '<div style="display:flex;gap:15px;align-items:flex-end;flex-wrap:wrap;">';
+    html += '<div><label>Any</label><select id="informe-dan-any" style="padding:8px;border:1px solid #ddd;border-radius:4px;">';
+    for (let a = anyActual; a >= anyActual - 3; a--) {
+        html += '<option value="' + a + '">' + a + '</option>';
+    }
+    html += '</select></div>';
+    html += '<button class="btn btn-primary" onclick="generarDAN()">📋 Generar DAN</button>';
+    html += '<button class="btn btn-secondary" onclick="exportarDANCSV()">⬇️ Exportar CSV</button>';
+    html += '</div>';
+    html += '<div id="taula-dan" style="margin-top:20px;"></div>';
+    html += '</div>';
+
+    // BLOC CONTROL HORARI
+    html += '<div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">';
+    html += '<h3 style="margin-top:0;">⏱️ Control Horari</h3>';
+    html += '<div style="display:flex;gap:15px;align-items:flex-end;flex-wrap:wrap;">';
+    html += '<div><label>Data Inici</label><input type="date" id="informe-horari-inici" style="padding:8px;border:1px solid #ddd;border-radius:4px;"></div>';
+    html += '<div><label>Data Fi</label><input type="date" id="informe-horari-fi" style="padding:8px;border:1px solid #ddd;border-radius:4px;"></div>';
+    html += '<button class="btn btn-secondary" onclick="exportarControlHorariLaboralInformes()">📋 Exportar Laboral</button>';
+    html += '<button class="btn btn-secondary" onclick="exportarControlHorariGestioInformes()">📊 Exportar Gestió</button>';
+    html += '</div>';
+    html += '</div>';
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+async function generarLlibreFertilitzacions() {
+    const any = document.getElementById('informe-fert-any').value;
+    const finca = document.getElementById('informe-fert-finca').value;
+    const container = document.getElementById('taula-llibre-fertilitzacions');
+    
+    container.innerHTML = '<p>Carregant...</p>';
+    
+    try {
+        const { data, error } = await supabaseClient
+            .from('fertilitzacions')
+            .select('*')
+            .gte('data', any + '-01-01')
+            .lte('data', any + '-12-31')
+            .order('data');
+        if (error) throw error;
+
+        let registres = data || [];
+        
+        if (finca) {
+            registres = registres.filter(function(r) {
+                const p = parcelles.find(function(pa) { return pa.id === r.parcella_id; });
+                return p && p.finca === finca;
+            });
+        }
+
+        if (registres.length === 0) {
+            container.innerHTML = '<p style="color:#999;">No hi ha fertilitzacions per aquest any/finca</p>';
+            return;
+        }
+
+        let html = '<div class="table-container"><table class="data-table">';
+        html += '<thead><tr>';
+        html += '<th>Data</th><th>Finca</th><th>Parcel·la</th><th>SIGPAC</th><th>Cultiu</th><th>Varietat</th>';
+        html += '<th>Sup. (Ha)</th><th>Producte</th><th>Tipus</th><th>Dosi</th><th>Unitat</th>';
+        html += '<th>Qtitat Total</th><th>N (kg)</th><th>P (kg)</th><th>K (kg)</th><th>Mètode</th><th>Operador</th>';
+        html += '</tr></thead><tbody>';
+
+        let totalN = 0, totalP = 0, totalK = 0, totalSup = 0;
+
+        registres.forEach(function(r) {
+            const p = parcelles.find(function(pa) { return pa.id === r.parcella_id; });
+            const prod = fertilitzants.find(function(f) { return f.id === r.producte_id; });
+            
+            const fincaNom = p ? (p.finca || '-') : '-';
+            const parcellaNom = p ? (p.nom || '-') : '-';
+            const sigpac = p ? (p.sigpac || '-') : '-';
+            const cultiu = p ? (p.cultiu || '-') : '-';
+            const varietat = p ? (p.varietat || '-') : '-';
+            const sup = parseFloat(r.superficie_tractada) || 0;
+            const nomProd = prod ? prod.nom : '-';
+            const tipusProd = prod ? (prod.tipus || '-') : '-';
+            const nKg = parseFloat(r.n_total) || 0;
+            const pKg = parseFloat(r.p_total) || 0;
+            const kKg = parseFloat(r.k_total) || 0;
+
+            totalN += nKg;
+            totalP += pKg;
+            totalK += kKg;
+            totalSup += sup;
+
+            html += '<tr>';
+            html += '<td>' + formatData(r.data) + '</td>';
+            html += '<td>' + fincaNom + '</td>';
+            html += '<td>' + parcellaNom + '</td>';
+            html += '<td>' + sigpac + '</td>';
+            html += '<td>' + cultiu + '</td>';
+            html += '<td>' + varietat + '</td>';
+            html += '<td>' + sup.toFixed(2) + '</td>';
+            html += '<td>' + nomProd + '</td>';
+            html += '<td>' + tipusProd + '</td>';
+            html += '<td>' + (r.dosi || '-') + '</td>';
+            html += '<td>' + (r.unitat || '-') + '</td>';
+            html += '<td>' + (r.us_total ? parseFloat(r.us_total).toFixed(2) : '-') + '</td>';
+            html += '<td>' + nKg.toFixed(2) + '</td>';
+            html += '<td>' + pKg.toFixed(2) + '</td>';
+            html += '<td>' + kKg.toFixed(2) + '</td>';
+            html += '<td>' + (r.metode || '-') + '</td>';
+            html += '<td>' + (r.operador || '-') + '</td>';
+            html += '</tr>';
+        });
+
+        html += '<tr style="background:#f1f8e9;font-weight:bold;">';
+        html += '<td colspan="6"><strong>TOTALS</strong></td>';
+        html += '<td>' + totalSup.toFixed(2) + '</td>';
+        html += '<td colspan="5"></td>';
+        html += '<td>' + totalN.toFixed(2) + '</td>';
+        html += '<td>' + totalP.toFixed(2) + '</td>';
+        html += '<td>' + totalK.toFixed(2) + '</td>';
+        html += '<td colspan="2"></td>';
+        html += '</tr>';
+
+        html += '</tbody></table></div>';
+        html += '<p style="color:#999;font-size:12px;margin-top:8px;">' + registres.length + ' registres — Any ' + any + '</p>';
+        container.innerHTML = html;
+
+    } catch (error) {
+        container.innerHTML = '<p style="color:red;">Error: ' + error.message + '</p>';
+    }
+}
+
+async function exportarLlibreFertilitzacionsCSV() {
+    const any = document.getElementById('informe-fert-any').value;
+    const finca = document.getElementById('informe-fert-finca').value;
+
+    const { data, error } = await supabaseClient
+        .from('fertilitzacions')
+        .select('*')
+        .gte('data', any + '-01-01')
+        .lte('data', any + '-12-31')
+        .order('data');
+    if (error) { mostrarNotificacio('Error: ' + error.message, 'error'); return; }
+
+    let registres = data || [];
+    if (finca) {
+        registres = registres.filter(function(r) {
+            const p = parcelles.find(function(pa) { return pa.id === r.parcella_id; });
+            return p && p.finca === finca;
+        });
+    }
+
+    if (registres.length === 0) { mostrarNotificacio('No hi ha dades per exportar', 'error'); return; }
+
+    let csv = 'Data;Finca;Parcel·la;SIGPAC;Cultiu;Varietat;Superfície (Ha);Producte;Tipus;Dosi;Unitat;Quantitat Total;N (kg);P (kg);K (kg);Mètode;Operador\n';
+
+    registres.forEach(function(r) {
+        const p = parcelles.find(function(pa) { return pa.id === r.parcella_id; });
+        const prod = fertilitzants.find(function(f) { return f.id === r.producte_id; });
+        csv += [
+            r.data,
+            p ? (p.finca || '') : '',
+            p ? (p.nom || '') : '',
+            p ? (p.sigpac || '') : '',
+            p ? (p.cultiu || '') : '',
+            p ? (p.varietat || '') : '',
+            r.superficie_tractada || '',
+            prod ? prod.nom : '',
+            prod ? (prod.tipus || '') : '',
+            r.dosi || '',
+            r.unitat || '',
+            r.us_total || '',
+            r.n_total || '',
+            r.p_total || '',
+            r.k_total || '',
+            r.metode || '',
+            r.operador || ''
+        ].join(';') + '\n';
+    });
+
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'llibre_fertilitzacions_' + any + (finca ? '_' + finca : '') + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    mostrarNotificacio('✅ Exportació completada', 'success');
 }
 
 async function guardarFitxatgeTreballador(event) {
