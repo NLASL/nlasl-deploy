@@ -4086,6 +4086,160 @@ async function exportarLlibreFertilitzacionsCSV() {
     mostrarNotificacio('✅ Exportació completada', 'success');
 }
 
+async function generarDAN() {
+    const any = document.getElementById('informe-dan-any').value;
+    const container = document.getElementById('taula-dan');
+    
+    container.innerHTML = '<p>Carregant...</p>';
+    
+    try {
+        const { data, error } = await supabaseClient
+            .from('tractaments')
+            .select('*')
+            .gte('data', any + '-01-01')
+            .lte('data', any + '-12-31')
+            .order('data');
+        if (error) throw error;
+
+        const registres = data || [];
+
+        if (registres.length === 0) {
+            container.innerHTML = '<p style="color:#999;">No hi ha tractaments per aquest any</p>';
+            return;
+        }
+
+        let html = '<div class="table-container"><table class="data-table">';
+        html += '<thead><tr>';
+        html += '<th>Data</th><th>Finca</th><th>Parcel·la</th><th>SIGPAC</th><th>Cultiu</th><th>Varietat</th>';
+        html += '<th>Sup. (Ha)</th><th>Producte</th><th>Nº Registre</th><th>Matèria Activa</th>';
+        html += '<th>Tipus</th><th>Dosi</th><th>Unitat</th><th>Qtitat Total</th>';
+        html += '<th>Data Límit</th><th>Operador</th><th>Maquinària</th>';
+        html += '</tr></thead><tbody>';
+
+        let totalSup = 0;
+
+        registres.forEach(function(r) {
+            const p = parcelles.find(function(pa) { return pa.id === r.parcella_id; });
+            const prod = fitosanitaris.find(function(f) { return f.id === r.producte_id; });
+            
+            const fincaNom = p ? (p.finca || '-') : '-';
+            const parcellaNom = p ? (p.nom || '-') : '-';
+            const sigpac = p ? (p.sigpac || '-') : '-';
+            const cultiu = p ? (p.cultiu || '-') : '-';
+            const varietat = p ? (p.varietat || '-') : '-';
+            const sup = parseFloat(r.superficie_tractada) || 0;
+            const dosi = parseFloat(r.dosi) || 0;
+            const quantitatTotal = dosi * sup;
+            const nomProd = prod ? prod.nom : '-';
+            const registreMAPA = prod ? (prod.registre || '⚠️ Pendent') : '-';
+            const materiaActiva = prod ? (prod.materia_activa || '-') : '-';
+            const tipusProd = prod ? (prod.tipus || '-') : '-';
+
+            totalSup += sup;
+
+            // Alerta si falta nº registre
+            const registreStyle = (!prod || !prod.registre) ? 'color:red;font-weight:bold;' : '';
+
+            html += '<tr>';
+            html += '<td>' + formatData(r.data) + '</td>';
+            html += '<td>' + fincaNom + '</td>';
+            html += '<td>' + parcellaNom + '</td>';
+            html += '<td>' + sigpac + '</td>';
+            html += '<td>' + cultiu + '</td>';
+            html += '<td>' + varietat + '</td>';
+            html += '<td>' + sup.toFixed(2) + '</td>';
+            html += '<td>' + nomProd + '</td>';
+            html += '<td style="' + registreStyle + '">' + registreMAPA + '</td>';
+            html += '<td>' + materiaActiva + '</td>';
+            html += '<td>' + tipusProd + '</td>';
+            html += '<td>' + dosi + '</td>';
+            html += '<td>' + (r.unitat || '-') + '</td>';
+            html += '<td>' + quantitatTotal.toFixed(2) + '</td>';
+            html += '<td>' + (r.data_limit ? formatData(r.data_limit) : '-') + '</td>';
+            html += '<td>' + (r.operador || '-') + '</td>';
+            html += '<td>' + (r.maquinaria || '-') + '</td>';
+            html += '</tr>';
+        });
+
+        html += '<tr style="background:#e8f5e9;font-weight:bold;">';
+        html += '<td colspan="6"><strong>TOTALS</strong></td>';
+        html += '<td>' + totalSup.toFixed(2) + '</td>';
+        html += '<td colspan="10"></td>';
+        html += '</tr>';
+
+        html += '</tbody></table></div>';
+        
+        // Avisar si hi ha productes sense nº registre
+        const senseRegistre = registres.filter(function(r) {
+            const prod = fitosanitaris.find(function(f) { return f.id === r.producte_id; });
+            return !prod || !prod.registre;
+        });
+        if (senseRegistre.length > 0) {
+            html += '<p style="color:red;font-weight:bold;">⚠️ ' + senseRegistre.length + ' registre/s sense nº de registre MAPA — cal completar abans de presentar la DAN</p>';
+        }
+        
+        html += '<p style="color:#999;font-size:12px;margin-top:8px;">' + registres.length + ' registres — Any ' + any + '</p>';
+        container.innerHTML = html;
+
+    } catch (error) {
+        container.innerHTML = '<p style="color:red;">Error: ' + error.message + '</p>';
+    }
+}
+
+async function exportarDANCSV() {
+    const any = document.getElementById('informe-dan-any').value;
+
+    const { data, error } = await supabaseClient
+        .from('tractaments')
+        .select('*')
+        .gte('data', any + '-01-01')
+        .lte('data', any + '-12-31')
+        .order('data');
+    if (error) { mostrarNotificacio('Error: ' + error.message, 'error'); return; }
+
+    const registres = data || [];
+    if (registres.length === 0) { mostrarNotificacio('No hi ha dades per exportar', 'error'); return; }
+
+    let csv = 'Data;Finca;Parcel·la;SIGPAC;Cultiu;Varietat;Superfície (Ha);Producte;Nº Registre MAPA;Matèria Activa;Tipus;Dosi;Unitat;Quantitat Total;Data Límit PLAC;Operador;Maquinària\n';
+
+    registres.forEach(function(r) {
+        const p = parcelles.find(function(pa) { return pa.id === r.parcella_id; });
+        const prod = fitosanitaris.find(function(f) { return f.id === r.producte_id; });
+        const sup = parseFloat(r.superficie_tractada) || 0;
+        const dosi = parseFloat(r.dosi) || 0;
+        const quantitatTotal = dosi * sup;
+
+        csv += [
+            r.data,
+            p ? (p.finca || '') : '',
+            p ? (p.nom || '') : '',
+            p ? (p.sigpac || '') : '',
+            p ? (p.cultiu || '') : '',
+            p ? (p.varietat || '') : '',
+            sup.toFixed(2),
+            prod ? prod.nom : '',
+            prod ? (prod.registre || 'PENDENT') : '',
+            prod ? (prod.materia_activa || '') : '',
+            prod ? (prod.tipus || '') : '',
+            r.dosi || '',
+            r.unitat || '',
+            quantitatTotal.toFixed(2),
+            r.data_limit || '',
+            r.operador || '',
+            r.maquinaria || ''
+        ].join(';') + '\n';
+    });
+
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'DAN_tractaments_' + any + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    mostrarNotificacio('✅ DAN exportada correctament', 'success');
+}
+
 async function guardarFitxatgeTreballador(event) {
     event.preventDefault();
     
