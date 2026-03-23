@@ -1724,8 +1724,9 @@ function crearModalParcella() {
     html += '</select></div>';
     html += '<div class="form-group" id="group-varietat" style="display: none;"><label>Varietat</label><select id="parcella-varietat"><option value="">Sense especificar</option></select></div>';
     html += '<div class="form-group"><label>Superfície (Ha) *</label><input type="number" id="parcella-superficie" required min="0" step="0.01"></div>';
-    html += '<div class="form-group"><label>Regadiu</label><select id="parcella-regadiu"><option value="false">No</option><option value="true">Sí</option></select></div>';
-    html += '<div class="form-group"><label>Referència Cadastral</label><input type="text" id="parcella-ref-cadastral" placeholder="25010A502001410000UL"></div>';
+	html += '<div class="form-group"><label>Regadiu</label><select id="parcella-regadiu"><option value="false">No</option><option value="true">Sí</option></select></div>';
+	html += '<div class="form-group"><label>Nº Explotació Reg</label><input type="text" id="parcella-num-explotacio" placeholder="121H457VH01"></div>';
+	html += '<div class="form-group"><label>Referència Cadastral</label><input type="text" id="parcella-ref-cadastral" placeholder="25010A502001410000UL"></div>';
     html += '<div class="form-actions"><button type="button" class="btn btn-secondary" onclick="tancarModal(\'modal-parcella\')">Cancel·lar</button>';
     html += '<button type="submit" class="btn btn-primary">Guardar</button></div></form></div></div>';
     return html;
@@ -1810,9 +1811,10 @@ async function editarParcella(id) {
     document.getElementById('parcella-sigpac').value = parcella.sigpac || '';
     document.getElementById('parcella-superficie').value = parcella.superficie || '';
     document.getElementById('parcella-regadiu').value = parcella.regadiu ? 'true' : 'false';
+    document.getElementById('parcella-num-explotacio').value = parcella.num_explotacio || '';
     document.getElementById('parcella-ref-cadastral').value = parcella.ref_cadastral || '';
     
-    const selectFinca = document.getElementById('parcella-finca');
+	const selectFinca = document.getElementById('parcella-finca');
     selectFinca.innerHTML = '<option value="">Seleccionar...</option>';
     finques.forEach(function(finca) {
         const selected = finca === parcella.finca ? 'selected' : '';
@@ -1836,7 +1838,7 @@ async function guardarParcella(event) {
     event.preventDefault();
     
     const id = document.getElementById('parcella-id').value;
-    const dades = {
+	const dades = {
         nom: document.getElementById('parcella-nom').value.trim(),
         sigpac: document.getElementById('parcella-sigpac').value.trim(),
         finca: document.getElementById('parcella-finca').value,
@@ -1844,6 +1846,7 @@ async function guardarParcella(event) {
         varietat: document.getElementById('parcella-varietat').value || null,
         superficie: parseFloat(document.getElementById('parcella-superficie').value),
         regadiu: document.getElementById('parcella-regadiu').value === 'true',
+        num_explotacio: document.getElementById('parcella-num-explotacio').value.trim() || null,
         ref_cadastral: document.getElementById('parcella-ref-cadastral').value.trim() || null
     };
     
