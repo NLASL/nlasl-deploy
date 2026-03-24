@@ -3922,8 +3922,8 @@ async function carregarVistaInformes() {
     html += '<div style="display:flex;gap:15px;align-items:flex-end;flex-wrap:wrap;">';
     html += '<div><label>Data Inici</label><input type="date" id="informe-horari-inici" style="padding:8px;border:1px solid #ddd;border-radius:4px;"></div>';
     html += '<div><label>Data Fi</label><input type="date" id="informe-horari-fi" style="padding:8px;border:1px solid #ddd;border-radius:4px;"></div>';
-    html += '<button class="btn btn-secondary" onclick="exportarControlHorariLaboralInformes()">📋 Exportar Laboral</button>';
-    html += '<button class="btn btn-secondary" onclick="exportarControlHorariGestioInformes()">📊 Exportar Gestió</button>';
+    html += '<button class="btn btn-secondary" onclick="exportarControlHorariLaboral()">📋 Exportar Laboral</button>';
+	html += '<button class="btn btn-secondary" onclick="exportarControlHorariGestio()">📊 Exportar Gestió</button>';
     html += '</div>';
     html += '</div>';
 
