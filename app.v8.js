@@ -4254,7 +4254,8 @@ async function carregarVistaReg() {
     html += '<div style="display:flex;justify-content:space-between;margin-bottom:20px;">';
     html += '<h2>💧 Reg — Consums</h2>';
     html += '<button class="btn btn-primary" onclick="document.getElementById(\'input-excel-reg\').click()">📥 Importar Excel</button>';
-    html += '<input type="file" id="input-excel-reg" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importarExcelReg(event)">';
+    html += '<button class="btn btn-secondary" onclick="obrirModalRegManual()">➕ Nou Registre</button>';
+	html += '<input type="file" id="input-excel-reg" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importarExcelReg(event)">';
     html += '</div>';
     
     html += '<div style="background:#e3f2fd;padding:15px;border-radius:8px;margin-bottom:20px;">';
@@ -4292,9 +4293,15 @@ async function carregarVistaReg() {
 async function carregarFiltreExplotacions() {
     const select = document.getElementById('reg-filtre-explotacio');
     if (!select) return;
-    const explotsUniques = [...new Set(parcelles.filter(function(p) { return p.num_explotacio; }).map(function(p) { return p.num_explotacio; }))];
-    explotsUniques.sort().forEach(function(e) {
-        select.innerHTML += '<option value="' + e + '">' + e + '</option>';
+    const explotsUniques = parcelles.filter(function(p) { return p.num_explotacio; });
+    const vistes = {};
+    explotsUniques.forEach(function(p) {
+        if (!vistes[p.num_explotacio]) {
+            vistes[p.num_explotacio] = p.finca || p.num_explotacio;
+        }
+    });
+    Object.keys(vistes).sort().forEach(function(e) {
+        select.innerHTML += '<option value="' + e + '">' + e + ' — ' + vistes[e] + '</option>';
     });
 }
 
@@ -4395,6 +4402,60 @@ async function eliminarReg(id) {
         const { error } = await supabaseClient.from('reg').delete().eq('id', id);
         if (error) throw error;
         mostrarNotificacio('Registre eliminat', 'success');
+        await carregarTaulaReg();
+    } catch (error) {
+        mostrarNotificacio('Error: ' + error.message, 'error');
+    }
+}
+
+function obrirModalRegManual() {
+    let modal = document.getElementById('modal-reg-manual');
+    if (!modal) {
+        const div = document.createElement('div');
+        div.innerHTML = 
+            '<div id="modal-reg-manual" class="modal" style="display:none;">' +
+            '<div class="modal-content" style="max-width:450px;">' +
+            '<span class="close" onclick="tancarModal(\'modal-reg-manual\')">&times;</span>' +
+            '<h2>➕ Nou Registre Reg</h2>' +
+            '<form id="form-reg-manual" onsubmit="guardarRegManual(event)">' +
+            '<div class="form-group"><label>Explotació *</label>' +
+            '<select id="reg-manual-explotacio" required>' +
+            '<option value="">Seleccionar...</option>' +
+            (function() {
+                const vistes = {};
+                parcelles.filter(function(p) { return p.num_explotacio; }).forEach(function(p) {
+                    if (!vistes[p.num_explotacio]) vistes[p.num_explotacio] = p.finca || p.num_explotacio;
+                });
+                return Object.keys(vistes).sort().map(function(e) {
+                    return '<option value="' + e + '">' + e + ' — ' + vistes[e] + '</option>';
+                }).join('');
+            })() +
+            '</select></div>' +
+            '<div class="form-group"><label>Data *</label><input type="date" id="reg-manual-data" required value="' + new Date().toISOString().split('T')[0] + '"></div>' +
+            '<div class="form-group"><label>Consum (m³) *</label><input type="number" id="reg-manual-consum" required min="0" step="0.01"></div>' +
+            '<div class="form-actions">' +
+            '<button type="button" class="btn btn-secondary" onclick="tancarModal(\'modal-reg-manual\')">Cancel·lar</button>' +
+            '<button type="submit" class="btn btn-primary">Guardar</button>' +
+            '</div></form></div></div>';
+        document.body.appendChild(div.firstElementChild);
+        modal = document.getElementById('modal-reg-manual');
+    }
+    modal.style.display = 'block';
+}
+
+async function guardarRegManual(event) {
+    event.preventDefault();
+    const dades = {
+        num_explotacio: document.getElementById('reg-manual-explotacio').value,
+        data: document.getElementById('reg-manual-data').value,
+        consum_m3: parseFloat(document.getElementById('reg-manual-consum').value),
+        creat_per: currentUser ? currentUser.id : null
+    };
+    try {
+        const { error } = await supabaseClient.from('reg').insert([dades]);
+        if (error) throw error;
+        mostrarNotificacio('✅ Registre afegit correctament', 'success');
+        tancarModal('modal-reg-manual');
         await carregarTaulaReg();
     } catch (error) {
         mostrarNotificacio('Error: ' + error.message, 'error');
