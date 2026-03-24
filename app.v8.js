@@ -4369,13 +4369,18 @@ async function importarExcelReg(event) {
 
     mostrarNotificacio('📥 Llegint fitxer...', 'info');
 
-    const reader = new FileReader();
-    reader.onload = async function(e) {
-    const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-        try {
-            const workbook = XLSX.read(e.target.result, { type: 'array' });
-			const sheet = workbook.Sheets[workbook.SheetNames[0]];
-			const files = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+const reader = new FileReader();
+reader.onload = async function(e) {
+    try {
+        const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        
+        // Forçar rang complet
+        const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1:C1000');
+        range.e.r = 10000;
+        sheet['!ref'] = XLSX.utils.encode_range(range);
+        
+        const files = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
 console.log('Fulls:', workbook.SheetNames);
 console.log('Rang:', sheet['!ref']);
 console.log('Total files:', files.length);
