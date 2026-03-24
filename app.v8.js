@@ -4386,8 +4386,8 @@ async function importarExcelReg(event) {
                 let data = fila[1];
                 const consumM3 = parseFloat(fila[2]) || 0;
 
-                if (!numExplotacio || !data) continue;
-
+                if (!numExplotacio || !data) { console.log('Saltant fila ' + i + ':', fila); continue; }
+console.log('Fila ' + i + ':', numExplotacio, data, consumM3);
                 // Convertir data
                 if (data instanceof Date) {
                     data = data.toISOString().split('T')[0];
