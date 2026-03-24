@@ -4307,13 +4307,14 @@ async function carregarTaulaReg() {
     const explotacio = document.getElementById('reg-filtre-explotacio')?.value;
 
     try {
-        let query = supabaseClient.from('reg').select('*').order('data', { ascending: false }).limit(10000);
+        let query = supabaseClient.from('reg').select('*', { count: 'exact' }).order('data', { ascending: false }).range(0, 9999);
         if (any) {
             query = query.gte('data', any + '-01-01').lte('data', any + '-12-31');
         }
         if (mes && any) {
-            query = query.gte('data', any + '-' + mes + '-01').lte('data', any + '-' + mes + '-31');
-        }
+			const ultimDia = new Date(parseInt(any), parseInt(mes), 0).getDate();
+			query = query.gte('data', any + '-' + mes + '-01').lte('data', any + '-' + mes + '-' + String(ultimDia).padStart(2,'0'));
+}
         if (explotacio) {
             query = query.eq('num_explotacio', explotacio);
         }
