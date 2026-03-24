@@ -4375,6 +4375,10 @@ async function importarExcelReg(event) {
             const workbook = XLSX.read(e.target.result, { type: 'binary', cellDates: true });
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             const files = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+console.log('Fulls:', workbook.SheetNames);
+console.log('Rang:', sheet['!ref']);
+console.log('Total files:', files.length);
+console.log('Primeres 5 files:', files.slice(0,5));			
 console.log('Total files al fitxer:', files.length);
             // Saltar capçalera
             const registres = [];
