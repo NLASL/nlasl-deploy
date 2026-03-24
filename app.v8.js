@@ -4375,7 +4375,7 @@ async function importarExcelReg(event) {
             const workbook = XLSX.read(e.target.result, { type: 'binary', cellDates: true });
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             const files = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
+console.log('Total files al fitxer:', files.length);
             // Saltar capçalera
             const registres = [];
             for (let i = 1; i < files.length; i++) {
@@ -4386,8 +4386,10 @@ async function importarExcelReg(event) {
                 let data = fila[1];
                 const consumM3 = parseFloat(fila[2]) || 0;
 
-                if (!numExplotacio || !data) { console.log('Saltant fila ' + i + ':', fila); continue; }
+                if (!numExplotacio) { console.log('Saltant fila ' + i + ' - sense explotació:', fila); continue; }
+				if (!data) { console.log('Saltant fila ' + i + ' - sense data:', fila); continue; }
 console.log('Fila ' + i + ':', numExplotacio, data, consumM3);
+
                 // Convertir data
                 if (data instanceof Date) {
                     data = data.toISOString().split('T')[0];
