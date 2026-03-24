@@ -4302,54 +4302,91 @@ async function carregarTaulaReg() {
     const tbody = document.getElementById('tbody-reg');
     if (!tbody) return;
 
-    const any = document.getElementById('reg-filtre-any')?.value;
-    const mes = document.getElementById('reg-filtre-mes')?.value;
-    const explotacio = document.getElementById('reg-filtre-explotacio')?.value;
+    const any = parseInt(document.getElementById('reg-filtre-any')?.value) || null;
+    const mes = parseInt(document.getElementById('reg-filtre-mes')?.value) || null;
+    const explotacio = document.getElementById('reg-filtre-explotacio')?.value || null;
 
     try {
-        let query = supabaseClient.from('reg').select('*', { count: 'exact' }).order('data', { ascending: false }).range(0, 9999);
-        if (any) {
-            query = query.gte('data', any + '-01-01').lte('data', any + '-12-31');
-        }
-        if (mes && any) {
-			const ultimDia = new Date(parseInt(any), parseInt(mes), 0).getDate();
-			query = query.gte('data', any + '-' + mes + '-01').lte('data', any + '-' + mes + '-' + String(ultimDia).padStart(2,'0'));
-}
-        if (explotacio) {
-            query = query.eq('num_explotacio', explotacio);
-        }
-
-        const { data, error } = await query;
+        const { data, error } = await supabaseClient
+            .rpc('resum_reg_mensual', { 
+                p_any: any, 
+                p_mes: mes, 
+                p_explotacio: explotacio 
+            });
         if (error) throw error;
 
         const registres = data || [];
 
         if (registres.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No hi ha registres</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No hi ha registres</td></tr>';
             document.getElementById('resum-reg').innerHTML = '';
             return;
         }
 
         // Resum total
-        const totalM3 = registres.reduce(function(sum, r) { return sum + (parseFloat(r.consum_m3) || 0); }, 0);
+        const totalM3 = registres.reduce(function(sum, r) { return sum + (parseFloat(r.total_m3) || 0); }, 0);
         document.getElementById('resum-reg').innerHTML = 
             '<div style="background:#e3f2fd;padding:12px;border-radius:8px;display:inline-block;">' +
-            '💧 Total consum: <strong>' + totalM3.toFixed(2) + ' m³</strong> — ' + registres.length + ' registres' +
+            '💧 Total consum: <strong>' + totalM3.toFixed(2) + ' m³</strong>' +
             '</div>';
 
-        const podeEliminar = hasPermission('delete');
+        // Actualitzar capçalera taula
+        document.querySelector('#tbody-reg').closest('table').querySelector('thead tr').innerHTML = 
+            '<th>Mes</th><th>Explotació</th><th>Finca</th><th>Total m³</th><th>Dies amb consum</th><th>Detall</th>';
 
         tbody.innerHTML = registres.map(function(r) {
-            const finca = parcelles.find(function(p) { return p.num_explotacio === r.num_explotacio; });
-            const nomFinca = finca ? finca.finca : '-';
-            let accions = '';
-            if (podeEliminar) accions += '<button class="btn btn-sm btn-danger" onclick="eliminarReg(\'' + r.id + '\')">🗑️</button>';
-            return '<tr><td>' + formatData(r.data) + '</td><td>' + (r.num_explotacio || '-') + '</td><td>' + nomFinca + '</td><td>' + (parseFloat(r.consum_m3) || 0).toFixed(2) + '</td><td>' + accions + '</td></tr>';
+            const parcella = parcelles.find(function(p) { return p.num_explotacio === r.num_explotacio; });
+            const nomFinca = parcella ? parcella.finca : '-';
+            const data = new Date(r.mes);
+            const mesNom = data.toLocaleString('ca-ES', { month: 'long', year: 'numeric' });
+            
+            return '<tr>' +
+                '<td><strong>' + mesNom + '</strong></td>' +
+                '<td>' + r.num_explotacio + '</td>' +
+                '<td>' + nomFinca + '</td>' +
+                '<td><strong>' + parseFloat(r.total_m3).toFixed(2) + ' m³</strong></td>' +
+                '<td>' + r.dies_amb_consum + ' / ' + r.dies_totals + ' dies</td>' +
+                '<td><button class="btn btn-sm btn-primary" onclick="veurDetallReg(\'' + r.num_explotacio + '\',\'' + r.mes + '\')">👁️</button></td>' +
+                '</tr>';
         }).join('');
 
     } catch (error) {
-        tbody.innerHTML = '<tr><td colspan="5">Error: ' + error.message + '</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6">Error: ' + error.message + '</td></tr>';
     }
+}
+
+async function veurDetallReg(numExplotacio, mes) {
+    const dataInici = mes.split('T')[0].substring(0, 7) + '-01';
+    const ultimDia = new Date(new Date(mes).getFullYear(), new Date(mes).getMonth() + 1, 0).getDate();
+    const dataFi = mes.split('T')[0].substring(0, 7) + '-' + String(ultimDia).padStart(2, '0');
+
+    const { data, error } = await supabaseClient
+        .from('reg')
+        .select('*')
+        .eq('num_explotacio', numExplotacio)
+        .gte('data', dataInici)
+        .lte('data', dataFi)
+        .order('data');
+
+    if (error) { mostrarNotificacio('Error: ' + error.message, 'error'); return; }
+
+    const parcella = parcelles.find(function(p) { return p.num_explotacio === numExplotacio; });
+    const nomFinca = parcella ? parcella.finca : numExplotacio;
+
+    let html = '<div id="modal-detall-reg" class="modal" style="display:block;">';
+    html += '<div class="modal-content" style="max-width:600px;">';
+    html += '<span class="close" onclick="document.getElementById(\'modal-detall-reg\').remove()">&times;</span>';
+    html += '<h2>💧 Detall Reg — ' + nomFinca + '</h2>';
+    html += '<p style="color:#999;">' + numExplotacio + ' — ' + new Date(mes).toLocaleString('ca-ES', {month:'long', year:'numeric'}) + '</p>';
+    html += '<table class="data-table"><thead><tr><th>Data</th><th>Consum (m³)</th></tr></thead><tbody>';
+    
+    data.forEach(function(r) {
+        const estil = parseFloat(r.consum_m3) > 0 ? 'background:#e3f2fd;font-weight:bold;' : '';
+        html += '<tr style="' + estil + '"><td>' + formatData(r.data) + '</td><td>' + (parseFloat(r.consum_m3) || 0).toFixed(2) + '</td></tr>';
+    });
+    
+    html += '</tbody></table></div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
 }
 
 async function eliminarReg(id) {
