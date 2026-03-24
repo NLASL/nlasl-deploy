@@ -4381,11 +4381,7 @@ reader.onload = async function(e) {
         sheet['!ref'] = XLSX.utils.encode_range(range);
         
         const files = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
-console.log('Fulls:', workbook.SheetNames);
-console.log('Rang:', sheet['!ref']);
-console.log('Total files:', files.length);
-console.log('Primeres 5 files:', files.slice(0,5));			
-console.log('Total files al fitxer:', files.length);
+
             // Saltar capçalera
             const registres = [];
             for (let i = 1; i < files.length; i++) {
@@ -4398,7 +4394,6 @@ console.log('Total files al fitxer:', files.length);
 
                 if (!numExplotacio) { console.log('Saltant fila ' + i + ' - sense explotació:', fila); continue; }
 				if (!data) { console.log('Saltant fila ' + i + ' - sense data:', fila); continue; }
-console.log('Fila ' + i + ':', numExplotacio, data, consumM3);
 
                 // Convertir data
                 if (data instanceof Date) {
