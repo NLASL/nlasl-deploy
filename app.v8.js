@@ -4307,7 +4307,7 @@ async function carregarTaulaReg() {
     const explotacio = document.getElementById('reg-filtre-explotacio')?.value;
 
     try {
-        let query = supabaseClient.from('reg').select('*').order('data', { ascending: false });
+        let query = supabaseClient.from('reg').select('*').order('data', { ascending: false }).limit(10000);
         if (any) {
             query = query.gte('data', any + '-01-01').lte('data', any + '-12-31');
         }
