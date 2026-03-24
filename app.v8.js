@@ -2643,9 +2643,11 @@ function crearModalControlHorari() {
 }
 
 async function exportarControlHorariLaboral() {
-    const dataInici = document.getElementById('filtro-data-inici')?.value;
-    const dataFi = document.getElementById('filtro-data-fi')?.value;
-    
+    const dataInici = document.getElementById('filtro-data-inici')?.value || 
+                      document.getElementById('informe-horari-inici')?.value;
+    const dataFi = document.getElementById('filtro-data-fi')?.value || 
+                   document.getElementById('informe-horari-fi')?.value;
+				   
     if (!dataInici || !dataFi) {
         mostrarNotificacio('Cal seleccionar data inici i data fi per exportar', 'error');
         return;
@@ -2692,8 +2694,10 @@ async function exportarControlHorariLaboral() {
 }
 
 async function exportarControlHorariGestio() {
-    const dataInici = document.getElementById('filtro-data-inici')?.value;
-    const dataFi = document.getElementById('filtro-data-fi')?.value;
+    const dataInici = document.getElementById('filtro-data-inici')?.value || 
+                      document.getElementById('informe-horari-inici')?.value;
+    const dataFi = document.getElementById('filtro-data-fi')?.value || 
+                   document.getElementById('informe-horari-fi')?.value;
 
     if (!dataInici || !dataFi) {
         mostrarNotificacio('Cal seleccionar data inici i data fi per exportar', 'error');
