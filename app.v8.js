@@ -4424,7 +4424,18 @@ reader.onload = async function(e) {
             }
 
             // Insertar a BD
-            const { error } = await supabaseClient.from('reg').insert(registres);
+            // Esborrar registres existents per les mateixes dates i explotació
+			const numExplotacio = registres[0].num_explotacio;
+			const dataMin = registres.reduce((min, r) => r.data < min ? r.data : min, registres[0].data);
+			const dataMax = registres.reduce((max, r) => r.data > max ? r.data : max, registres[0].data);
+			
+			await supabaseClient.from('reg')
+				.delete()
+				.eq('num_explotacio', numExplotacio)
+				.gte('data', dataMin)
+				.lte('data', dataMax);
+
+			const { error } = await supabaseClient.from('reg').insert(registres);
             if (error) throw error;
 
             mostrarNotificacio('✅ Importats ' + registres.length + ' registres correctament', 'success');
