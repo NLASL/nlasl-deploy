@@ -141,6 +141,9 @@ function canviarVista(vista) {
 		case 'reg':
 			carregarVistaReg();
 			break;
+		case 'gasoil':
+			carregarVistaGasoil();
+			break;	
 	
     case 'control-horari':
     const role = currentUserProfile ? currentUserProfile.role : 'visor';
@@ -4249,6 +4252,226 @@ async function exportarDANCSV() {
     a.click();
     URL.revokeObjectURL(url);
     mostrarNotificacio('✅ DAN exportada correctament', 'success');
+}
+
+async function carregarVistaGasoil() {
+    const container = document.getElementById('view-container');
+    const podeCrear = hasPermission('insert');
+
+    let html = '<div class="view-gasoil">';
+    html += '<div style="display:flex;justify-content:space-between;margin-bottom:20px;">';
+    html += '<h2>⛽ Gasoil</h2>';
+    if (podeCrear) {
+        html += '<button class="btn btn-primary" onclick="obrirModalGasoil()">➕ Nou Registre</button>';
+    }
+    html += '</div>';
+
+    // Resum
+    html += '<div id="resum-gasoil" style="margin-bottom:20px;"></div>';
+
+    // Filtres
+    html += '<div style="background:#f5f5f5;padding:15px;border-radius:8px;margin-bottom:20px;">';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:15px;">';
+    html += '<div><label>Any</label><select id="gasoil-filtre-any" onchange="carregarTaulaGasoil()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">';
+    const anyActual = new Date().getFullYear();
+    for (let a = anyActual; a >= anyActual - 3; a--) {
+        const sel = a === anyActual ? 'selected' : '';
+        html += '<option value="' + a + '" ' + sel + '>' + a + '</option>';
+    }
+    html += '</select></div>';
+    html += '<div><label>Proveïdor</label><input type="text" id="gasoil-filtre-proveidor" onchange="carregarTaulaGasoil()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" placeholder="Tots"></div>';
+    html += '<div></div>';
+    html += '<div style="align-self:end;"><button class="btn btn-secondary" onclick="netejarFiltresGasoil()">🗑️ Netejar</button></div>';
+    html += '</div></div>';
+
+    html += '<div class="table-container"><table class="data-table">';
+    html += '<thead><tr><th>Data</th><th>Proveïdor</th><th>Litres</th><th>Preu/L</th><th>IVA %</th><th>Import Net</th><th>Import Total</th><th>Accions</th></tr></thead>';
+    html += '<tbody id="tbody-gasoil"><tr><td colspan="8">Carregant...</td></tr></tbody>';
+    html += '</table></div></div>';
+
+    html += crearModalGasoil();
+    container.innerHTML = html;
+    await carregarTaulaGasoil();
+}
+
+async function carregarTaulaGasoil() {
+    const tbody = document.getElementById('tbody-gasoil');
+    if (!tbody) return;
+
+    try {
+        const any = document.getElementById('gasoil-filtre-any')?.value;
+        const proveidor = document.getElementById('gasoil-filtre-proveidor')?.value?.trim();
+
+        let query = supabaseClient.from('gasoil').select('*').order('data', { ascending: false });
+        if (any) query = query.gte('data', any + '-01-01').lte('data', any + '-12-31');
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        let registres = data || [];
+        if (proveidor) {
+            registres = registres.filter(function(r) {
+                return r.proveidor && r.proveidor.toLowerCase().includes(proveidor.toLowerCase());
+            });
+        }
+
+        if (registres.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No hi ha registres</td></tr>';
+            document.getElementById('resum-gasoil').innerHTML = '';
+            return;
+        }
+
+        // Resum
+        const totalLitres = registres.reduce(function(s, r) { return s + (parseFloat(r.litres) || 0); }, 0);
+        const totalNet = registres.reduce(function(s, r) { return s + (parseFloat(r.import_net) || 0); }, 0);
+        const totalTotal = registres.reduce(function(s, r) { return s + (parseFloat(r.import_total) || 0); }, 0);
+        document.getElementById('resum-gasoil').innerHTML =
+            '<div style="display:flex;gap:15px;flex-wrap:wrap;">' +
+            '<div style="background:#fff3e0;padding:12px;border-radius:8px;">⛽ Total: <strong>' + totalLitres.toFixed(2) + ' L</strong></div>' +
+            '<div style="background:#e8f5e9;padding:12px;border-radius:8px;">💶 Import net: <strong>' + totalNet.toFixed(2) + ' €</strong></div>' +
+            '<div style="background:#e3f2fd;padding:12px;border-radius:8px;">💶 Import total: <strong>' + totalTotal.toFixed(2) + ' €</strong></div>' +
+            '</div>';
+
+        const podeEditar = hasPermission('update');
+        const podeEliminar = hasPermission('delete');
+
+        tbody.innerHTML = registres.map(function(r) {
+            let accions = '<button class="btn btn-sm btn-primary" onclick="veureGasoil(\'' + r.id + '\')">👁️</button> ';
+            if (podeEditar) accions += '<button class="btn btn-sm btn-secondary" onclick="editarGasoil(\'' + r.id + '\')">✏️</button> ';
+            if (podeEliminar) accions += '<button class="btn btn-sm btn-danger" onclick="eliminarGasoil(\'' + r.id + '\')">🗑️</button>';
+            return '<tr>' +
+                '<td>' + formatData(r.data) + '</td>' +
+                '<td>' + (r.proveidor || '-') + '</td>' +
+                '<td>' + (parseFloat(r.litres) || 0).toFixed(2) + ' L</td>' +
+                '<td>' + (r.preu_unitari ? parseFloat(r.preu_unitari).toFixed(4) + ' €' : '-') + '</td>' +
+                '<td>' + (r.iva || 21) + '%</td>' +
+                '<td>' + (r.import_net ? parseFloat(r.import_net).toFixed(2) + ' €' : '-') + '</td>' +
+                '<td>' + (r.import_total ? parseFloat(r.import_total).toFixed(2) + ' €' : '-') + '</td>' +
+                '<td>' + accions + '</td>' +
+                '</tr>';
+        }).join('');
+
+    } catch (error) {
+        tbody.innerHTML = '<tr><td colspan="8">Error: ' + error.message + '</td></tr>';
+    }
+}
+
+function netejarFiltresGasoil() {
+    document.getElementById('gasoil-filtre-proveidor').value = '';
+    carregarTaulaGasoil();
+}
+
+function crearModalGasoil() {
+    return '<div id="modal-gasoil" class="modal" style="display:none;">' +
+        '<div class="modal-content" style="max-width:500px;">' +
+        '<span class="close" onclick="tancarModal(\'modal-gasoil\')">&times;</span>' +
+        '<h2 id="modal-gasoil-titol">Nou Registre Gasoil</h2>' +
+        '<form id="form-gasoil" onsubmit="guardarGasoil(event)">' +
+        '<input type="hidden" id="gasoil-id">' +
+        '<div class="form-group"><label>Data *</label><input type="date" id="gasoil-data" required></div>' +
+        '<div class="form-group"><label>Proveïdor</label><input type="text" id="gasoil-proveidor"></div>' +
+        '<div class="form-group"><label>Litres *</label><input type="number" id="gasoil-litres" required min="0" step="0.01" onchange="calcularImportGasoil()"></div>' +
+        '<div class="form-group"><label>Preu unitari (€/L) *</label><input type="number" id="gasoil-preu" required min="0" step="0.0001" onchange="calcularImportGasoil()"></div>' +
+        '<div class="form-group"><label>IVA %</label><input type="number" id="gasoil-iva" value="21" min="0" step="1" onchange="calcularImportGasoil()"></div>' +
+        '<div class="form-group"><label>Import Net: <strong id="gasoil-import-net-calc">0,00 €</strong></label></div>' +
+        '<div class="form-group"><label>Import IVA: <strong id="gasoil-import-iva-calc">0,00 €</strong></label></div>' +
+        '<div class="form-group"><label>Import Total: <strong id="gasoil-import-total-calc">0,00 €</strong></label></div>' +
+        '<div class="form-group"><label>Observacions</label><textarea id="gasoil-observacions" rows="2"></textarea></div>' +
+        '<div class="form-actions">' +
+        '<button type="button" class="btn btn-secondary" onclick="tancarModal(\'modal-gasoil\')">Cancel·lar</button>' +
+        '<button type="submit" class="btn btn-primary">Guardar</button>' +
+        '</div></form></div></div>';
+}
+
+function calcularImportGasoil() {
+    const litres = parseFloat(document.getElementById('gasoil-litres')?.value) || 0;
+    const preu = parseFloat(document.getElementById('gasoil-preu')?.value) || 0;
+    const iva = parseFloat(document.getElementById('gasoil-iva')?.value) || 21;
+    const net = litres * preu;
+    const importIva = net * iva / 100;
+    const total = net + importIva;
+    document.getElementById('gasoil-import-net-calc').textContent = net.toFixed(2) + ' €';
+    document.getElementById('gasoil-import-iva-calc').textContent = importIva.toFixed(2) + ' €';
+    document.getElementById('gasoil-import-total-calc').textContent = total.toFixed(2) + ' €';
+}
+
+function obrirModalGasoil() {
+    document.getElementById('modal-gasoil-titol').textContent = 'Nou Registre Gasoil';
+    document.getElementById('form-gasoil').reset();
+    document.getElementById('gasoil-id').value = '';
+    document.getElementById('gasoil-data').value = new Date().toISOString().split('T')[0];
+    document.getElementById('gasoil-iva').value = 21;
+    document.getElementById('gasoil-import-net-calc').textContent = '0,00 €';
+    document.getElementById('gasoil-import-iva-calc').textContent = '0,00 €';
+    document.getElementById('gasoil-import-total-calc').textContent = '0,00 €';
+    document.getElementById('modal-gasoil').style.display = 'block';
+}
+
+async function editarGasoil(id) {
+    const { data, error } = await supabaseClient.from('gasoil').select('*').eq('id', id).single();
+    if (error) return;
+    document.getElementById('modal-gasoil-titol').textContent = 'Editar Gasoil';
+    document.getElementById('gasoil-id').value = data.id;
+    document.getElementById('gasoil-data').value = data.data || '';
+    document.getElementById('gasoil-proveidor').value = data.proveidor || '';
+    document.getElementById('gasoil-litres').value = data.litres || '';
+    document.getElementById('gasoil-preu').value = data.preu_unitari || '';
+    document.getElementById('gasoil-iva').value = data.iva || 21;
+    document.getElementById('gasoil-observacions').value = data.observacions || '';
+    calcularImportGasoil();
+    document.getElementById('modal-gasoil').style.display = 'block';
+}
+
+function veureGasoil(id) {
+    editarGasoil(id);
+}
+
+async function guardarGasoil(event) {
+    event.preventDefault();
+    const id = document.getElementById('gasoil-id').value;
+    const litres = parseFloat(document.getElementById('gasoil-litres').value) || 0;
+    const preu = parseFloat(document.getElementById('gasoil-preu').value) || 0;
+    const iva = parseFloat(document.getElementById('gasoil-iva').value) || 21;
+    const net = litres * preu;
+    const importIva = net * iva / 100;
+    const total = net + importIva;
+
+    const dades = {
+        data: document.getElementById('gasoil-data').value,
+        proveidor: document.getElementById('gasoil-proveidor').value.trim() || null,
+        litres: litres,
+        preu_unitari: preu,
+        iva: iva,
+        import_net: net,
+        import_iva: importIva,
+        import_total: total,
+        observacions: document.getElementById('gasoil-observacions').value.trim() || null
+    };
+
+    try {
+        if (id) {
+            await updateGasoil(id, dades);
+            mostrarNotificacio('Registre actualitzat', 'success');
+        } else {
+            await createGasoil(dades);
+            mostrarNotificacio('Registre creat', 'success');
+        }
+        tancarModal('modal-gasoil');
+        await carregarTaulaGasoil();
+    } catch (error) {
+        mostrarNotificacio('Error: ' + error.message, 'error');
+    }
+}
+
+async function eliminarGasoil(id) {
+    if (!confirm('Segur que vols eliminar aquest registre?')) return;
+    try {
+        await deleteGasoil(id);
+        mostrarNotificacio('Registre eliminat', 'success');
+        await carregarTaulaGasoil();
+    } catch (error) {
+        mostrarNotificacio('Error: ' + error.message, 'error');
+    }
 }
 
 async function carregarVistaReg() {

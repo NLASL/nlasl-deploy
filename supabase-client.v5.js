@@ -591,4 +591,46 @@ async function deleteAlerta(id) {
     if (error) throw error;
 }
 
+// ============================================================
+// GASOIL
+// ============================================================
+
+
+async function getGasoil() {
+    const { data, error } = await supabaseClient
+        .from('gasoil')
+        .select('*')
+        .order('data', { ascending: false });
+    if (error) throw error;
+    return data || [];
+}
+
+async function createGasoil(registre) {
+    const { data, error } = await supabaseClient
+        .from('gasoil')
+        .insert([{ ...registre, creat_per: currentUser ? currentUser.id : null }])
+        .select();
+    if (error) throw error;
+    return data[0];
+}
+
+async function updateGasoil(id, registre) {
+    const { data, error } = await supabaseClient
+        .from('gasoil')
+        .update(registre)
+        .eq('id', id)
+        .select();
+    if (error) throw error;
+    return data[0];
+}
+
+async function deleteGasoil(id) {
+    const { error } = await supabaseClient
+        .from('gasoil')
+        .delete()
+        .eq('id', id);
+    if (error) throw error;
+}
+
+
 console.log('✅ Supabase client v5 carregat');
