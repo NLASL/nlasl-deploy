@@ -138,6 +138,10 @@ function canviarVista(vista) {
 		case 'informes':
 			carregarVistaInformes();
 			break;	
+		case 'reg':
+			carregarVistaReg();
+			break;
+	
     case 'control-horari':
     const role = currentUserProfile ? currentUserProfile.role : 'visor';
     const treballadorActiu = treballadors.find(function(t) { 
@@ -4241,6 +4245,191 @@ async function exportarDANCSV() {
     a.click();
     URL.revokeObjectURL(url);
     mostrarNotificacio('✅ DAN exportada correctament', 'success');
+}
+
+async function carregarVistaReg() {
+    const container = document.getElementById('view-container');
+    
+    let html = '<div class="view-reg">';
+    html += '<div style="display:flex;justify-content:space-between;margin-bottom:20px;">';
+    html += '<h2>💧 Reg — Consums</h2>';
+    html += '<button class="btn btn-primary" onclick="document.getElementById(\'input-excel-reg\').click()">📥 Importar Excel</button>';
+    html += '<input type="file" id="input-excel-reg" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importarExcelReg(event)">';
+    html += '</div>';
+    
+    html += '<div style="background:#e3f2fd;padding:15px;border-radius:8px;margin-bottom:20px;">';
+    html += '<p style="margin:0;font-size:13px;">📋 Format Excel esperat: <strong>EXPLOTACIÓ | DATA | CONSUM (m3)</strong></p>';
+    html += '</div>';
+
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;margin-bottom:20px;">';
+    html += '<div><label>Any</label><select id="reg-filtre-any" onchange="carregarTaulaReg()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">';
+    const anyActual = new Date().getFullYear();
+    for (let a = anyActual; a >= anyActual - 3; a--) {
+        html += '<option value="' + a + '">' + a + '</option>';
+    }
+    html += '</select></div>';
+    html += '<div><label>Mes</label><select id="reg-filtre-mes" onchange="carregarTaulaReg()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">';
+    html += '<option value="">Tots</option>';
+    const mesos = ['Gener','Febrer','Març','Abril','Maig','Juny','Juliol','Agost','Setembre','Octubre','Novembre','Desembre'];
+    mesos.forEach(function(m, i) {
+        html += '<option value="' + String(i+1).padStart(2,'0') + '">' + m + '</option>';
+    });
+    html += '</select></div>';
+    html += '<div><label>Explotació</label><select id="reg-filtre-explotacio" onchange="carregarTaulaReg()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"><option value="">Totes</option></select></div>';
+    html += '</div>';
+
+    html += '<div id="resum-reg" style="margin-bottom:20px;"></div>';
+    html += '<div class="table-container"><table class="data-table">';
+    html += '<thead><tr><th>Data</th><th>Explotació</th><th>Finca</th><th>Consum (m3)</th><th>Accions</th></tr></thead>';
+    html += '<tbody id="tbody-reg"><tr><td colspan="5">Carregant...</td></tr></tbody>';
+    html += '</table></div></div>';
+
+    container.innerHTML = html;
+    await carregarFiltreExplotacions();
+    await carregarTaulaReg();
+}
+
+async function carregarFiltreExplotacions() {
+    const select = document.getElementById('reg-filtre-explotacio');
+    if (!select) return;
+    const explotsUniques = [...new Set(parcelles.filter(function(p) { return p.num_explotacio; }).map(function(p) { return p.num_explotacio; }))];
+    explotsUniques.sort().forEach(function(e) {
+        select.innerHTML += '<option value="' + e + '">' + e + '</option>';
+    });
+}
+
+async function carregarTaulaReg() {
+    const tbody = document.getElementById('tbody-reg');
+    if (!tbody) return;
+
+    const any = document.getElementById('reg-filtre-any')?.value;
+    const mes = document.getElementById('reg-filtre-mes')?.value;
+    const explotacio = document.getElementById('reg-filtre-explotacio')?.value;
+
+    try {
+        let query = supabaseClient.from('reg').select('*').order('data', { ascending: false });
+        if (any) {
+            query = query.gte('data', any + '-01-01').lte('data', any + '-12-31');
+        }
+        if (mes && any) {
+            query = query.gte('data', any + '-' + mes + '-01').lte('data', any + '-' + mes + '-31');
+        }
+        if (explotacio) {
+            query = query.eq('num_explotacio', explotacio);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        const registres = data || [];
+
+        if (registres.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No hi ha registres</td></tr>';
+            document.getElementById('resum-reg').innerHTML = '';
+            return;
+        }
+
+        // Resum total
+        const totalM3 = registres.reduce(function(sum, r) { return sum + (parseFloat(r.consum_m3) || 0); }, 0);
+        document.getElementById('resum-reg').innerHTML = 
+            '<div style="background:#e3f2fd;padding:12px;border-radius:8px;display:inline-block;">' +
+            '💧 Total consum: <strong>' + totalM3.toFixed(2) + ' m³</strong> — ' + registres.length + ' registres' +
+            '</div>';
+
+        const podeEliminar = hasPermission('delete');
+
+        tbody.innerHTML = registres.map(function(r) {
+            const finca = parcelles.find(function(p) { return p.num_explotacio === r.num_explotacio; });
+            const nomFinca = finca ? finca.finca : '-';
+            let accions = '';
+            if (podeEliminar) accions += '<button class="btn btn-sm btn-danger" onclick="eliminarReg(\'' + r.id + '\')">🗑️</button>';
+            return '<tr><td>' + formatData(r.data) + '</td><td>' + (r.num_explotacio || '-') + '</td><td>' + nomFinca + '</td><td>' + (parseFloat(r.consum_m3) || 0).toFixed(2) + '</td><td>' + accions + '</td></tr>';
+        }).join('');
+
+    } catch (error) {
+        tbody.innerHTML = '<tr><td colspan="5">Error: ' + error.message + '</td></tr>';
+    }
+}
+
+async function eliminarReg(id) {
+    if (!confirm('Segur que vols eliminar aquest registre?')) return;
+    try {
+        const { error } = await supabaseClient.from('reg').delete().eq('id', id);
+        if (error) throw error;
+        mostrarNotificacio('Registre eliminat', 'success');
+        await carregarTaulaReg();
+    } catch (error) {
+        mostrarNotificacio('Error: ' + error.message, 'error');
+    }
+}
+
+async function importarExcelReg(event) {
+    const fitxer = event.target.files[0];
+    if (!fitxer) return;
+
+    mostrarNotificacio('📥 Llegint fitxer...', 'info');
+
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            const workbook = XLSX.read(e.target.result, { type: 'binary', cellDates: true });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const files = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+            // Saltar capçalera
+            const registres = [];
+            for (let i = 1; i < files.length; i++) {
+                const fila = files[i];
+                if (!fila || fila.length < 3) continue;
+
+                const numExplotacio = String(fila[0] || '').trim();
+                let data = fila[1];
+                const consumM3 = parseFloat(fila[2]) || 0;
+
+                if (!numExplotacio || !data) continue;
+
+                // Convertir data
+                if (data instanceof Date) {
+                    data = data.toISOString().split('T')[0];
+                } else if (typeof data === 'string') {
+                    // Format DD/MM/YYYY
+                    const parts = data.split('/');
+                    if (parts.length === 3) {
+                        data = parts[2] + '-' + parts[1].padStart(2,'0') + '-' + parts[0].padStart(2,'0');
+                    }
+                } else if (typeof data === 'number') {
+                    // Excel serial date
+                    const d = new Date((data - 25569) * 86400 * 1000);
+                    data = d.toISOString().split('T')[0];
+                }
+
+                registres.push({
+                    num_explotacio: numExplotacio,
+                    data: data,
+                    consum_m3: consumM3,
+                    creat_per: currentUser ? currentUser.id : null
+                });
+            }
+
+            if (registres.length === 0) {
+                mostrarNotificacio('No s\'han trobat registres al fitxer', 'error');
+                return;
+            }
+
+            // Insertar a BD
+            const { error } = await supabaseClient.from('reg').insert(registres);
+            if (error) throw error;
+
+            mostrarNotificacio('✅ Importats ' + registres.length + ' registres correctament', 'success');
+            event.target.value = '';
+            await carregarTaulaReg();
+
+        } catch (error) {
+            console.error('Error importació:', error);
+            mostrarNotificacio('Error: ' + error.message, 'error');
+        }
+    };
+    reader.readAsBinaryString(fitxer);
 }
 
 async function guardarFitxatgeTreballador(event) {

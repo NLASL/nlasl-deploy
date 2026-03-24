@@ -90,7 +90,7 @@
         <button class="nav-btn nav-group-btn" onclick="toggleSubmenu('consums')">📦 Consums ▾</button>
         <div id="submenu-consums" class="submenu" style="display:none;">
             <button class="nav-btn submenu-btn" disabled style="opacity:0.5;">🍎 Collita (pròximament)</button>
-            <button class="nav-btn submenu-btn" disabled style="opacity:0.5;">💧 Reg (pròximament)</button>
+            <button class="nav-btn submenu-btn" onclick="canviarVista('reg');tancarSubmenus();" data-view="reg">💧 Reg</button>
             <button class="nav-btn submenu-btn" disabled style="opacity:0.5;">⛽ Gasoil (pròximament)</button>
             <button class="nav-btn submenu-btn" disabled style="opacity:0.5;">🛒 Compres (pròximament)</button>
         </div>
@@ -135,7 +135,8 @@
 		<script src="/app.v8.js"></script>
 		<script src="/horari-extensions.v1.js"></script>
 		<script src="/admin-panel.v1.js"></script>
-
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+		
     <!-- Service Worker -->
     <script>
         if ('serviceWorker' in navigator) {
