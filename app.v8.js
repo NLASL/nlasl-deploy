@@ -4371,10 +4371,11 @@ async function importarExcelReg(event) {
 
     const reader = new FileReader();
     reader.onload = async function(e) {
+    const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
         try {
-            const workbook = XLSX.read(e.target.result, { type: 'binary', cellDates: true });
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const files = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+            const workbook = XLSX.read(e.target.result, { type: 'array' });
+			const sheet = workbook.Sheets[workbook.SheetNames[0]];
+			const files = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
 console.log('Fulls:', workbook.SheetNames);
 console.log('Rang:', sheet['!ref']);
 console.log('Total files:', files.length);
@@ -4435,7 +4436,7 @@ console.log('Fila ' + i + ':', numExplotacio, data, consumM3);
             mostrarNotificacio('Error: ' + error.message, 'error');
         }
     };
-    reader.readAsBinaryString(fitxer);
+    reader.readAsArrayBuffer(fitxer);
 }
 
 async function guardarFitxatgeTreballador(event) {
