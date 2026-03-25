@@ -4279,7 +4279,7 @@ async function carregarVistaGasoil() {
         html += '<option value="' + a + '" ' + sel + '>' + a + '</option>';
     }
     html += '</select></div>';
-    html += '<div><label>Proveïdor</label><input type="text" id="gasoil-filtre-proveidor" oninput="carregarTaulaGasoil()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" placeholder="Tots"></div>';
+    html += '<div><label>Proveïdor</label><input type="text" id="gasoil-filtre-proveidor" oninput="filtrarTaulaGasoil()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" placeholder="Tots"></div>';
     html += '<div></div>';
     html += '<div style="align-self:end;"><button class="btn btn-secondary" onclick="netejarFiltresGasoil()">🗑️ Netejar</button></div>';
     html += '</div></div>';
@@ -4294,66 +4294,77 @@ async function carregarVistaGasoil() {
     await carregarTaulaGasoil();
 }
 
+let gasoilTots = [];
+
 async function carregarTaulaGasoil() {
     const tbody = document.getElementById('tbody-gasoil');
     if (!tbody) return;
 
     try {
         const any = document.getElementById('gasoil-filtre-any')?.value;
-        const proveidor = document.getElementById('gasoil-filtre-proveidor')?.value?.trim();
 
         let query = supabaseClient.from('gasoil').select('*').order('data', { ascending: false });
         if (any) query = query.gte('data', any + '-01-01').lte('data', any + '-12-31');
 
         const { data, error } = await query;
         if (error) throw error;
-
-        let registres = data || [];
-        if (proveidor) {
-            registres = registres.filter(function(r) {
-                return r.proveidor && r.proveidor.toLowerCase().includes(proveidor.toLowerCase());
-            });
-        }
-
-        if (registres.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No hi ha registres</td></tr>';
-            document.getElementById('resum-gasoil').innerHTML = '';
-            return;
-        }
-
-        // Resum
-        const totalLitres = registres.reduce(function(s, r) { return s + (parseFloat(r.litres) || 0); }, 0);
-        const totalNet = registres.reduce(function(s, r) { return s + (parseFloat(r.import_net) || 0); }, 0);
-        const totalTotal = registres.reduce(function(s, r) { return s + (parseFloat(r.import_total) || 0); }, 0);
-        document.getElementById('resum-gasoil').innerHTML =
-            '<div style="display:flex;gap:15px;flex-wrap:wrap;">' +
-            '<div style="background:#fff3e0;padding:12px;border-radius:8px;">⛽ Total: <strong>' + totalLitres.toFixed(2) + ' L</strong></div>' +
-            '<div style="background:#e8f5e9;padding:12px;border-radius:8px;">💶 Import net: <strong>' + totalNet.toFixed(2) + ' €</strong></div>' +
-            '<div style="background:#e3f2fd;padding:12px;border-radius:8px;">💶 Import total: <strong>' + totalTotal.toFixed(2) + ' €</strong></div>' +
-            '</div>';
-
-        const podeEditar = hasPermission('update');
-        const podeEliminar = hasPermission('delete');
-
-        tbody.innerHTML = registres.map(function(r) {
-            let accions = '<button class="btn btn-sm btn-primary" onclick="veureGasoil(\'' + r.id + '\')">👁️</button> ';
-            if (podeEditar) accions += '<button class="btn btn-sm btn-secondary" onclick="editarGasoil(\'' + r.id + '\')">✏️</button> ';
-            if (podeEliminar) accions += '<button class="btn btn-sm btn-danger" onclick="eliminarGasoil(\'' + r.id + '\')">🗑️</button>';
-            return '<tr>' +
-                '<td>' + formatData(r.data) + '</td>' +
-                '<td>' + (r.proveidor || '-') + '</td>' +
-                '<td>' + (parseFloat(r.litres) || 0).toFixed(2) + ' L</td>' +
-                '<td>' + (r.preu_unitari ? parseFloat(r.preu_unitari).toFixed(4) + ' €' : '-') + '</td>' +
-                '<td>' + (r.iva || 21) + '%</td>' +
-                '<td>' + (r.import_net ? parseFloat(r.import_net).toFixed(2) + ' €' : '-') + '</td>' +
-                '<td>' + (r.import_total ? parseFloat(r.import_total).toFixed(2) + ' €' : '-') + '</td>' +
-                '<td>' + accions + '</td>' +
-                '</tr>';
-        }).join('');
+        gasoilTots = data || [];
+        filtrarTaulaGasoil();
 
     } catch (error) {
         tbody.innerHTML = '<tr><td colspan="8">Error: ' + error.message + '</td></tr>';
     }
+}
+
+function filtrarTaulaGasoil() {
+    const tbody = document.getElementById('tbody-gasoil');
+    if (!tbody) return;
+
+    const proveidor = document.getElementById('gasoil-filtre-proveidor')?.value?.trim();
+    let registres = gasoilTots;
+
+    if (proveidor) {
+        registres = registres.filter(function(r) {
+            return r.proveidor && r.proveidor.toLowerCase().includes(proveidor.toLowerCase());
+        });
+    }
+
+    if (registres.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No hi ha registres</td></tr>';
+        document.getElementById('resum-gasoil').innerHTML = '';
+        return;
+    }
+
+    // Resum
+    const totalLitres = registres.reduce(function(s, r) { return s + (parseFloat(r.litres) || 0); }, 0);
+    const totalNet = registres.reduce(function(s, r) { return s + (parseFloat(r.import_net) || 0); }, 0);
+    const totalTotal = registres.reduce(function(s, r) { return s + (parseFloat(r.import_total) || 0); }, 0);
+    document.getElementById('resum-gasoil').innerHTML =
+        '<div style="display:flex;gap:15px;flex-wrap:wrap;">' +
+        '<div style="background:#fff3e0;padding:12px;border-radius:8px;">⛽ Total: <strong>' + totalLitres.toFixed(2) + ' L</strong></div>' +
+        '<div style="background:#e8f5e9;padding:12px;border-radius:8px;">💶 Import net: <strong>' + totalNet.toFixed(2) + ' €</strong></div>' +
+        '<div style="background:#e3f2fd;padding:12px;border-radius:8px;">💶 Import total: <strong>' + totalTotal.toFixed(2) + ' €</strong></div>' +
+        '</div>';
+
+    const podeEditar = hasPermission('update');
+    const podeEliminar = hasPermission('delete');
+
+    tbody.innerHTML = registres.map(function(r) {
+        let accions = '<button class="btn btn-sm btn-primary" onclick="veureGasoil(\'' + r.id + '\')">👁️</button> ';
+        if (podeEditar) accions += '<button class="btn btn-sm btn-secondary" onclick="editarGasoil(\'' + r.id + '\')">✏️</button> ';
+        if (podeEliminar) accions += '<button class="btn btn-sm btn-danger" onclick="eliminarGasoil(\'' + r.id + '\')">🗑️</button>';
+        return '<tr>' +
+            '<td>' + formatData(r.data) + '</td>' +
+            '<td>' + (r.proveidor || '-') + '</td>' +
+            '<td>' + (r.num_factura || '-') + '</td>' +
+            '<td>' + (parseFloat(r.litres) || 0).toFixed(2) + ' L</td>' +
+            '<td>' + (r.preu_unitari ? parseFloat(r.preu_unitari).toFixed(4) + ' €' : '-') + '</td>' +
+            '<td>' + (r.iva || 21) + '%</td>' +
+            '<td>' + (r.import_net ? parseFloat(r.import_net).toFixed(2) + ' €' : '-') + '</td>' +
+            '<td>' + (r.import_total ? parseFloat(r.import_total).toFixed(2) + ' €' : '-') + '</td>' +
+            '<td>' + accions + '</td>' +
+            '</tr>';
+    }).join('');
 }
 
 function netejarFiltresGasoil() {
