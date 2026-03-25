@@ -4419,7 +4419,8 @@ function crearModalCompra() {
         '<th style="padding:8px;text-align:left;">Albarà</th>' +
         '<th style="padding:8px;text-align:left;">Data Alb.</th>' +
         '<th style="padding:8px;text-align:right;">Qtitat</th>' +
-        '<th style="padding:8px;text-align:right;">Preu</th>' +
+        '<th style="padding:8px;text-align:right;">Mida</th>' +
+		'<th style="padding:8px;text-align:right;">Preu</th>' +
         '<th style="padding:8px;text-align:right;">Dto %</th>' +
         '<th style="padding:8px;text-align:right;">Net</th>' +
         '<th style="padding:8px;text-align:right;">IVA %</th>' +
@@ -4468,7 +4469,8 @@ function afegirLiniaCompra(dades) {
         '<td><input type="text" value="' + (dades?.albara || '') + '" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;"></td>' +
         '<td><input type="date" value="' + (dades?.data_albara || '') + '" style="width:120px;padding:4px;border:1px solid #ddd;border-radius:4px;"></td>' +
         '<td><input type="number" value="' + (dades?.quantitat || '') + '" min="0" step="0.001" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right;" oninput="calcularLiniaCompra(' + idx + ')"></td>' +
-        '<td><input type="number" value="' + (dades?.preu || '') + '" min="0" step="0.0001" style="width:80px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right;" oninput="calcularLiniaCompra(' + idx + ')"></td>' +
+		'<td><input type="number" value="' + (dades?.mida_recipient || '1') + '" min="0" step="0.001" style="width:60px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right;" oninput="calcularLiniaCompra(' + idx + ')"></td>' +
+		'<td><input type="number" value="' + (dades?.preu || '') + '" min="0" step="0.0001" style="width:80px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right;" oninput="calcularLiniaCompra(' + idx + ')"></td>' +
         '<td><input type="number" value="' + (dades?.descompte || '0') + '" min="0" max="100" step="0.01" style="width:60px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right;" oninput="calcularLiniaCompra(' + idx + ')"></td>' +
         '<td style="text-align:right;padding:4px;"><strong id="linia-net-' + idx + '">0,00</strong></td>' +
         '<td><input type="number" value="' + (dades?.iva || '10') + '" min="0" max="100" step="1" style="width:55px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right;" oninput="calcularLiniaCompra(' + idx + ')"></td>' +
@@ -4488,10 +4490,11 @@ function calcularLiniaCompra(idx) {
     if (!tr) return;
     const inputs = tr.querySelectorAll('input[type="number"]');
     const qtitat = parseFloat(inputs[0].value) || 0;
-    const preu = parseFloat(inputs[1].value) || 0;
-    const dto = parseFloat(inputs[2].value) || 0;
-    const iva = parseFloat(inputs[3].value) || 10;
-    const net = qtitat * preu * (1 - dto / 100);
+	const mida = parseFloat(inputs[1].value) || 1;
+	const preu = parseFloat(inputs[2].value) || 0;
+	const dto = parseFloat(inputs[3].value) || 0;
+	const iva = parseFloat(inputs[4].value) || 10;
+	const net = qtitat * mida * preu * (1 - dto / 100);
     const total = net * (1 + iva / 100);
     document.getElementById('linia-net-' + idx).textContent = net.toFixed(2);
     document.getElementById('linia-total-' + idx).textContent = total.toFixed(2);
@@ -4534,11 +4537,11 @@ async function guardarCompra() {
         const inputs = tr.querySelectorAll('input');
         const numInputs = tr.querySelectorAll('input[type="number"]');
         const qtitat = parseFloat(numInputs[0].value) || 0;
+        const mida = parseFloat(numInputs[1].value) || 1;
         if (qtitat === 0) return;
-
         const net = parseFloat(tr.querySelector('[id^="linia-net-"]')?.textContent) || 0;
         const total = parseFloat(tr.querySelector('[id^="linia-total-"]')?.textContent) || 0;
-        const iva = parseFloat(numInputs[3].value) || 10;
+        const iva = parseFloat(numInputs[4].value) || 10;
 
         // Detectar producte vinculat
         const descripcio = inputs[1].value.trim();
@@ -4838,7 +4841,8 @@ async function guardarGasoil(event) {
         data: document.getElementById('gasoil-data').value,
         proveidor: document.getElementById('gasoil-proveidor').value.trim() || null,
         litres: litres,
-        preu_unitari: preu,
+        mida_recipient: mida,
+		preu_unitari: preu,
         iva: iva,
         import_net: net,
         import_iva: importIva,
