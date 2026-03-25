@@ -144,6 +144,9 @@ function canviarVista(vista) {
 		case 'gasoil':
 			carregarVistaGasoil();
 			break;	
+		case 'compres':
+			carregarVistaCompres();
+			break;	
 	
     case 'control-horari':
     const role = currentUserProfile ? currentUserProfile.role : 'visor';
@@ -4252,6 +4255,388 @@ async function exportarDANCSV() {
     a.click();
     URL.revokeObjectURL(url);
     mostrarNotificacio('✅ DAN exportada correctament', 'success');
+}
+
+let compresFacturesTotes = [];
+
+async function carregarVistaCompres() {
+    const container = document.getElementById('view-container');
+    const podeCrear = hasPermission('insert');
+
+    let html = '<div class="view-compres">';
+    html += '<div style="display:flex;justify-content:space-between;margin-bottom:20px;">';
+    html += '<h2>🛒 Compres</h2>';
+    if (podeCrear) {
+        html += '<button class="btn btn-primary" onclick="obrirModalCompra()">➕ Nova Factura</button>';
+    }
+    html += '</div>';
+
+    html += '<div id="resum-compres" style="margin-bottom:20px;"></div>';
+
+    // Filtres
+    html += '<div style="background:#f5f5f5;padding:15px;border-radius:8px;margin-bottom:20px;">';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:15px;">';
+    html += '<div><label>Any</label><select id="compres-filtre-any" onchange="carregarTaulaCompres()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">';
+    const anyActual = new Date().getFullYear();
+    for (let a = anyActual; a >= anyActual - 3; a--) {
+        const sel = a === anyActual ? 'selected' : '';
+        html += '<option value="' + a + '" ' + sel + '>' + a + '</option>';
+    }
+    html += '</select></div>';
+    html += '<div><label>Proveïdor</label><input type="text" id="compres-filtre-proveidor" oninput="filtrarTaulaCompres()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" placeholder="Tots"></div>';
+    html += '<div><label>Nº Factura</label><input type="text" id="compres-filtre-factura" oninput="filtrarTaulaCompres()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" placeholder="Totes"></div>';
+    html += '<div style="align-self:end;"><button class="btn btn-secondary" onclick="netejarFiltresCompres()">🗑️ Netejar</button></div>';
+    html += '</div></div>';
+
+    html += '<div class="table-container"><table class="data-table">';
+    html += '<thead><tr><th>Data</th><th>Nº Factura</th><th>Proveïdor</th><th>Import Net</th><th>IVA</th><th>Total</th><th>Accions</th></tr></thead>';
+    html += '<tbody id="tbody-compres"><tr><td colspan="7">Carregant...</td></tr></tbody>';
+    html += '</table></div></div>';
+
+    container.innerHTML = html;
+    await carregarTaulaCompres();
+}
+
+async function carregarTaulaCompres() {
+    const tbody = document.getElementById('tbody-compres');
+    if (!tbody) return;
+
+    try {
+        const any = document.getElementById('compres-filtre-any')?.value;
+        let query = supabaseClient.from('compres_factures').select('*').order('data', { ascending: false });
+        if (any) query = query.gte('data', any + '-01-01').lte('data', any + '-12-31');
+        const { data, error } = await query;
+        if (error) throw error;
+        compresFacturesTotes = data || [];
+        filtrarTaulaCompres();
+    } catch (error) {
+        tbody.innerHTML = '<tr><td colspan="7">Error: ' + error.message + '</td></tr>';
+    }
+}
+
+function filtrarTaulaCompres() {
+    const tbody = document.getElementById('tbody-compres');
+    if (!tbody) return;
+
+    const proveidor = document.getElementById('compres-filtre-proveidor')?.value?.trim().toLowerCase();
+    const factura = document.getElementById('compres-filtre-factura')?.value?.trim().toLowerCase();
+
+    let registres = compresFacturesTotes;
+    if (proveidor) registres = registres.filter(function(r) { return r.proveidor && r.proveidor.toLowerCase().includes(proveidor); });
+    if (factura) registres = registres.filter(function(r) { return r.num_factura && r.num_factura.toLowerCase().includes(factura); });
+
+    if (registres.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hi ha factures</td></tr>';
+        document.getElementById('resum-compres').innerHTML = '';
+        return;
+    }
+
+    const totalNet = registres.reduce(function(s, r) { return s + (parseFloat(r.import_net) || 0); }, 0);
+    const totalIva = registres.reduce(function(s, r) { return s + (parseFloat(r.import_iva) || 0); }, 0);
+    const totalTotal = registres.reduce(function(s, r) { return s + (parseFloat(r.import_total) || 0); }, 0);
+    document.getElementById('resum-compres').innerHTML =
+        '<div style="display:flex;gap:15px;flex-wrap:wrap;">' +
+        '<div style="background:#e8f5e9;padding:12px;border-radius:8px;">💶 Import net: <strong>' + totalNet.toFixed(2) + ' €</strong></div>' +
+        '<div style="background:#fff3e0;padding:12px;border-radius:8px;">🧾 IVA: <strong>' + totalIva.toFixed(2) + ' €</strong></div>' +
+        '<div style="background:#e3f2fd;padding:12px;border-radius:8px;">💶 Total: <strong>' + totalTotal.toFixed(2) + ' €</strong></div>' +
+        '</div>';
+
+    const podeEditar = hasPermission('update');
+    const podeEliminar = hasPermission('delete');
+
+    tbody.innerHTML = registres.map(function(r) {
+        let accions = '<button class="btn btn-sm btn-primary" onclick="veureCompra(\'' + r.id + '\')">👁️</button> ';
+        if (podeEditar) accions += '<button class="btn btn-sm btn-secondary" onclick="editarCompra(\'' + r.id + '\')">✏️</button> ';
+        if (podeEliminar) accions += '<button class="btn btn-sm btn-danger" onclick="eliminarCompra(\'' + r.id + '\')">🗑️</button>';
+        return '<tr>' +
+            '<td>' + formatData(r.data) + '</td>' +
+            '<td>' + (r.num_factura || '-') + '</td>' +
+            '<td>' + (r.proveidor || '-') + '</td>' +
+            '<td>' + (r.import_net ? parseFloat(r.import_net).toFixed(2) + ' €' : '-') + '</td>' +
+            '<td>' + (r.import_iva ? parseFloat(r.import_iva).toFixed(2) + ' €' : '-') + '</td>' +
+            '<td><strong>' + (r.import_total ? parseFloat(r.import_total).toFixed(2) + ' €' : '-') + '</strong></td>' +
+            '<td>' + accions + '</td>' +
+            '</tr>';
+    }).join('');
+}
+
+function netejarFiltresCompres() {
+    document.getElementById('compres-filtre-proveidor').value = '';
+    document.getElementById('compres-filtre-factura').value = '';
+    filtrarTaulaCompres();
+}
+
+async function eliminarCompra(id) {
+    if (!confirm('Segur que vols eliminar aquesta factura i totes les seves línies?')) return;
+    try {
+        await deleteCompresLinies(id);
+        await deleteCompraFactura(id);
+        mostrarNotificacio('Factura eliminada', 'success');
+        await carregarTaulaCompres();
+    } catch (error) {
+        mostrarNotificacio('Error: ' + error.message, 'error');
+    }
+}
+
+function obrirModalCompra() {
+    const modal = crearModalCompra();
+    document.getElementById('modal-compra-titol').textContent = 'Nova Factura';
+    document.getElementById('form-compra-capçalera').reset();
+    document.getElementById('compra-id').value = '';
+    document.getElementById('compra-data').value = new Date().toISOString().split('T')[0];
+    document.getElementById('compres-linies-container').innerHTML = '';
+    document.getElementById('compra-resum-net').textContent = '0,00 €';
+    document.getElementById('compra-resum-iva').textContent = '0,00 €';
+    document.getElementById('compra-resum-total').textContent = '0,00 €';
+    afegirLiniaCompra();
+    document.getElementById('modal-compra').style.display = 'block';
+}
+
+function crearModalCompra() {
+    if (document.getElementById('modal-compra')) return;
+    const div = document.createElement('div');
+    div.innerHTML = 
+        '<div id="modal-compra" class="modal" style="display:none;">' +
+        '<div class="modal-content" style="max-width:900px;">' +
+        '<span class="close" onclick="tancarModal(\'modal-compra\')">&times;</span>' +
+        '<h2 id="modal-compra-titol">Nova Factura</h2>' +
+        '<form id="form-compra-capçalera">' +
+        '<input type="hidden" id="compra-id">' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;margin-bottom:20px;">' +
+        '<div class="form-group"><label>Data *</label><input type="date" id="compra-data" required></div>' +
+        '<div class="form-group"><label>Nº Factura *</label><input type="text" id="compra-num-factura" required></div>' +
+        '<div class="form-group"><label>Proveïdor *</label><input type="text" id="compra-proveidor" required list="llista-proveidors"><datalist id="llista-proveidors"></datalist></div>' +
+        '</div>' +
+        '<div class="form-group"><label>Observacions</label><textarea id="compra-observacions" rows="2"></textarea></div>' +
+        '</form>' +
+
+        '<h3 style="margin-top:20px;">📦 Línies de Factura</h3>' +
+        '<div style="overflow-x:auto;">' +
+        '<table style="width:100%;border-collapse:collapse;font-size:13px;" id="taula-linies-compra">' +
+        '<thead><tr style="background:#f5f5f5;">' +
+        '<th style="padding:8px;text-align:left;">Article</th>' +
+        '<th style="padding:8px;text-align:left;">Descripció</th>' +
+        '<th style="padding:8px;text-align:left;">Albarà</th>' +
+        '<th style="padding:8px;text-align:left;">Data Alb.</th>' +
+        '<th style="padding:8px;text-align:right;">Qtitat</th>' +
+        '<th style="padding:8px;text-align:right;">Preu</th>' +
+        '<th style="padding:8px;text-align:right;">Dto %</th>' +
+        '<th style="padding:8px;text-align:right;">Net</th>' +
+        '<th style="padding:8px;text-align:right;">IVA %</th>' +
+        '<th style="padding:8px;text-align:right;">Total</th>' +
+        '<th style="padding:8px;"></th>' +
+        '</tr></thead>' +
+        '<tbody id="compres-linies-container"></tbody>' +
+        '</table></div>' +
+
+        '<div style="margin-top:10px;">' +
+        '<button type="button" class="btn btn-secondary" onclick="afegirLiniaCompra()">➕ Afegir línia</button>' +
+        '</div>' +
+
+        '<div style="background:#f5f5f5;padding:15px;border-radius:8px;margin-top:20px;display:flex;gap:20px;justify-content:flex-end;">' +
+        '<div>Import Net: <strong id="compra-resum-net">0,00 €</strong></div>' +
+        '<div>IVA: <strong id="compra-resum-iva">0,00 €</strong></div>' +
+        '<div>Total: <strong id="compra-resum-total">0,00 €</strong></div>' +
+        '</div>' +
+
+        '<div class="form-actions" style="margin-top:20px;">' +
+        '<button type="button" class="btn btn-secondary" onclick="tancarModal(\'modal-compra\')">Cancel·lar</button>' +
+        '<button type="button" class="btn btn-primary" onclick="guardarCompra()">Guardar</button>' +
+        '</div>' +
+        '</div></div>';
+    document.body.appendChild(div.firstElementChild);
+
+    // Carregar proveïdors al datalist
+    const datalist = document.getElementById('llista-proveidors');
+    const proveidorsUnics = [...new Set(compresFacturesTotes.map(function(f) { return f.proveidor; }).filter(Boolean))];
+    proveidorsUnics.forEach(function(p) {
+        datalist.innerHTML += '<option value="' + p + '">';
+    });
+}
+
+let liniaCompraComptador = 0;
+
+function afegirLiniaCompra(dades) {
+    liniaCompraComptador++;
+    const idx = liniaCompraComptador;
+    const tbody = document.getElementById('compres-linies-container');
+    const tr = document.createElement('tr');
+    tr.id = 'linia-compra-' + idx;
+    tr.innerHTML = 
+        '<td><input type="text" value="' + (dades?.article || '') + '" style="width:80px;padding:4px;border:1px solid #ddd;border-radius:4px;" onchange="this.closest(\'tr\').dataset.article=this.value"></td>' +
+        '<td><input type="text" value="' + (dades?.descripcio || '') + '" style="width:150px;padding:4px;border:1px solid #ddd;border-radius:4px;" list="llista-productes-compra"><datalist id="llista-productes-compra">' + getProductesDatalist() + '</datalist></td>' +
+        '<td><input type="text" value="' + (dades?.albara || '') + '" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;"></td>' +
+        '<td><input type="date" value="' + (dades?.data_albara || '') + '" style="width:120px;padding:4px;border:1px solid #ddd;border-radius:4px;"></td>' +
+        '<td><input type="number" value="' + (dades?.quantitat || '') + '" min="0" step="0.001" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right;" oninput="calcularLiniaCompra(' + idx + ')"></td>' +
+        '<td><input type="number" value="' + (dades?.preu || '') + '" min="0" step="0.0001" style="width:80px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right;" oninput="calcularLiniaCompra(' + idx + ')"></td>' +
+        '<td><input type="number" value="' + (dades?.descompte || '0') + '" min="0" max="100" step="0.01" style="width:60px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right;" oninput="calcularLiniaCompra(' + idx + ')"></td>' +
+        '<td style="text-align:right;padding:4px;"><strong id="linia-net-' + idx + '">0,00</strong></td>' +
+        '<td><input type="number" value="' + (dades?.iva || '10') + '" min="0" max="100" step="1" style="width:55px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right;" oninput="calcularLiniaCompra(' + idx + ')"></td>' +
+        '<td style="text-align:right;padding:4px;"><strong id="linia-total-' + idx + '">0,00</strong></td>' +
+        '<td><button type="button" onclick="eliminarLiniaCompra(' + idx + ')" style="background:none;border:none;color:#f44336;cursor:pointer;font-size:16px;">✕</button></td>';
+    tbody.appendChild(tr);
+    if (dades) calcularLiniaCompra(idx);
+}
+
+function getProductesDatalist() {
+    const productes = [...fitosanitaris.map(function(f) { return f.nom; }), ...fertilitzants.map(function(f) { return f.nom; })];
+    return productes.map(function(p) { return '<option value="' + p + '">'; }).join('');
+}
+
+function calcularLiniaCompra(idx) {
+    const tr = document.getElementById('linia-compra-' + idx);
+    if (!tr) return;
+    const inputs = tr.querySelectorAll('input[type="number"]');
+    const qtitat = parseFloat(inputs[0].value) || 0;
+    const preu = parseFloat(inputs[1].value) || 0;
+    const dto = parseFloat(inputs[2].value) || 0;
+    const iva = parseFloat(inputs[3].value) || 10;
+    const net = qtitat * preu * (1 - dto / 100);
+    const total = net * (1 + iva / 100);
+    document.getElementById('linia-net-' + idx).textContent = net.toFixed(2);
+    document.getElementById('linia-total-' + idx).textContent = total.toFixed(2);
+    calcularResumCompra();
+}
+
+function calcularResumCompra() {
+    let totalNet = 0, totalTotal = 0;
+    document.querySelectorAll('#compres-linies-container tr').forEach(function(tr) {
+        const netEl = tr.querySelector('[id^="linia-net-"]');
+        const totalEl = tr.querySelector('[id^="linia-total-"]');
+        if (netEl) totalNet += parseFloat(netEl.textContent) || 0;
+        if (totalEl) totalTotal += parseFloat(totalEl.textContent) || 0;
+    });
+    const totalIva = totalTotal - totalNet;
+    document.getElementById('compra-resum-net').textContent = totalNet.toFixed(2) + ' €';
+    document.getElementById('compra-resum-iva').textContent = totalIva.toFixed(2) + ' €';
+    document.getElementById('compra-resum-total').textContent = totalTotal.toFixed(2) + ' €';
+}
+
+function eliminarLiniaCompra(idx) {
+    const tr = document.getElementById('linia-compra-' + idx);
+    if (tr) { tr.remove(); calcularResumCompra(); }
+}
+
+async function guardarCompra() {
+    const data = document.getElementById('compra-data').value;
+    const numFactura = document.getElementById('compra-num-factura').value.trim();
+    const proveidor = document.getElementById('compra-proveidor').value.trim();
+
+    if (!data || !numFactura || !proveidor) {
+        mostrarNotificacio('Cal omplir data, nº factura i proveïdor', 'error');
+        return;
+    }
+
+    // Recollir línies
+    const linies = [];
+    let ordre = 1;
+    document.querySelectorAll('#compres-linies-container tr').forEach(function(tr) {
+        const inputs = tr.querySelectorAll('input');
+        const numInputs = tr.querySelectorAll('input[type="number"]');
+        const qtitat = parseFloat(numInputs[0].value) || 0;
+        if (qtitat === 0) return;
+
+        const net = parseFloat(tr.querySelector('[id^="linia-net-"]')?.textContent) || 0;
+        const total = parseFloat(tr.querySelector('[id^="linia-total-"]')?.textContent) || 0;
+        const iva = parseFloat(numInputs[3].value) || 10;
+
+        // Detectar producte vinculat
+        const descripcio = inputs[1].value.trim();
+        let producteId = null;
+        let tipusProducte = 'altres';
+        const fito = fitosanitaris.find(function(f) { return f.nom === descripcio; });
+        const fert = fertilitzants.find(function(f) { return f.nom === descripcio; });
+        if (fito) { producteId = fito.id; tipusProducte = 'fitosanitari'; }
+        else if (fert) { producteId = fert.id; tipusProducte = 'fertilitzant'; }
+        else if (descripcio) tipusProducte = 'primera_materia';
+
+        linies.push({
+            article: inputs[0].value.trim() || null,
+            descripcio: descripcio || null,
+            albara: inputs[2].value.trim() || null,
+            data_albara: inputs[3].value || null,
+            quantitat: qtitat,
+            preu: parseFloat(numInputs[1].value) || 0,
+            descompte: parseFloat(numInputs[2].value) || 0,
+            net: net,
+            iva: iva,
+            import_iva: total - net,
+            total: total,
+            producte_id: producteId,
+            tipus_producte: tipusProducte,
+            ordre: ordre++
+        });
+    });
+
+    if (linies.length === 0) {
+        mostrarNotificacio('Cal afegir almenys una línia', 'error');
+        return;
+    }
+
+    const totalNet = linies.reduce(function(s, l) { return s + l.net; }, 0);
+    const totalTotal = linies.reduce(function(s, l) { return s + l.total; }, 0);
+
+    const factura = {
+        data: data,
+        num_factura: numFactura,
+        proveidor: proveidor,
+        observacions: document.getElementById('compra-observacions').value.trim() || null,
+        import_net: totalNet,
+        import_iva: totalTotal - totalNet,
+        import_total: totalTotal
+    };
+
+    try {
+        const id = document.getElementById('compra-id').value;
+        let facturaId;
+        if (id) {
+            await updateCompraFactura(id, factura);
+            await deleteCompresLinies(id);
+            facturaId = id;
+        } else {
+            const nova = await createCompraFactura(factura);
+            facturaId = nova.id;
+        }
+
+        // Insertar línies
+        for (let i = 0; i < linies.length; i++) {
+            linies[i].factura_id = facturaId;
+            await createCompraLinia(linies[i]);
+        }
+
+        mostrarNotificacio('✅ Factura guardada correctament', 'success');
+        tancarModal('modal-compra');
+        await carregarTaulaCompres();
+
+    } catch (error) {
+        mostrarNotificacio('Error: ' + error.message, 'error');
+    }
+}
+
+async function veureCompra(id) {
+    await editarCompra(id, true);
+}
+
+async function editarCompra(id, solaLectura) {
+    crearModalCompra();
+    const { data: factura, error } = await supabaseClient.from('compres_factures').select('*').eq('id', id).single();
+    if (error) return;
+    const linies = await getCompresLinies(id);
+
+    document.getElementById('modal-compra-titol').textContent = solaLectura ? 'Veure Factura' : 'Editar Factura';
+    document.getElementById('compra-id').value = factura.id;
+    document.getElementById('compra-data').value = factura.data || '';
+    document.getElementById('compra-num-factura').value = factura.num_factura || '';
+    document.getElementById('compra-proveidor').value = factura.proveidor || '';
+    document.getElementById('compra-observacions').value = factura.observacions || '';
+    document.getElementById('compres-linies-container').innerHTML = '';
+    liniaCompraComptador = 0;
+
+    linies.forEach(function(l) { afegirLiniaCompra(l); });
+    if (linies.length === 0) afegirLiniaCompra();
+
+    calcularResumCompra();
+    document.getElementById('modal-compra').style.display = 'block';
 }
 
 async function carregarVistaGasoil() {

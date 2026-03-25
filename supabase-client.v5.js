@@ -631,6 +631,71 @@ async function deleteGasoil(id) {
         .eq('id', id);
     if (error) throw error;
 }
+// ============================================================
+// COMPRES
+// ============================================================
 
+async function getCompresFactures() {
+    const { data, error } = await supabaseClient
+        .from('compres_factures')
+        .select('*')
+        .order('data', { ascending: false });
+    if (error) throw error;
+    return data || [];
+}
+
+async function createCompraFactura(factura) {
+    const { data, error } = await supabaseClient
+        .from('compres_factures')
+        .insert([{ ...factura, creat_per: currentUser ? currentUser.id : null }])
+        .select();
+    if (error) throw error;
+    return data[0];
+}
+
+async function updateCompraFactura(id, factura) {
+    const { data, error } = await supabaseClient
+        .from('compres_factures')
+        .update(factura)
+        .eq('id', id)
+        .select();
+    if (error) throw error;
+    return data[0];
+}
+
+async function deleteCompraFactura(id) {
+    const { error } = await supabaseClient
+        .from('compres_factures')
+        .delete()
+        .eq('id', id);
+    if (error) throw error;
+}
+
+async function getCompresLinies(facturaId) {
+    const { data, error } = await supabaseClient
+        .from('compres_linies')
+        .select('*')
+        .eq('factura_id', facturaId)
+        .order('ordre');
+    if (error) throw error;
+    return data || [];
+}
+
+async function createCompraLinia(linia) {
+    const { data, error } = await supabaseClient
+        .from('compres_linies')
+        .insert([linia])
+        .select();
+    if (error) throw error;
+    return data[0];
+}
+
+async function deleteCompresLinies(facturaId) {
+    const { error } = await supabaseClient
+        .from('compres_linies')
+        .delete()
+        .eq('factura_id', facturaId);
+    if (error) throw error;
+}
 
 console.log('✅ Supabase client v5 carregat');
