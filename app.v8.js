@@ -4279,7 +4279,7 @@ async function carregarVistaGasoil() {
         html += '<option value="' + a + '" ' + sel + '>' + a + '</option>';
     }
     html += '</select></div>';
-    html += '<div><label>Proveïdor</label><input type="text" id="gasoil-filtre-proveidor" onchange="carregarTaulaGasoil()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" placeholder="Tots"></div>';
+    html += '<div><label>Proveïdor</label><input type="text" id="gasoil-filtre-proveidor" oninput="carregarTaulaGasoil()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" placeholder="Tots"></div>';
     html += '<div></div>';
     html += '<div style="align-self:end;"><button class="btn btn-secondary" onclick="netejarFiltresGasoil()">🗑️ Netejar</button></div>';
     html += '</div></div>';
@@ -4376,6 +4376,7 @@ function crearModalGasoil() {
         '<div class="form-group"><label>Import Net: <strong id="gasoil-import-net-calc">0,00 €</strong></label></div>' +
         '<div class="form-group"><label>Import IVA: <strong id="gasoil-import-iva-calc">0,00 €</strong></label></div>' +
         '<div class="form-group"><label>Import Total: <strong id="gasoil-import-total-calc">0,00 €</strong></label></div>' +
+		'<div class="form-group"><label>Nº Factura</label><input type="text" id="gasoil-num-factura"></div>' +
         '<div class="form-group"><label>Observacions</label><textarea id="gasoil-observacions" rows="2"></textarea></div>' +
         '<div class="form-actions">' +
         '<button type="button" class="btn btn-secondary" onclick="tancarModal(\'modal-gasoil\')">Cancel·lar</button>' +
@@ -4417,6 +4418,7 @@ async function editarGasoil(id) {
     document.getElementById('gasoil-litres').value = data.litres || '';
     document.getElementById('gasoil-preu').value = data.preu_unitari || '';
     document.getElementById('gasoil-iva').value = data.iva || 21;
+	document.getElementById('gasoil-num-factura').value = data.num_factura || '';
     document.getElementById('gasoil-observacions').value = data.observacions || '';
     calcularImportGasoil();
     document.getElementById('modal-gasoil').style.display = 'block';
@@ -4445,6 +4447,7 @@ async function guardarGasoil(event) {
         import_net: net,
         import_iva: importIva,
         import_total: total,
+		num_factura: document.getElementById('gasoil-num-factura').value.trim() || null,
         observacions: document.getElementById('gasoil-observacions').value.trim() || null
     };
 
