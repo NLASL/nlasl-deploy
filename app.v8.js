@@ -4428,8 +4428,9 @@ function crearModalCompra() {
         '<th style="padding:8px;text-align:right;">Total</th>' +
         '<th style="padding:8px;"></th>' +
         '</tr></thead>' +
-        '<tbody id="compres-linies-container"></tbody>' +
-        '</table></div>' +
+		'<tbody id="compres-linies-container"></tbody>' +
+		'</table></div>' +
+		'<datalist id="llista-productes-compra">' + getProductesDatalist() + '</datalist>' +
 
         '<div style="margin-top:10px;">' +
         '<button type="button" class="btn btn-secondary" onclick="afegirLiniaCompra()">➕ Afegir línia</button>' +
@@ -4466,7 +4467,7 @@ function afegirLiniaCompra(dades) {
     tr.id = 'linia-compra-' + idx;
     tr.innerHTML = 
         '<td><input type="text" value="' + (dades?.article || '') + '" style="width:80px;padding:4px;border:1px solid #ddd;border-radius:4px;" onchange="this.closest(\'tr\').dataset.article=this.value"></td>' +
-        '<td><input type="text" value="' + (dades?.descripcio || '') + '" style="width:150px;padding:4px;border:1px solid #ddd;border-radius:4px;" list="llista-productes-compra"><datalist id="llista-productes-compra">' + getProductesDatalist() + '</datalist></td>' +
+        '<td><input type="text" value="' + (dades?.descripcio || '') + '" style="width:150px;padding:4px;border:1px solid #ddd;border-radius:4px;" list="llista-productes-compra"></td>' +
         '<td><input type="text" value="' + (dades?.albara || '') + '" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;"></td>' +
         '<td><input type="date" value="' + (dades?.data_albara || '') + '" style="width:120px;padding:4px;border:1px solid #ddd;border-radius:4px;"></td>' +
         '<td><input type="number" value="' + (dades?.quantitat || '') + '" min="0" step="0.001" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right;" oninput="calcularLiniaCompra(' + idx + ')"></td>' +
