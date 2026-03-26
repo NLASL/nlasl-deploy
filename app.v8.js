@@ -4393,7 +4393,8 @@ function obrirModalCompra() {
 }
 
 function crearModalCompra() {
-    if (document.getElementById('modal-compra')) return;
+    const existent = document.getElementById('modal-compra');
+    if (existent) existent.remove();
     const div = document.createElement('div');
     div.innerHTML = 
         '<div id="modal-compra" class="modal" style="display:none;">' +
