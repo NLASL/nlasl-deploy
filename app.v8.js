@@ -4540,10 +4540,12 @@ async function guardarCompra() {
         const numInputs = tr.querySelectorAll('input[type="number"]');
         const qtitat = parseFloat(numInputs[0].value) || 0;
         const mida = parseFloat(numInputs[1].value) || 1;
+        const preu = parseFloat(numInputs[2].value) || 0;
+        const dto = parseFloat(numInputs[3].value) || 0;
+        const iva = parseFloat(numInputs[4].value) || 10;
         if (qtitat === 0) return;
         const net = parseFloat(tr.querySelector('[id^="linia-net-"]')?.textContent) || 0;
         const total = parseFloat(tr.querySelector('[id^="linia-total-"]')?.textContent) || 0;
-        const iva = parseFloat(numInputs[4].value) || 10;
 
         // Detectar producte vinculat
         const descripcio = inputs[1].value.trim();
@@ -4555,14 +4557,15 @@ async function guardarCompra() {
         else if (fert) { producteId = fert.id; tipusProducte = 'fertilitzant'; }
         else if (descripcio) tipusProducte = 'primera_materia';
 
-        linies.push({
+       linies.push({
             article: inputs[0].value.trim() || null,
             descripcio: descripcio || null,
             albara: inputs[2].value.trim() || null,
             data_albara: inputs[3].value || null,
             quantitat: qtitat,
-            preu: parseFloat(numInputs[1].value) || 0,
-            descompte: parseFloat(numInputs[2].value) || 0,
+            mida_recipient: mida,
+            preu: preu,
+            descompte: dto,
             net: net,
             iva: iva,
             import_iva: total - net,
