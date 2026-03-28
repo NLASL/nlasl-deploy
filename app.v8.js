@@ -5277,6 +5277,12 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'visible' && currentUser) {
         setTimeout(function() {
+            // Si hi ha un modal obert, no recarregar
+            const modalObert = document.querySelector('.modal[style*="block"]');
+            if (modalObert) {
+                console.log('🔄 Modal obert, no recarregant');
+                return;
+            }
             Promise.all([
                 getTreballadors().then(function(d) { treballadors = d; }),
                 getParcellas().then(function(d) { parcelles = d; }),
