@@ -541,15 +541,18 @@ async function deleteAbsencia(id) {
 // ============================================================
 // SUBSCRIPCIONS TEMPS REAL
 // ============================================================
+let realtimeCanals = {};
 
 function subscribeToChanges(table, callback) {
-    return supabaseClient
+    if (realtimeCanals[table]) return realtimeCanals[table];
+    realtimeCanals[table] = supabaseClient
         .channel('public:' + table)
         .on('postgres_changes', 
             { event: '*', schema: 'public', table: table },
             callback
         )
         .subscribe();
+    return realtimeCanals[table];
 }
 
 async function getAlertes() {
