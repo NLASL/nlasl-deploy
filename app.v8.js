@@ -1983,6 +1983,14 @@ function crearModalFitosanitari() {
         '<option value="Herbicida">Herbicida</option><option value="Acaricida">Acaricida</option><option value="Altres">Altres</option></select></div>' +
         '<div class="form-group"><label>Matèria Activa</label><input type="text" id="fitosanitari-materia"></div>' +
 		'<div class="form-group"><label>IRAC</label><input type="text" id="fitosanitari-irac" placeholder="Ex: 1A / 3A"></div>' +
+		'<div class="form-group"><label>Unitat Estoc *</label>' +
+		'<select id="fitosanitari-unitat-stock">' +
+		'<option value="L">L (Litres)</option>' +
+		'<option value="kg">kg (Quilograms)</option>' +
+		'<option value="g">g (Grams)</option>' +
+		'</select></div>' +
+		'<div class="form-group"><label>Factor Conversió Tractament</label>' +
+		'<input type="number" id="fitosanitari-factor" value="1" min="0" step="0.001" placeholder="1=L/L, 0.001=g/kg"></div>' +
 		'<div class="form-group"><label>Registre MAPA</label><input type="text" id="fitosanitari-registre"></div>' +
         '<div class="form-group"><label>Plaç Seguretat (dies)</label><input type="number" id="fitosanitari-plac" min="0"></div>' +
         '<div class="form-group"><label>Observacions</label><textarea id="fitosanitari-observacions" rows="3"></textarea></div>' +
@@ -2031,6 +2039,8 @@ async function editarFitosanitari(id) {
     document.getElementById('fitosanitari-tipus').value = producte.tipus || '';
     document.getElementById('fitosanitari-materia').value = producte.materia_activa || '';
     document.getElementById('fitosanitari-irac').value = producte.irac || '';
+    document.getElementById('fitosanitari-unitat-stock').value = producte.unitat_stock || 'L';
+    document.getElementById('fitosanitari-factor').value = producte.factor_conversio || 1;
     document.getElementById('fitosanitari-registre').value = producte.registre || '';
     document.getElementById('fitosanitari-plac').value = producte.plac || '';
     document.getElementById('fitosanitari-observacions').value = producte.observacions || '';
@@ -2051,6 +2061,8 @@ async function guardarFitosanitari(event) {
         tipus: document.getElementById('fitosanitari-tipus').value,
         materia_activa: document.getElementById('fitosanitari-materia').value.trim(),
         irac: document.getElementById('fitosanitari-irac').value.trim() || null,
+        unitat_stock: document.getElementById('fitosanitari-unitat-stock').value,
+        factor_conversio: parseFloat(document.getElementById('fitosanitari-factor').value) || 1,
         registre: document.getElementById('fitosanitari-registre').value.trim(),
         plac: parseInt(document.getElementById('fitosanitari-plac').value) || 0,
         observacions: document.getElementById('fitosanitari-observacions').value.trim()
@@ -2129,8 +2141,15 @@ function crearModalFertilitzant() {
         '<div class="form-group"><label>% Nitrogen (N)</label><input type="number" id="fertilitzant-n" min="0" max="100" step="0.1"></div>' +
         '<div class="form-group"><label>% Fòsfor (P)</label><input type="number" id="fertilitzant-p" min="0" max="100" step="0.1"></div>' +
         '<div class="form-group"><label>% Potassi (K)</label><input type="number" id="fertilitzant-k" min="0" max="100" step="0.1"></div>' +
-        '<div class="form-group"><label>Observacions</label><textarea id="fertilitzant-observacions" rows="3"></textarea></div>' +
-        '<div class="form-actions"><button type="button" class="btn btn-secondary" onclick="tancarModal(\'modal-fertilitzant\')">Cancel·lar</button>' +
+		'<div class="form-group"><label>Unitat Estoc *</label>' +
+		'<select id="fertilitzant-unitat-stock">' +
+		'<option value="kg">kg (Quilograms)</option>' +
+		'<option value="L">L (Litres)</option>' +
+		'<option value="g">g (Grams)</option>' +
+		'</select></div>' +
+		'<div class="form-group"><label>Factor Conversió</label>' +
+		'<input type="number" id="fertilitzant-factor" value="1" min="0" step="0.001" placeholder="1=kg/kg, 0.001=g/kg"></div>' +
+		'<div class="form-group"><label>Observacions</label><textarea id="fertilitzant-observacions" rows="3"></textarea></div>' +    '<div class="form-actions"><button type="button" class="btn btn-secondary" onclick="tancarModal(\'modal-fertilitzant\')">Cancel·lar</button>' +
         '<button type="submit" class="btn btn-primary">Guardar</button></div></form></div></div>';
 }
 
@@ -2175,9 +2194,10 @@ async function editarFertilitzant(id) {
     document.getElementById('fertilitzant-tipus').value = producte.tipus || '';
     document.getElementById('fertilitzant-n').value = producte.n || '';
     document.getElementById('fertilitzant-p').value = producte.p || '';
-    document.getElementById('fertilitzant-k').value = producte.k || '';
-    document.getElementById('fertilitzant-observacions').value = producte.observacions || '';
-    
+	document.getElementById('fertilitzant-k').value = producte.k || '';
+    document.getElementById('fertilitzant-unitat-stock').value = producte.unitat_stock || 'kg';
+    document.getElementById('fertilitzant-factor').value = producte.factor_conversio || 1;
+    document.getElementById('fertilitzant-observacions').value = producte.observacions || '';    
     document.querySelectorAll('#form-fertilitzant input, #form-fertilitzant select, #form-fertilitzant textarea').forEach(function(el) {
         el.disabled = false;
     });
@@ -2195,6 +2215,8 @@ async function guardarFertilitzant(event) {
         n: parseFloat(document.getElementById('fertilitzant-n').value) || 0,
         p: parseFloat(document.getElementById('fertilitzant-p').value) || 0,
         k: parseFloat(document.getElementById('fertilitzant-k').value) || 0,
+        unitat_stock: document.getElementById('fertilitzant-unitat-stock').value,
+        factor_conversio: parseFloat(document.getElementById('fertilitzant-factor').value) || 1,
         observacions: document.getElementById('fertilitzant-observacions').value.trim()
     };
     
@@ -4615,6 +4637,28 @@ async function guardarCompra() {
             await createCompraLinia(linies[i]);
         }
 
+// Generar moviments d'estoc
+        for (let i = 0; i < linies.length; i++) {
+            const linia = linies[i];
+            if (!linia.producte_id) continue;
+            const producte = linia.tipus_producte === 'fitosanitari' 
+                ? fitosanitaris.find(function(f) { return f.id === linia.producte_id; })
+                : fertilitzants.find(function(f) { return f.id === linia.producte_id; });
+            const quantitatTotal = (linia.quantitat || 0) * (linia.mida_recipient || 1);
+            await supabaseClient.from('estoc_moviments').insert([{
+                data: factura.data,
+                producte_id: linia.producte_id,
+                tipus_producte: linia.tipus_producte,
+                tipus_moviment: 'compra',
+                quantitat: quantitatTotal,
+                unitat: producte ? (producte.unitat_stock || 'L') : 'L',
+                referencia_id: facturaId,
+                observacions: 'Factura ' + factura.num_factura + ' — ' + (linia.descripcio || ''),
+                creat_per: currentUser ? currentUser.id : null
+            }]);
+        }
+
+        mostrarNotificacio('✅ Factura guardada correctament', 'success');
         mostrarNotificacio('✅ Factura guardada correctament', 'success');
         tancarModal('modal-compra');
         await carregarTaulaCompres();
