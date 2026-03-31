@@ -4637,7 +4637,13 @@ async function guardarCompra() {
             await createCompraLinia(linies[i]);
         }
 
-// Generar moviments d'estoc
+		// Eliminar moviments d'estoc antics d'aquesta factura
+        await supabaseClient.from('estoc_moviments')
+            .delete()
+            .eq('referencia_id', facturaId)
+            .eq('tipus_moviment', 'compra');
+
+        // Generar moviments d'estoc
         for (let i = 0; i < linies.length; i++) {
             const linia = linies[i];
             if (!linia.producte_id) continue;
