@@ -147,6 +147,9 @@ function canviarVista(vista) {
 		case 'compres':
 			carregarVistaCompres();
 			break;	
+		case 'existencies':
+			carregarVistaExistencies();
+			break;	
 	
     case 'control-horari':
     const role = currentUserProfile ? currentUserProfile.role : 'visor';
