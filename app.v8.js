@@ -884,9 +884,31 @@ async function guardarTractament(event) {
                 observacions: observacions || null
             };
             
-            await createTractament(tractament);
+         await createTractament(tractament);
         }
         
+        // Generar moviment d'estoc (sortida)
+        const producteFito = fitosanitaris.find(function(f) { return f.id === producteId; });
+        if (producteFito) {
+            const unitatStock = producteFito.unitat_stock || 'L';
+            const factor = parseFloat(producteFito.factor_conversio) || 1;
+            const superficieTotal = parcellesATractar.reduce(function(sum, p) { 
+                return sum + (parseFloat(p.superficie) || 0); 
+            }, 0);
+            const quantitatConsumida = dosi * superficieTotal * factor;
+            
+            await supabaseClient.from('estoc_moviments').insert([{
+                data: data,
+                producte_id: producteId,
+                tipus_producte: 'fitosanitari',
+                tipus_moviment: 'tractament',
+                quantitat: -quantitatConsumida,
+                unitat: unitatStock,
+                observacions: 'Tractament ' + data + ' — ' + parcellesATractar.length + ' parcel·les',
+                creat_per: currentUser ? currentUser.id : null
+            }]);
+        }
+
         mostrarNotificacio('Tractament creat correctament (' + parcellesATractar.length + ' parcel·les)', 'success');
         tancarModal('modal-tractament');
         await carregarTaulaTractaments();
