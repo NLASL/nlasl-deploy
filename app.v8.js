@@ -883,10 +883,9 @@ async function guardarTractament(event) {
                 condicions_meteo: meteo || null,
                 observacions: observacions || null
             };
-            
-         await createTractament(tractament);
+            await createTractament(tractament);
         }
-        
+       
         // Generar moviment d'estoc (sortida)
         const producteFito = fitosanitaris.find(function(f) { return f.id === producteId; });
         if (producteFito) {
@@ -904,6 +903,7 @@ async function guardarTractament(event) {
                 tipus_moviment: 'tractament',
                 quantitat: -quantitatConsumida,
                 unitat: unitatStock,
+                referencia_id: tractamentsCreats[0]?.id || null,
                 observacions: 'Tractament ' + data + ' — ' + parcellesATractar.length + ' parcel·les',
                 creat_per: currentUser ? currentUser.id : null
             }]);
@@ -1085,33 +1085,16 @@ async function eliminarTractamentGrup(clau) {
             return (t.data + '|' + t.producte_id + '|' + finca) === clau;
         });
         
-  for (let i = 0; i < grup.length; i++) {
+ for (let i = 0; i < grup.length; i++) {
             await deleteTractament(grup[i].id);
         }
 
-        // Recuperar estoc — moviment positiu
+        // Eliminar moviment d'estoc original
         if (grup.length > 0) {
-            const primer = grup[0];
-            const producteFito = fitosanitaris.find(function(f) { return f.id === primer.producte_id; });
-            if (producteFito) {
-                const unitatStock = producteFito.unitat_stock || 'L';
-                const factor = parseFloat(producteFito.factor_conversio) || 1;
-                const superficieTotal = grup.reduce(function(sum, t) {
-                    return sum + (parseFloat(t.superficie_tractada) || 0);
-                }, 0);
-                const quantitatRecuperada = (parseFloat(primer.dosi) || 0) * superficieTotal * factor;
-
-                await supabaseClient.from('estoc_moviments').insert([{
-                    data: primer.data,
-                    producte_id: primer.producte_id,
-                    tipus_producte: 'fitosanitari',
-                    tipus_moviment: 'ajust',
-                    quantitat: quantitatRecuperada,
-                    unitat: unitatStock,
-                    observacions: 'Eliminació tractament ' + primer.data,
-                    creat_per: currentUser ? currentUser.id : null
-                }]);
-            }
+            await supabaseClient.from('estoc_moviments')
+                .delete()
+                .eq('referencia_id', grup[0].id)
+                .eq('tipus_moviment', 'tractament');
         }
 
         mostrarNotificacio('Tractaments eliminats correctament', 'success');
