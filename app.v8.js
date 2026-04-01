@@ -1556,6 +1556,7 @@ let parcellesAFertilitzar = [];
             return;
         }
 
+		const fertilitzacionsCreades = [];
         for (let i = 0; i < parcellesAFertilitzar.length; i++) {
             const parcella = parcellesAFertilitzar[i];
             const fertilitzacio = {
@@ -1574,7 +1575,8 @@ let parcellesAFertilitzar = [];
                 p_total: pTotal,
                 k_total: kTotal
             };
-            await createFertilitzacio(fertilitzacio);
+            const creada = await createFertilitzacio(fertilitzacio);
+            fertilitzacionsCreades.push(creada);
         }
         
 		// Generar moviment d'estoc (sortida)
@@ -1587,13 +1589,14 @@ let parcellesAFertilitzar = [];
             }, 0);
             const quantitatConsumida = dosi * superficieTotal * factor;
 
-            await supabaseClient.from('estoc_moviments').insert([{
+           await supabaseClient.from('estoc_moviments').insert([{
                 data: data,
                 producte_id: producteId,
                 tipus_producte: 'fertilitzant',
                 tipus_moviment: 'fertilitzacio',
                 quantitat: -quantitatConsumida,
                 unitat: unitatStock,
+                referencia_id: fertilitzacionsCreades[0]?.id || null,
                 observacions: 'Fertilització ' + data + ' — ' + parcellesAFertilitzar.length + ' parcel·les',
                 creat_per: currentUser ? currentUser.id : null
             }]);
@@ -1713,29 +1716,12 @@ for (let i = 0; i < grup.length; i++) {
             await deleteFertilitzacio(grup[i].id);
         }
 
-        // Recuperar estoc — moviment positiu
+        // Eliminar moviment d'estoc original
         if (grup.length > 0) {
-            const primer = grup[0];
-            const producteFert = fertilitzants.find(function(f) { return f.id === primer.producte_id; });
-            if (producteFert) {
-                const unitatStock = producteFert.unitat_stock || 'kg';
-                const factor = parseFloat(producteFert.factor_conversio) || 1;
-                const superficieTotal = grup.reduce(function(sum, f) {
-                    return sum + (parseFloat(f.superficie_tractada) || 0);
-                }, 0);
-                const quantitatRecuperada = (parseFloat(primer.dosi) || 0) * superficieTotal * factor;
-
-                await supabaseClient.from('estoc_moviments').insert([{
-                    data: primer.data,
-                    producte_id: primer.producte_id,
-                    tipus_producte: 'fertilitzant',
-                    tipus_moviment: 'ajust',
-                    quantitat: quantitatRecuperada,
-                    unitat: unitatStock,
-                    observacions: 'Eliminació fertilització ' + primer.data,
-                    creat_per: currentUser ? currentUser.id : null
-                }]);
-            }
+            await supabaseClient.from('estoc_moviments')
+                .delete()
+                .eq('referencia_id', grup[0].id)
+                .eq('tipus_moviment', 'fertilitzacio');
         }
 
         mostrarNotificacio('Fertilitzacions eliminades correctament', 'success');
