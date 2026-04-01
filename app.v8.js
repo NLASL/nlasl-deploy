@@ -867,7 +867,8 @@ async function guardarTractament(event) {
             return;
         }
 
-       // INSERT normal
+		// INSERT normal
+        const tractamentsCreats = [];
         for (let i = 0; i < parcellesATractar.length; i++) {
             const parcella = parcellesATractar[i];
             const tractament = {
@@ -883,7 +884,8 @@ async function guardarTractament(event) {
                 condicions_meteo: meteo || null,
                 observacions: observacions || null
             };
-            await createTractament(tractament);
+            const creat = await createTractament(tractament);
+            tractamentsCreats.push(creat);
         }
        
         // Generar moviment d'estoc (sortida)
