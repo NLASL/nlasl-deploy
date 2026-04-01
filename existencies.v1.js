@@ -15,7 +15,7 @@ async function carregarVistaExistencies() {
 
     // Filtres
     html += '<div style="background:#f5f5f5;padding:15px;border-radius:8px;margin-bottom:20px;">';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:15px;">';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:15px;">';
     html += '<div><label>Tipus</label><select id="exist-filtre-tipus" onchange="carregarTaulaExistencies()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">';
     html += '<option value="">Tots</option>';
     html += '<option value="fitosanitari">Fitosanitaris</option>';
@@ -29,6 +29,13 @@ async function carregarVistaExistencies() {
     html += '<thead><tr><th>Producte</th><th>Tipus</th><th>Unitat</th><th>Entrades</th><th>Sortides</th><th>Estoc Actual</th><th>Estat</th><th>Accions</th></tr></thead>';
     html += '<tbody id="tbody-existencies"><tr><td colspan="8">Carregant...</td></tr></tbody>';
     html += '</table></div></div>';
+	
+	html += '<div><label>Estat</label><select id="exist-filtre-estat" onchange="filtrarTaulaExistencies()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">';
+	html += '<option value="amb_estoc" selected>Amb estoc</option>';
+	html += '<option value="tots">Tots els productes</option>';
+	html += '<option value="sense_estoc">Sense estoc</option>';
+	html += '<option value="negatiu">Estoc negatiu</option>';
+	html += '</select></div>';
 
     container.innerHTML = html;
     await carregarTaulaExistencies();
@@ -134,6 +141,15 @@ function filtrarTaulaExistencies() {
         tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No hi ha productes</td></tr>';
         return;
     }
+
+	const estat = document.getElementById('exist-filtre-estat')?.value;
+	if (estat === 'amb_estoc') {
+		registres = registres.filter(function(e) { return e.estoc > 0; });
+	} else if (estat === 'sense_estoc') {
+		registres = registres.filter(function(e) { return e.estoc === 0; });
+	} else if (estat === 'negatiu') {
+		registres = registres.filter(function(e) { return e.estoc < 0; });
+}
 
     tbody.innerHTML = registres.map(function(e) {
         const estoc = parseFloat(e.estoc) || 0;
