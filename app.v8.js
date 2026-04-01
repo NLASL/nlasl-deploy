@@ -1567,6 +1567,28 @@ let parcellesAFertilitzar = [];
             await createFertilitzacio(fertilitzacio);
         }
         
+		// Generar moviment d'estoc (sortida)
+        const producteFert = fertilitzants.find(function(f) { return f.id === producteId; });
+        if (producteFert) {
+            const unitatStock = producteFert.unitat_stock || 'kg';
+            const factor = parseFloat(producteFert.factor_conversio) || 1;
+            const superficieTotal = parcellesAFertilitzar.reduce(function(sum, p) {
+                return sum + (parseFloat(p.superficie) || 0);
+            }, 0);
+            const quantitatConsumida = dosi * superficieTotal * factor;
+
+            await supabaseClient.from('estoc_moviments').insert([{
+                data: data,
+                producte_id: producteId,
+                tipus_producte: 'fertilitzant',
+                tipus_moviment: 'fertilitzacio',
+                quantitat: -quantitatConsumida,
+                unitat: unitatStock,
+                observacions: 'Fertilització ' + data + ' — ' + parcellesAFertilitzar.length + ' parcel·les',
+                creat_per: currentUser ? currentUser.id : null
+            }]);
+        }
+
         mostrarNotificacio('Fertilització creada correctament (' + parcellesAFertilitzar.length + ' parcel·les)', 'success');
         tancarModal('modal-fertilitzacio');
         await carregarTaulaFertilitzacions();
