@@ -4493,7 +4493,7 @@ function crearModalCompra() {
         '<h2 id="modal-compra-titol">Nova Factura</h2>' +
         '<form id="form-compra-capçalera">' +
         '<input type="hidden" id="compra-id">' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:15px;margin-bottom:20px;">' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:15px;margin-bottom:15px;">' +
 		'<div class="form-group"><label>Data *</label><input type="date" id="compra-data" required></div>' +
 		'<div class="form-group"><label>Nº Factura *</label><input type="text" id="compra-num-factura" required></div>' +
 		'<div class="form-group"><label>Proveïdor *</label><input type="text" id="compra-proveidor" required list="llista-proveidors"><datalist id="llista-proveidors"></datalist></div>' +
@@ -4501,7 +4501,8 @@ function crearModalCompra() {
 		'<option value="envàs">€/envàs</option>' +
 		'<option value="unitat">€/unitat</option>' +
 		'</select></div>' +
-        '<div class="form-group"><label>Observacions</label><textarea id="compra-observacions" rows="2"></textarea></div>' +
+		'</div>' +
+		'<div class="form-group" style="margin-bottom:15px;"><label>Observacions</label><textarea id="compra-observacions" rows="2" style="width:100%;"></textarea></div>' +
         '</form>' +
 
         '<h3 style="margin-top:20px;">📦 Línies de Factura</h3>' +
