@@ -4493,11 +4493,14 @@ function crearModalCompra() {
         '<h2 id="modal-compra-titol">Nova Factura</h2>' +
         '<form id="form-compra-capçalera">' +
         '<input type="hidden" id="compra-id">' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;margin-bottom:20px;">' +
-        '<div class="form-group"><label>Data *</label><input type="date" id="compra-data" required></div>' +
-        '<div class="form-group"><label>Nº Factura *</label><input type="text" id="compra-num-factura" required></div>' +
-        '<div class="form-group"><label>Proveïdor *</label><input type="text" id="compra-proveidor" required list="llista-proveidors"><datalist id="llista-proveidors"></datalist></div>' +
-        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:15px;margin-bottom:20px;">' +
+		'<div class="form-group"><label>Data *</label><input type="date" id="compra-data" required></div>' +
+		'<div class="form-group"><label>Nº Factura *</label><input type="text" id="compra-num-factura" required></div>' +
+		'<div class="form-group"><label>Proveïdor *</label><input type="text" id="compra-proveidor" required list="llista-proveidors"><datalist id="llista-proveidors"></datalist></div>' +
+		'<div class="form-group"><label>Tipus Preu</label><select id="compra-tipus-preu" onchange="recalcularTotesLinies()">' +
+		'<option value="envàs">€/envàs</option>' +
+		'<option value="unitat">€/unitat</option>' +
+		'</select></div>' +
         '<div class="form-group"><label>Observacions</label><textarea id="compra-observacions" rows="2"></textarea></div>' +
         '</form>' +
 
@@ -4547,6 +4550,13 @@ function crearModalCompra() {
     });
 }
 
+function recalcularTotesLinies() {
+    document.querySelectorAll('#compres-linies-container tr').forEach(function(tr) {
+        const idx = tr.id.replace('linia-compra-', '');
+        calcularLiniaCompra(idx);
+    });
+}
+
 let liniaCompraComptador = 0;
 
 function afegirLiniaCompra(dades) {
@@ -4582,11 +4592,16 @@ function calcularLiniaCompra(idx) {
     if (!tr) return;
     const inputs = tr.querySelectorAll('input[type="number"]');
     const qtitat = parseFloat(inputs[0].value) || 0;
-	const mida = parseFloat(inputs[1].value) || 1;
-	const preu = parseFloat(inputs[2].value) || 0;
-	const dto = parseFloat(inputs[3].value) || 0;
-	const iva = parseFloat(inputs[4].value) || 10;
-	const net = qtitat * mida * preu * (1 - dto / 100);
+    const mida = parseFloat(inputs[1].value) || 1;
+    const preu = parseFloat(inputs[2].value) || 0;
+    const dto = parseFloat(inputs[3].value) || 0;
+    const iva = parseFloat(inputs[4].value) || 10;
+    
+    const tipusPreu = document.getElementById('compra-tipus-preu')?.value || 'envàs';
+    const net = tipusPreu === 'envàs'
+        ? qtitat * preu * (1 - dto / 100)
+        : qtitat * mida * preu * (1 - dto / 100);
+    
     const total = net * (1 + iva / 100);
     document.getElementById('linia-net-' + idx).textContent = net.toFixed(2);
     document.getElementById('linia-total-' + idx).textContent = total.toFixed(2);
@@ -4682,6 +4697,7 @@ async function guardarCompra() {
         import_net: totalNet,
         import_iva: totalTotal - totalNet,
         import_total: totalTotal
+		tipus_preu: document.getElementById('compra-tipus-preu').value,
     };
 
     try {
@@ -4756,7 +4772,8 @@ async function editarCompra(id, solaLectura) {
     document.getElementById('compra-proveidor').value = factura.proveidor || '';
     document.getElementById('compra-observacions').value = factura.observacions || '';
     document.getElementById('compres-linies-container').innerHTML = '';
-    liniaCompraComptador = 0;
+	document.getElementById('compra-tipus-preu').value = factura.tipus_preu || 'envàs';
+	liniaCompraComptador = 0;
 
     linies.forEach(function(l) { afegirLiniaCompra(l); });
     if (linies.length === 0) afegirLiniaCompra();
