@@ -4696,7 +4696,7 @@ async function guardarCompra() {
         observacions: document.getElementById('compra-observacions').value.trim() || null,
         import_net: totalNet,
         import_iva: totalTotal - totalNet,
-        import_total: totalTotal
+        import_total: totalTotal,
 		tipus_preu: document.getElementById('compra-tipus-preu').value,
     };
 
