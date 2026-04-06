@@ -915,6 +915,15 @@ async function guardarTractament(event) {
         tancarModal('modal-tractament');
         await carregarTaulaTractaments();
         
+		// Reset checkboxes i superfície
+		document.getElementById('form-tractament').dataset.editMode = 'false';
+		document.getElementById('form-tractament').dataset.editIds = '';
+		document.querySelectorAll('#tractament-finques-checks input[type="checkbox"]').forEach(function(cb) {
+			cb.checked = false;
+		});
+		document.getElementById('superficie-total').textContent = '0';
+		document.getElementById('quantitat-total').textContent = '0';
+		
     } catch (error) {
         console.error('Error guardant:', error);
         mostrarNotificacio('Error: ' + error.message, 'error');
