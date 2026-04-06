@@ -5421,34 +5421,22 @@ document.addEventListener('DOMContentLoaded', function() {
 // Reconnexió automàtica quan l'app torna a primer pla
 document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'visible' && currentUser) {
-        setTimeout(function() {
-            // Reconnectar Supabase
-            supabaseClient.auth.getSession().then(function(result) {
-                if (result.data.session) {
-                    console.log('🔄 Sessió reconnectada');
-                } else {
-                    console.log('❌ Sessió perduda, reiniciant...');
-                    iniciarSessio(currentUser);
+        console.log('👁️ App tornada a primer pla');
+        setTimeout(async function() {
+            try {
+                console.log('🔄 Provant connexió...');
+                const { data, error } = await supabaseClient.from('users').select('id').limit(1);
+                if (error) {
+                    console.log('❌ Error connexió:', error.message);
+                    throw error;
                 }
-            });
-
-            // Si hi ha un modal obert, no recarregar vistes
-            const modalObert = document.querySelector('.modal[style*="block"]');
-            if (modalObert) {
-                console.log('🔄 Modal obert, no recarregant');
-                return;
+                console.log('✅ Connexió OK');
+            } catch(e) {
+                console.log('❌ Reinicialitzant client...');
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                console.log('✅ Client reinicialitzat');
             }
-
-            Promise.all([
-                getTreballadors().then(function(d) { treballadors = d; }),
-                getParcellas().then(function(d) { parcelles = d; }),
-                getControlHorari().then(function(d) { controlHorari = d; }),
-            ]).then(function() {
-                mostrarNotificacio('✅ Dades actualitzades', 'success');
-            }).catch(function(e) {
-                console.error('Error refrescant:', e);
-            });
-        }, 2000);
+        }, 1000);
     }
 });
 
