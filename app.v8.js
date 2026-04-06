@@ -5419,7 +5419,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Reconnexió automàtica quan l'app torna a primer pla
-ddocument.addEventListener('visibilitychange', function() {
+document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'visible' && currentUser) {
         console.log('👁️ App tornada a primer pla');
         setTimeout(async function() {
