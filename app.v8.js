@@ -5422,12 +5422,23 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'visible' && currentUser) {
         setTimeout(function() {
-            // Si hi ha un modal obert, no recarregar
+            // Reconnectar Supabase
+            supabaseClient.auth.getSession().then(function(result) {
+                if (result.data.session) {
+                    console.log('🔄 Sessió reconnectada');
+                } else {
+                    console.log('❌ Sessió perduda, reiniciant...');
+                    iniciarSessio(currentUser);
+                }
+            });
+
+            // Si hi ha un modal obert, no recarregar vistes
             const modalObert = document.querySelector('.modal[style*="block"]');
             if (modalObert) {
                 console.log('🔄 Modal obert, no recarregant');
                 return;
             }
+
             Promise.all([
                 getTreballadors().then(function(d) { treballadors = d; }),
                 getParcellas().then(function(d) { parcelles = d; }),
