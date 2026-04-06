@@ -5424,17 +5424,28 @@ document.addEventListener('visibilitychange', function() {
         console.log('👁️ App tornada a primer pla');
         setTimeout(async function() {
             try {
-                console.log('🔄 Reinicialitzant client Supabase...');
-                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                const { data, error } = await supabaseClient.from('users').select('id').limit(1);
+                // Renovar sessió sense crear nou client
+                const { data, error } = await supabaseClient.auth.refreshSession();
                 if (error) throw error;
-                console.log('✅ Connexió OK');
-                mostrarNotificacio('✅ Reconnectat', 'success');
+                console.log('✅ Sessió renovada');
+                
+                const modalObert = document.querySelector('.modal[style*="block"]');
+                if (modalObert) {
+                    console.log('🔄 Modal obert, no recarregant');
+                    return;
+                }
+                
+                Promise.all([
+                    getTreballadors().then(function(d) { treballadors = d; }),
+                    getParcellas().then(function(d) { parcelles = d; }),
+                    getControlHorari().then(function(d) { controlHorari = d; }),
+                ]).then(function() {
+                    mostrarNotificacio('✅ Dades actualitzades', 'success');
+                });
             } catch(e) {
-                console.log('❌ Error:', e.message);
-                mostrarNotificacio('⚠️ Error de connexió, refresca la pàgina', 'error');
+                console.log('❌ Error renovant sessió:', e.message);
             }
-        }, 3000);
+        }, 2000);
     }
 });
 
