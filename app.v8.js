@@ -5419,24 +5419,22 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Reconnexió automàtica quan l'app torna a primer pla
-document.addEventListener('visibilitychange', function() {
+ddocument.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'visible' && currentUser) {
         console.log('👁️ App tornada a primer pla');
         setTimeout(async function() {
             try {
-                console.log('🔄 Provant connexió...');
-                const { data, error } = await supabaseClient.from('users').select('id').limit(1);
-                if (error) {
-                    console.log('❌ Error connexió:', error.message);
-                    throw error;
-                }
-                console.log('✅ Connexió OK');
-            } catch(e) {
-                console.log('❌ Reinicialitzant client...');
+                console.log('🔄 Reinicialitzant client Supabase...');
                 supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                console.log('✅ Client reinicialitzat');
+                const { data, error } = await supabaseClient.from('users').select('id').limit(1);
+                if (error) throw error;
+                console.log('✅ Connexió OK');
+                mostrarNotificacio('✅ Reconnectat', 'success');
+            } catch(e) {
+                console.log('❌ Error:', e.message);
+                mostrarNotificacio('⚠️ Error de connexió, refresca la pàgina', 'error');
             }
-        }, 1000);
+        }, 3000);
     }
 });
 
