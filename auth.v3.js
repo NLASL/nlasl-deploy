@@ -69,6 +69,11 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
             ignorarProximSignedIn = false;
             return;
         }
+        // Si ja estem dins l'app i ¨¦s un refresc de sessi¨®, ignorar
+        if (currentUser && currentUser.id === session.user.id) {
+            console.log('?? Refresc de sessi¨® ignorat');
+            return;
+        }
         await iniciarSessio(session.user);
     } else if (event === 'SIGNED_OUT') {
         ignorarProximSignedIn = false;
