@@ -4468,6 +4468,11 @@ function netejarFiltresCompres() {
 async function eliminarCompra(id) {
     if (!confirm('Segur que vols eliminar aquesta factura i totes les seves línies?')) return;
     try {
+		// Eliminar moviments d'estoc de la factura
+        await supabaseClient.from('estoc_moviments')
+            .delete()
+            .eq('referencia_id', id)
+            .eq('tipus_moviment', 'compra');
         await deleteCompresLinies(id);
         await deleteCompraFactura(id);
         mostrarNotificacio('Factura eliminada', 'success');
