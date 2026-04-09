@@ -88,9 +88,23 @@ async function interpretarVeu(text, treballadorId) {
                !r.hora_sortida;
     });
 
-    const context = registreObert 
-        ? 'El treballador té una entrada oberta des de les ' + registreObert.hora_entrada + '. Acció per defecte si no s\'entén: SORTIDA.'
-        : 'El treballador no té entrada oberta. Acció per defecte si no s\'entén: ENTRADA.';
+    const systemPrompt = `Ets un assistent de fitxatge agrícola català. El treballador vol fitxar ENTRADA. Analitza el text i extreu finca i tasca.
+
+FINQUES DISPONIBLES (busca coincidència parcial amb el que diu):
+${finques.map((f, i) => i+1 + '. ' + f).join('\n')}
+
+TASQUES DISPONIBLES:
+${tasques.map((t, i) => i+1 + '. ' + t.nom).join('\n')}
+
+FORMAT RESPOSTA (NOMÉS JSON, res més):
+{
+  "finca": "nom exacte de la finca de la llista o null",
+  "tasca": "nom exacte de la tasca de la llista o null",
+  "confiança": "ALTA" o "BAIXA"
+}`;
+
+    console.log('SYSTEM PROMPT:', systemPrompt);
+    console.log('TEXT:', text);
 
     try {
         const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -99,20 +113,10 @@ async function interpretarVeu(text, treballadorId) {
             body: JSON.stringify({
                 model: 'claude-sonnet-4-20250514',
                 max_tokens: 500,
-                system: `Ets un assistent de fitxatge agrícola català. El treballador vol fitxar ENTRADA. Analitza el text i extreu finca i tasca.
-
-			FINQUES DISPONIBLES (busca coincidència parcial amb el que diu):
-			${finques.map((f, i) => i+1 + '. ' + f).join('\n')}
-	
-			TASQUES DISPONIBLES:
-			${tasques.map((t, i) => i+1 + '. ' + t.nom).join('\n')}
-
-			FORMAT RESPOSTA (NOMÉS JSON, res més):
-{
-			"finca": "nom exacte de la finca de la llista o null",
-			"tasca": "nom exacte de la tasca de la llista o null",
-			"confiança": "ALTA" o "BAIXA"
-}
+                system: systemPrompt,
+                messages: [{ role: 'user', content: text }]
+            })
+        });
 
 Context: ${context}
 Finques disponibles: ${finques.join(', ')}
