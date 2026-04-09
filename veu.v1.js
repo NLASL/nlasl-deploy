@@ -84,8 +84,7 @@ async function interpretarVeu(text, treballadorId) {
     const registreObert = controlHorari.find(function(r) {
         return r.treballador_id === treballadorId &&
                r.data === avui &&
-               r.hora_entrada &&
-               !r.hora_sortida;
+               r.hora_entrada &&;
     });
 
     const context = registreObert 
@@ -99,13 +98,21 @@ async function interpretarVeu(text, treballadorId) {
             body: JSON.stringify({
                 model: 'claude-sonnet-4-20250514',
                 max_tokens: 500,
-                system: `Ets un assistent de fitxatge agrícola. Analitza el text de veu i retorna NOMÉS un JSON amb aquest format:
+                system: `Ets un assistent de fitxatge agrícola català. El treballador vol fitxar ENTRADA. Analitza el text i extreu finca i tasca.
+
+			FINQUES DISPONIBLES (busca coincidència parcial amb el que diu):
+			${finques.map((f, i) => i+1 + '. ' + f).join('\n')}
+	
+			TASQUES DISPONIBLES:
+			${tasques.map((t, i) => i+1 + '. ' + t.nom).join('\n')}
+
+			FORMAT RESPOSTA (NOMÉS JSON, res més):
 {
-  "accio": "ENTRADA" o "SORTIDA",
-  "finca": "nom de la finca si es menciona, null si no",
-  "tasca": "nom de la tasca si es menciona, null si no",
-  "confiança": "ALTA" o "BAIXA"
+			"finca": "nom exacte de la finca de la llista o null",
+			"tasca": "nom exacte de la tasca de la llista o null",
+			"confiança": "ALTA" o "BAIXA"
 }
+
 Context: ${context}
 Finques disponibles: ${finques.join(', ')}
 Tasques disponibles: ${tasques.map(t => t.nom).join(', ')}`,
