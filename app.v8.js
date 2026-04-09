@@ -3846,6 +3846,15 @@ async function actualitzarZonaFitxatge(treballadorId, registreObert) {
         html += '</button>';
     }
     
+		// Botó veu — només si no té entrada
+	if (!registreObert) {
+        html += '<div style="text-align:center;margin-top:20px;">';
+        html += '<button id="btn-veu" onclick="iniciarVeu(\'' + treballadorId + '\')" ';
+        html += 'style="width:70px;height:70px;border-radius:50%;border:none;background:#673ab7;color:white;font-size:28px;cursor:pointer;box-shadow:0 4px 15px rgba(103,58,183,0.4);">🎤</button>';
+        html += '<p style="margin-top:8px;color:#666;font-size:13px;">Parla per fitxar</p>';
+        html += '</div>';
+    }
+    
     zona.innerHTML = html;
 }
 
