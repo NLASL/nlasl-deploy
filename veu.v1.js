@@ -84,7 +84,8 @@ async function interpretarVeu(text, treballadorId) {
     const registreObert = controlHorari.find(function(r) {
         return r.treballador_id === treballadorId &&
                r.data === avui &&
-               r.hora_entrada &&;
+               r.hora_entrada &&
+               !r.hora_sortida;
     });
 
     const context = registreObert 
