@@ -3753,6 +3753,13 @@ async function carregarVistaTreballadorSimple() {
     html += '<h3 style="margin-top: 0; color: #333;">📊 Els meus registres</h3>';
     html += '<div id="registres-treballador"></div>';
     html += '</div>';
+	
+	// Botó veu
+    html += '<div style="text-align:center;margin-bottom:20px;">';
+    html += '<button id="btn-veu" onclick="iniciarVeu(\'' + treballador.id + '\')" ';
+    html += 'style="width:80px;height:80px;border-radius:50%;border:none;background:#4caf50;color:white;font-size:32px;cursor:pointer;box-shadow:0 4px 15px rgba(76,175,80,0.4);transition:all 0.2s;">🎤</button>';
+    html += '<p style="margin-top:10px;color:#666;font-size:14px;">Prem per parlar</p>';
+    html += '</div>';
 
     // Les meves absències
     html += '<div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">';
