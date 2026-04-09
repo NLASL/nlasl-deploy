@@ -3744,8 +3744,13 @@ async function carregarVistaTreballadorSimple() {
     html += '<p style="margin: 10px 0 0 0; font-size: 18px; opacity: 0.9;">' + diaSetmana + ', ' + dia + ' de ' + mes + '</p>';
     html += '</div>';
     
-    // Botó fitxar
+    // Botó fitxar + veu
     html += '<div id="zona-fitxatge" style="margin-bottom: 40px;">';
+    html += '<div style="text-align:center;margin-top:20px;">';
+    html += '<button id="btn-veu" onclick="iniciarVeu(\'' + treballador.id + '\')" ';
+    html += 'style="width:80px;height:80px;border-radius:50%;border:none;background:#4caf50;color:white;font-size:32px;cursor:pointer;box-shadow:0 4px 15px rgba(76,175,80,0.4);transition:all 0.2s;">🎤</button>';
+    html += '<p style="margin-top:10px;color:#666;font-size:14px;">Prem per parlar</p>';
+    html += '</div>';
     html += '</div>';
     
     // Els meus registres
@@ -3754,14 +3759,7 @@ async function carregarVistaTreballadorSimple() {
     html += '<div id="registres-treballador"></div>';
     html += '</div>';
 	
-	// Botó veu
-    html += '<div style="text-align:center;margin-bottom:20px;">';
-    html += '<button id="btn-veu" onclick="iniciarVeu(\'' + treballador.id + '\')" ';
-    html += 'style="width:80px;height:80px;border-radius:50%;border:none;background:#4caf50;color:white;font-size:32px;cursor:pointer;box-shadow:0 4px 15px rgba(76,175,80,0.4);transition:all 0.2s;">🎤</button>';
-    html += '<p style="margin-top:10px;color:#666;font-size:14px;">Prem per parlar</p>';
-    html += '</div>';
-
-    // Les meves absències
+	// Les meves absències
     html += '<div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">';
     html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">';
     html += '<h3 style="margin: 0; color: #333;">📅 Les meves absències</h3>';

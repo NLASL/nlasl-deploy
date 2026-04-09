@@ -32,9 +32,10 @@ function iniciarVeu(treballadorId) {
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     reconeixementVeu = new SpeechRecognition();
-    reconeixementVeu.lang = 'ca-ES';
+    reconeixementVeu.lang = 'es-ES';
     reconeixementVeu.continuous = false;
-    reconeixementVeu.interimResults = false;
+	reconeixementVeu.interimResults = false;
+	reconeixementVeu.maxAlternatives = 3;
 
     reconeixementVeu.onresult = async function(event) {
         const text = event.results[0][0].transcript;
