@@ -90,15 +90,23 @@ async function interpretarVeu(text, treballadorId) {
     const fincaTrobada = resultsFinca.length > 0 ? resultsFinca[0].item : null;
     const scoreFinca = resultsFinca.length > 0 ? resultsFinca[0].score : 1;
 
+    // Eliminar la finca trobada del text per buscar la tasca
+    let textPerTasca = textNorm;
+    if (fincaTrobada) {
+        const paraulesFinques = fincaTrobada.toLowerCase().split(' ');
+        paraulesFinques.forEach(function(p) {
+            if (p.length > 2) textPerTasca = textPerTasca.replace(p, '');
+        });
+    }
+    textPerTasca = textPerTasca.trim();
+
     // Buscar tasca amb Fuse.js
     const fuseTasca = new Fuse(tasques, {
         keys: ['nom'],
-        threshold: 0.4,
+        threshold: 0.5,
         includeScore: true
     });
-    const resultsTasca = fuseTasca.search(textNorm);
-    const tascaTrobada = resultsTasca.length > 0 ? resultsTasca[0].item : null;
-    const scoreTasca = resultsTasca.length > 0 ? resultsTasca[0].score : 1;
+    const resultsTasca = fuseTasca.search(textPerTasca);
 
     // Calcular confiança
     const confiança = (!fincaTrobada && !tascaTrobada) ? 'BAIXA' : 'ALTA';
