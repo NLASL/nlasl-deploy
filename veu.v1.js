@@ -83,7 +83,7 @@ async function interpretarVeu(text, treballadorId) {
 
     // Buscar finca amb Fuse.js
     const fuseFinca = new Fuse(finques, {
-        threshold: 0.4,
+        threshold: 0.5,
         includeScore: true
     });
     const resultsFinca = fuseFinca.search(textNorm);
@@ -101,7 +101,7 @@ async function interpretarVeu(text, treballadorId) {
     const scoreTasca = resultsTasca.length > 0 ? resultsTasca[0].score : 1;
 
     // Calcular confiança
-    const confiança = (scoreFinca < 0.3 || !fincaTrobada) && (scoreTasca < 0.3 || !tascaTrobada) ? 'BAIXA' : 'ALTA';
+    const confiança = (!fincaTrobada && !tascaTrobada) ? 'BAIXA' : 'ALTA';
 
     const resultat = {
         finca: fincaTrobada || null,
@@ -155,10 +155,20 @@ function mostrarConfirmacioVeu(resultat, textOriginal, treballadorId, registreOb
 
 async function confirmarAccioVeu(accio, finca, tasca, treballadorId, registreId) {
     document.getElementById('modal-confirmacio-veu')?.remove();
-
     try {
         if (accio === 'ENTRADA') {
             await fitxarEntradaTreballador(treballadorId);
+            
+            // Preseleccionar finca i tasca
+            if (finca) {
+                document.getElementById('fitxatge-finca').value = finca;
+            }
+            if (tasca) {
+                const selectTasca = document.getElementById('fitxatge-tasca');
+                const opcions = Array.from(selectTasca.options);
+                const opcio = opcions.find(function(o) { return o.text === tasca; });
+                if (opcio) selectTasca.value = opcio.value;
+            }
         } else {
             await fitxarSortidaTreballador(treballadorId, registreId);
         }
