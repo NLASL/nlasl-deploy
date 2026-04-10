@@ -79,60 +79,48 @@ function aturarVeu() {
 async function interpretarVeu(text, treballadorId) {
     mostrarNotificacio('⏳ Interpretant...', 'info');
 
-	// Determinar si té entrada oberta
-    const avui = new Date().toISOString().split('T')[0];
-    const registreObert = controlHorari.find(function(r)  {
-        return  r.treballador_id === treballadorId && 
-				r.data === avui && 
-				r.hora_entrada && 
-				!r.hora_sortida
+    const textNorm = text.toLowerCase().trim();
+
+    // Buscar finca amb Fuse.js
+    const fuseFinca = new Fuse(finques, {
+        threshold: 0.4,
+        includeScore: true
+    });
+    const resultsFinca = fuseFinca.search(textNorm);
+    const fincaTrobada = resultsFinca.length > 0 ? resultsFinca[0].item : null;
+    const scoreFinca = resultsFinca.length > 0 ? resultsFinca[0].score : 1;
+
+    // Buscar tasca amb Fuse.js
+    const fuseTasca = new Fuse(tasques, {
+        keys: ['nom'],
+        threshold: 0.4,
+        includeScore: true
+    });
+    const resultsTasca = fuseTasca.search(textNorm);
+    const tascaTrobada = resultsTasca.length > 0 ? resultsTasca[0].item : null;
+    const scoreTasca = resultsTasca.length > 0 ? resultsTasca[0].score : 1;
+
+    // Calcular confiança
+    const confiança = (scoreFinca < 0.3 || !fincaTrobada) && (scoreTasca < 0.3 || !tascaTrobada) ? 'BAIXA' : 'ALTA';
+
+    const resultat = {
+        finca: fincaTrobada || null,
+        tasca: tascaTrobada ? tascaTrobada.nom : null,
+        confiança: confiança
+    };
+
+    console.log('Text:', text, 'Resultat:', resultat);
+
+    const registreObert = controlHorari.find(function(r) {
+        const avui = new Date().toISOString().split('T')[0];
+        return r.treballador_id === treballadorId &&
+               r.data === avui &&
+               r.hora_entrada &&
+               !r.hora_sortida;
     });
 
-    const accioSugerida = registreObert ? 'SORTIDA' : 'ENTRADA';
-
-    const systemPrompt = `Ets un assistent de fitxatge agrícola català. El treballador vol fitxar ENTRADA. Analitza el text i extreu finca i tasca.
-
-FINQUES DISPONIBLES (busca coincidència parcial amb el que diu):
-${finques.map((f, i) => i+1 + '. ' + f).join('\n')}
-
-TASQUES DISPONIBLES:
-${tasques.map((t, i) => i+1 + '. ' + t.nom).join('\n')}
-
-FORMAT RESPOSTA (NOMÉS JSON, res més):
-{
-  "finca": "nom exacte de la finca de la llista o null",
-  "tasca": "nom exacte de la tasca de la llista o null",
-  "confiança": "ALTA" o "BAIXA"
-}`;
-
-    console.log('SYSTEM PROMPT:', systemPrompt);
-    console.log('TEXT:', text);
-
-    try {
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: 'claude-sonnet-4-20250514',
-                max_tokens: 500,
-                system: systemPrompt,
-                messages: [{ role: 'user', content: text }]
-            })
-        });
-
-
-        const data = await response.json();
-        const textResposta = data.content[0].text;
-        const resultat = JSON.parse(textResposta);
-		
-        mostrarConfirmacioVeu(resultat, text, treballadorId, registreObert);
-
-    } catch (error) {
-        console.error('Error interpretació:', error);
-        // Acció per defecte
-        const accioDefecte = registreObert ? 'SORTIDA' : 'ENTRADA';
-        mostrarConfirmacioVeu({ accio: accioDefecte, finca: null, tasca: null, confiança: 'BAIXA' }, text, treballadorId, registreObert);
-    }
+    mostrarConfirmacioVeu(resultat, text, treballadorId, registreObert);
+}
 }
 
 
@@ -143,8 +131,8 @@ function mostrarConfirmacioVeu(resultat, textOriginal, treballadorId, registreOb
     const anterior = document.getElementById('modal-confirmacio-veu');
     if (anterior) anterior.remove();
 
-    const colorAccio = resultat.accio === 'ENTRADA' ? '#4caf50' : '#f44336';
-    const iconaAccio = resultat.accio === 'ENTRADA' ? '🟢' : '🔴';
+    const colorAccio = '#4caf50';
+	const iconaAccio = '🟢';
     const confiançaColor = resultat.confiança === 'ALTA' ? '#4caf50' : '#ff9800';
 
     let html = '<div id="modal-confirmacio-veu" class="modal" style="display:block;">';
@@ -159,7 +147,7 @@ function mostrarConfirmacioVeu(resultat, textOriginal, treballadorId, registreOb
     
     html += '<div style="display:flex;gap:10px;justify-content:center;margin-top:20px;">';
     html += '<button class="btn btn-secondary" onclick="document.getElementById(\'modal-confirmacio-veu\').remove()">❌ Cancel·lar</button>';
-    html += '<button class="btn btn-primary" style="background:' + colorAccio + ';" onclick="confirmarAccioVeu(\'' + resultat.accio + '\',\'' + (resultat.finca || '') + '\',\'' + (resultat.tasca || '') + '\',\'' + treballadorId + '\',\'' + (registreObert?.id || '') + '\')">✅ Confirmar</button>';
+    html += '<button class="btn btn-primary" style="background:' + colorAccio + ';" onclick="confirmarAccioVeu(\'ENTRADA\',\'' + (resultat.finca || '') + '\',\'' + (resultat.tasca || '') + '\',\'' + treballadorId + '\',\'' + (registreObert?.id || '') + '\')">✅ Confirmar</button>';
     html += '</div></div></div>';
 
     document.body.insertAdjacentHTML('beforeend', html);
