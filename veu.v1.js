@@ -107,11 +107,13 @@ async function interpretarVeu(text, treballadorId) {
         includeScore: true
     });
 	
-	console.log('textPerTasca:', textPerTasca);
-	console.log('resultsTasca:', resultsTasca);
-    
 	const resultsTasca = fuseTasca.search(textPerTasca);
     const tascaTrobada = resultsTasca.length > 0 ? resultsTasca[0].item : null;
+
+    console.log('textPerTasca:', textPerTasca);
+	console.log('resultsTasca:', resultsTasca);
+    
+
 
     // Calcular confiança
     const confiança = (!fincaTrobada && !tascaTrobada) ? 'BAIXA' : 'ALTA';
