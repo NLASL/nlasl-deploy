@@ -106,7 +106,11 @@ async function interpretarVeu(text, treballadorId) {
         threshold: 0.5,
         includeScore: true
     });
-    const resultsTasca = fuseTasca.search(textPerTasca);
+	
+	console.log('textPerTasca:', textPerTasca);
+	console.log('resultsTasca:', resultsTasca);
+    
+	const resultsTasca = fuseTasca.search(textPerTasca);
     const tascaTrobada = resultsTasca.length > 0 ? resultsTasca[0].item : null;
 
     // Calcular confiança
