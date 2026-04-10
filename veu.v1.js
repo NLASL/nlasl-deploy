@@ -107,20 +107,24 @@ async function interpretarVeu(text, treballadorId) {
     textPerTasca = textPerTasca.replace(/\s+/g, ' ').trim();
     console.log('textPerTasca net:', textPerTasca);
 
- // Buscar tasca amb Fuse.js
+ // Buscar tasca per paraules individuals
+    let tascaTrobada = null;
     const fuseTasca = new Fuse(tasques, {
         keys: ['nom'],
-        threshold: 0.5,
+        threshold: 0.4,
         includeScore: true
     });
-	
-	const resultsTasca = fuseTasca.search(textPerTasca);
-    const tascaTrobada = resultsTasca.length > 0 ? resultsTasca[0].item : null;
 
-    console.log('textPerTasca:', textPerTasca);
-	console.log('resultsTasca:', resultsTasca);
+    const paraulesPerTasca = textPerTasca.split(/[\s,\.]+/).filter(p => p.length > 2);
+    let scoreTasca = 1;
     
-
+    paraulesPerTasca.forEach(function(paraula) {
+        const results = fuseTasca.search(paraula);
+        if (results.length > 0 && results[0].score < scoreTasca) {
+            scoreTasca = results[0].score;
+            tascaTrobada = results[0].item;
+        }
+    });
 
     // Calcular confiança
     const confiança = (!fincaTrobada && !tascaTrobada) ? 'BAIXA' : 'ALTA';
