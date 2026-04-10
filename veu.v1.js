@@ -127,6 +127,12 @@ async function interpretarVeu(text, treballadorId) {
                !r.hora_sortida;
     });
 
+console.log('Resultat final:', JSON.stringify(resultat));
+mostrarConfirmacioVeu(resultat, text, treballadorId, registreObert);
+
+mostrarNotificacio('F:' + (resultat.finca || 'null') + ' T:' + (resultat.tasca || 'null') + ' C:' + resultat.confiança, 'info');
+mostrarConfirmacioVeu(resultat, text, treballadorId, registreObert);
+
     mostrarConfirmacioVeu(resultat, text, treballadorId, registreObert);
 }
 
