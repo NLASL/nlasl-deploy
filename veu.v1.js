@@ -100,17 +100,18 @@ async function interpretarVeu(text, treballadorId) {
     }
     textPerTasca = textPerTasca.trim();
 
-    // Buscar tasca amb Fuse.js
+ // Buscar tasca amb Fuse.js
     const fuseTasca = new Fuse(tasques, {
         keys: ['nom'],
         threshold: 0.5,
         includeScore: true
     });
     const resultsTasca = fuseTasca.search(textPerTasca);
+    const tascaTrobada = resultsTasca.length > 0 ? resultsTasca[0].item : null;
 
     // Calcular confiança
     const confiança = (!fincaTrobada && !tascaTrobada) ? 'BAIXA' : 'ALTA';
-
+    
     const resultat = {
         finca: fincaTrobada || null,
         tasca: tascaTrobada ? tascaTrobada.nom : null,
@@ -126,12 +127,6 @@ async function interpretarVeu(text, treballadorId) {
                r.hora_entrada &&
                !r.hora_sortida;
     });
-
-console.log('Resultat final:', JSON.stringify(resultat));
-mostrarConfirmacioVeu(resultat, text, treballadorId, registreObert);
-
-mostrarNotificacio('F:' + (resultat.finca || 'null') + ' T:' + (resultat.tasca || 'null') + ' C:' + resultat.confiança, 'info');
-mostrarConfirmacioVeu(resultat, text, treballadorId, registreObert);
 
     mostrarConfirmacioVeu(resultat, text, treballadorId, registreObert);
 }
