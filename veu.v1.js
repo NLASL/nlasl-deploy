@@ -121,7 +121,7 @@ async function interpretarVeu(text, treballadorId) {
 
     mostrarConfirmacioVeu(resultat, text, treballadorId, registreObert);
 }
-}
+
 
 
 
