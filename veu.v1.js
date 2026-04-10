@@ -83,12 +83,26 @@ async function interpretarVeu(text, treballadorId) {
 
     const accioSugerida = registreObert ? 'SORTIDA' : 'ENTRADA';
 
-    const systemPrompt = `Ets un assistent de fitxatge agrícola català. El treballador vol fer una ${accioSugerida}.
-    FINQUES: ${finques.join(', ')}
-    TASQUES: ${tasques.map(t => t.nom).join(', ')}
-    RESPON NOMÉS JSON: {"accio":"${accioSugerida}","finca":"nom","tasca":"nom","confiança":"ALTA"}`;
+    const systemPrompt = `Ets un assistent de fitxatge per a treballadors del camp a Catalunya.
+La teva missió és extreure la FINCA i la TASCA d'un text de veu.
 
-    try {
+FINQUES DISPONIBLES:
+${finques.join(', ')}
+
+TASQUES DISPONIBLES:
+${tasques.map(t => t.nom).join(', ')}
+
+REGLES ESTRICTES:
+1. Si el text no esmenta cap finca de la llista, posa "finca": null.
+2. Si el text no esmenta cap tasca de la llista, posa "tasca": null.
+3. El nom de la finca i la tasca han de ser EXACTAMENT com apareixen a les llistes de dalt.
+4. L'acció serà ${accioSugerida} a menys que el text digui clarament el contrari.
+5. Respon ÚNICAMENT amb un objecte JSON, sense cap text addicional.
+
+EXEMPLE DE RESPOSTA:
+{"accio": "ENTRADA", "finca": "Nom de la Finca", "tasca": "Nom de la Tasca", "confiança": "ALTA"}`;
+   
+   try {
         const response = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: { 
