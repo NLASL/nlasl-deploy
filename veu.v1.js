@@ -17,13 +17,12 @@ function iniciarVeu(treballadorId) {
     }
 
     const btn = document.getElementById('btn-veu');
-    if (btn) {
         btn.style.background = '#f44336';
         btn.style.animation = 'pulse 1s infinite';
         btn.textContent = '⏹️';
-    }
-    veuActiva = true;
+        veuActiva = true;
 
+	// Afegir animació CSS
     if (!document.getElementById('veu-styles')) {
         const style = document.createElement('style');
         style.id = 'veu-styles';
@@ -36,7 +35,7 @@ function iniciarVeu(treballadorId) {
     reconeixementVeu.lang = 'es-ES';
     reconeixementVeu.continuous = false;
     reconeixementVeu.interimResults = false;
-    reconeixementVeu.maxAlternatives = 1;
+    reconeixementVeu.maxAlternatives = 3;
 
     reconeixementVeu.onresult = async function(event) {
         const text = event.results[0][0].transcript;
@@ -48,7 +47,11 @@ function iniciarVeu(treballadorId) {
     reconeixementVeu.onerror = function(event) {
         console.error('Error veu:', event.error);
         aturarVeu();
-        mostrarNotificacio('Error de micròfon: ' + event.error, 'error');
+        if (event.error === 'no-speech') {
+            mostrarNotificacio('No s\'ha detectat cap veu', 'warning');
+        } else {
+            mostrarNotificacio('Error de micròfon: ' + event.error, 'error');
+        }
     };
 
     reconeixementVeu.onend = function() {
@@ -76,59 +79,64 @@ function aturarVeu() {
 async function interpretarVeu(text, treballadorId) {
     mostrarNotificacio('⏳ Interpretant...', 'info');
 
+	// Determinar si té entrada oberta
     const avui = new Date().toISOString().split('T')[0];
-    const registreObert = controlHorari.find(r => 
-        r.treballador_id === treballadorId && r.data === avui && r.hora_entrada && !r.hora_sortida
-    );
+    const registreObert = controlHorari.find(function(r)  {
+        return  r.treballador_id === treballadorId && 
+				r.data === avui && 
+				r.hora_entrada && 
+				!r.hora_sortida
+    });
 
     const accioSugerida = registreObert ? 'SORTIDA' : 'ENTRADA';
 
-    const systemPrompt = `Ets un assistent de fitxatge per a treballadors del camp a Catalunya.
-La teva missió és extreure la FINCA i la TASCA d'un text de veu.
+    const systemPrompt = `Ets un assistent de fitxatge agrícola català. El treballador vol fitxar ENTRADA. Analitza el text i extreu finca i tasca.
 
-FINQUES DISPONIBLES:
-${finques.join(', ')}
+FINQUES DISPONIBLES (busca coincidència parcial amb el que diu):
+${finques.map((f, i) => i+1 + '. ' + f).join('\n')}
 
 TASQUES DISPONIBLES:
-${tasques.map(t => t.nom).join(', ')}
+${tasques.map((t, i) => i+1 + '. ' + t.nom).join('\n')}
 
-REGLES ESTRICTES:
-1. Si el text no esmenta cap finca de la llista, posa "finca": null.
-2. Si el text no esmenta cap tasca de la llista, posa "tasca": null.
-3. El nom de la finca i la tasca han de ser EXACTAMENT com apareixen a les llistes de dalt.
-4. L'acció serà ${accioSugerida} a menys que el text digui clarament el contrari.
-5. Respon ÚNICAMENT amb un objecte JSON, sense cap text addicional.
+FORMAT RESPOSTA (NOMÉS JSON, res més):
+{
+  "finca": "nom exacte de la finca de la llista o null",
+  "tasca": "nom exacte de la tasca de la llista o null",
+  "confiança": "ALTA" o "BAIXA"
+}`;
 
-EXEMPLE DE RESPOSTA:
-{"accio": "ENTRADA", "finca": "Nom de la Finca", "tasca": "Nom de la Tasca", "confiança": "ALTA"}`;
-   
-   try {
+    console.log('SYSTEM PROMPT:', systemPrompt);
+    console.log('TEXT:', text);
+
+    try {
         const response = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'x-api-key': 'LA_TEVA_KEY_AQUÍ', // Recorda posar la teva Key
-                'anthropic-version': '2023-06-01'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                model: 'claude-3-haiku-20240307',
+                model: 'claude-sonnet-4-20250514',
                 max_tokens: 500,
                 system: systemPrompt,
                 messages: [{ role: 'user', content: text }]
             })
         });
 
+
         const data = await response.json();
-        const resultat = JSON.parse(data.content[0].text);
+        const textResposta = data.content[0].text;
+        const resultat = JSON.parse(textResposta);
+		
         mostrarConfirmacioVeu(resultat, text, treballadorId, registreObert);
 
     } catch (error) {
-        console.error('Error API:', error);
-        mostrarConfirmacioVeu({ accio: accioSugerida, finca: null, tasca: null, confiança: 'BAIXA' }, text, treballadorId, registreObert);
+        console.error('Error interpretació:', error);
+        // Acció per defecte
+        const accioDefecte = registreObert ? 'SORTIDA' : 'ENTRADA';
+        mostrarConfirmacioVeu({ accio: accioDefecte, finca: null, tasca: null, confiança: 'BAIXA' }, text, treballadorId, registreObert);
     }
 }
 
-// Les funcions mostrarConfirmacioVeu i confirmarAccioVeu es mantenen igual que les tenies
+
+
 
 function mostrarConfirmacioVeu(resultat, textOriginal, treballadorId, registreObert) {
     // Eliminar confirmació anterior si existeix
