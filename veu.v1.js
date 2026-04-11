@@ -81,18 +81,31 @@ async function interpretarVeu(text, treballadorId) {
 
     const textNorm = text.toLowerCase().trim();
 
-    // Buscar finca amb Fuse.js
+   // Buscar finca per paraules individuals
+    let fincaTrobada = null;
+    let scoreFinca = 1;
+    
+    const paraules = textNorm.split(/[\s,\.]+/).filter(function(p) { return p.length > 2; });
+    
     const fuseFinca = new Fuse(finques, {
         threshold: 0.5,
         includeScore: true
     });
-    const resultsFinca = fuseFinca.search(textNorm);
-    const fincaTrobada = resultsFinca.length > 0 ? resultsFinca[0].item : null;
-    const scoreFinca = resultsFinca.length > 0 ? resultsFinca[0].score : 1;
-
-// Afegir log temporal
-    console.log('Paraules:', paraules);
-    console.log('Millor finca:', fincaTrobada, 'score:', scoreFinca);
+    
+    // Provar combinacions de 1, 2 i 3 paraules
+    for (let mida = 3; mida >= 1; mida--) {
+        for (let i = 0; i <= paraules.length - mida; i++) {
+            const fragment = paraules.slice(i, i + mida).join(' ');
+            const results = fuseFinca.search(fragment);
+            if (results.length > 0 && results[0].score < scoreFinca) {
+                scoreFinca = results[0].score;
+                fincaTrobada = results[0].item;
+            }
+        }
+        if (fincaTrobada && scoreFinca < 0.4) break;
+    }
+    
+    console.log('Paraules:', paraules, 'Finca:', fincaTrobada, 'Score:', scoreFinca);
 	
     // Eliminar paraules comunes i la finca del text per buscar tasca
     let textPerTasca = textNorm
