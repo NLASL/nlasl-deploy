@@ -68,9 +68,9 @@ function aturarVeu() {
         reconeixementVeu = null;
     }
     veuActiva = false;
-    const btn = document.getElementById('btn-veu');
+    const btn = document.getElementById('btn-veu') || document.getElementById('btn-veu-editor');
     if (btn) {
-        btn.style.background = '#4caf50';
+        btn.style.background = '#673ab7';
         btn.style.animation = '';
         btn.textContent = '🎤';
     }
