@@ -79,7 +79,8 @@ function aturarVeu() {
 async function interpretarVeu(text, treballadorId) {
     mostrarNotificacio('⏳ Interpretant...', 'info');
 	
-   
+    let textNorm = text.toLowerCase().trim();
+	
    // Buscar finca per paraules individuals
     let fincaTrobada = null;
     let scoreFinca = 1;
@@ -99,7 +100,7 @@ async function interpretarVeu(text, treballadorId) {
         'seis': '6', 'siete': '7', 'ocho': '8', 'nueve': '9', 'diez': '10'
     };
     
-    let textNorm = text.toLowerCase().trim();
+   
     Object.keys(conversions).forEach(function(paraula) {
         textNorm = textNorm.replace(new RegExp('\\b' + paraula + '\\b', 'gi'), conversions[paraula]);
     });
