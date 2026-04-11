@@ -79,8 +79,7 @@ function aturarVeu() {
 async function interpretarVeu(text, treballadorId) {
     mostrarNotificacio('⏳ Interpretant...', 'info');
 	
-    let textNorm = text.toLowerCase().trim();
-
+   
    // Buscar finca per paraules individuals
     let fincaTrobada = null;
     let scoreFinca = 1;
