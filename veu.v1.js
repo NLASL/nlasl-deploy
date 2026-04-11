@@ -16,7 +16,7 @@ function iniciarVeu(treballadorId) {
         return;
     }
 
-    const btn = document.getElementById('btn-veu');
+    const btn = document.getElementById('btn-veu') || document.getElementById('btn-veu-editor');
         btn.style.background = '#f44336';
         btn.style.animation = 'pulse 1s infinite';
         btn.textContent = '⏹️';
