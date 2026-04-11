@@ -32,7 +32,7 @@ function iniciarVeu(treballadorId) {
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     reconeixementVeu = new SpeechRecognition();
-    reconeixementVeu.lang = 'es-ES';
+    reconeixementVeu.lang = 'ca-ES';
     reconeixementVeu.continuous = false;
     reconeixementVeu.interimResults = false;
     reconeixementVeu.maxAlternatives = 3;
