@@ -109,13 +109,13 @@ async function interpretarVeu(text, treballadorId) {
         textNorm = textNorm.replace(new RegExp('\\b' + paraula + '\\b', 'gi'), conversions[paraula]);
     });
 
-
-	
     // Buscar finca per paraules individuals
     let fincaTrobada = null;
     let scoreFinca = 1;
     
-    const paraules = textNorm.split(/[\s,\.]+/).filter(function(p) { return p.length > 2; });
+    const paraules = textNorm.split(/[\s,\.]+/).filter(function(p) { 
+    return p.length > 2 || /^\d+$/.test(p); 
+});
     
     const fuseFinca = new Fuse(finques, {
         threshold: 0.5,
