@@ -90,6 +90,10 @@ async function interpretarVeu(text, treballadorId) {
     const fincaTrobada = resultsFinca.length > 0 ? resultsFinca[0].item : null;
     const scoreFinca = resultsFinca.length > 0 ? resultsFinca[0].score : 1;
 
+// Afegir log temporal
+    console.log('Paraules:', paraules);
+    console.log('Millor finca:', fincaTrobada, 'score:', scoreFinca);
+	
     // Eliminar paraules comunes i la finca del text per buscar tasca
     let textPerTasca = textNorm
         .replace(/entrada/g, '')
