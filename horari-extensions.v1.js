@@ -554,7 +554,12 @@ async function actualitzarZonaFitxatgeEditor(treballador, registreObert) {
         zona.innerHTML =
             '<button onclick="fitxarEntradaTreballador(\'' + treballador.id + '\')" ' +
             'style="padding:15px 30px;font-size:18px;font-weight:bold;background:linear-gradient(135deg,#4caf50,#8bc34a);color:white;border:none;border-radius:10px;cursor:pointer;width:100%;">' +
-            '🟢 Fitxar Entrada</button>';
+            '🟢 Fitxar Entrada</button>' +
+            '<div style="text-align:center;margin-top:15px;">' +
+            '<button id="btn-veu-editor" onclick="iniciarVeu(\'' + treballador.id + '\')" ' +
+            'style="width:60px;height:60px;border-radius:50%;border:none;background:#673ab7;color:white;font-size:24px;cursor:pointer;box-shadow:0 4px 15px rgba(103,58,183,0.4);">🎤</button>' +
+            '<p style="margin-top:8px;color:#666;font-size:12px;">Parla per fitxar</p>' +
+            '</div>';
     }
 
     // Afegir modal si no existeix
