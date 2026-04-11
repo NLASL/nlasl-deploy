@@ -79,6 +79,19 @@ function aturarVeu() {
 async function interpretarVeu(text, treballadorId) {
     mostrarNotificacio('⏳ Interpretant...', 'info');
 
+// Convertir números en paraules i viceversa
+    const conversions = {
+        'un': '1', 'una': '1', 'dos': '2', 'tres': '3', 'quatre': '4',
+        'cinc': '5', 'sis': '6', 'set': '7', 'vuit': '8', 'nou': '9', 'deu': '10',
+        'uno': '1', 'dos': '2', 'tres': '3', 'cuatro': '4', 'cinco': '5',
+        'seis': '6', 'siete': '7', 'ocho': '8', 'nueve': '9', 'diez': '10'
+    };
+    
+    let textNorm = text.toLowerCase().trim();
+    Object.keys(conversions).forEach(function(paraula) {
+        textNorm = textNorm.replace(new RegExp('\\b' + paraula + '\\b', 'gi'), conversions[paraula]);
+    });
+	
     const textNorm = text.toLowerCase().trim();
 
    // Buscar finca per paraules individuals
