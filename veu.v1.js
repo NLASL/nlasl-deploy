@@ -113,7 +113,7 @@ async function interpretarVeu(text, treballadorId) {
     let fincaTrobada = null;
     let scoreFinca = 1;
     
-    const paraules = textNorm.split(/[\s,\.]+/).filter(function(p) { return p.length > 2; });
+    const paraules = textNorm.split(/[\s,\.]+/).filter(function(p) { return p.length > 1; });
     
     const fuseFinca = new Fuse(finques, {
         threshold: 0.5,
