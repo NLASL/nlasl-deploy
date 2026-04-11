@@ -92,6 +92,23 @@ async function interpretarVeu(text, treballadorId) {
         textNorm = textNorm.replace(new RegExp('\\b' + paraula + '\\b', 'gi'), conversions[paraula]);
     });
 
+// Sinònims i correccions freqüents
+    const sinonims = {
+        'fes': 'alfes',
+        'fest': 'alfes',
+        'elves': 'alfes',
+        'alves': 'alfes',
+        'moyana': 'moiana',
+        'moriana': 'moiana',
+        'mediana': 'moiana',
+        'muriana': 'moiana',
+        'boda': 'poda',
+        'doblar': 'adobar'
+    };
+    Object.keys(sinonims).forEach(function(error) {
+        textNorm = textNorm.replace(new RegExp('\\b' + error + '\\b', 'gi'), sinonims[error]);
+    });
+	
     // Buscar finca per paraules individuals
     let fincaTrobada = null;
     let scoreFinca = 1;
