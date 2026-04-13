@@ -1133,13 +1133,12 @@ async function eliminarTractamentGrup(clau) {
             }]);
         }
         
-        // Esborrar moviments d'estoc originals
-        for (let i = 0; i < grup.length; i++) {
-            await supabaseClient.from('estoc_moviments')
-                .delete()
-                .eq('referencia_id', grup[i].id)
-                .eq('tipus_moviment', 'tractament');
-        }
+       // Esborrar TODOS els moviments associats (originals + devolucio)
+for (let i = 0; i < grup.length; i++) {
+    await supabaseClient.from('estoc_moviments')
+        .delete()
+        .eq('referencia_id', grup[i].id);  // Sin .eq('tipus_moviment', 'tractament')
+}
         
         // Esborrar els tractaments
         for (let i = 0; i < grup.length; i++) {
@@ -1792,13 +1791,12 @@ async function eliminarFertilitzacioGrup(clau) {
             }]);
         }
         
-        // Esborrar moviments d'estoc originals
-        for (let i = 0; i < grup.length; i++) {
-            await supabaseClient.from('estoc_moviments')
-                .delete()
-                .eq('referencia_id', grup[i].id)
-                .eq('tipus_moviment', 'fertilitzacio');
-        }
+       // Esborrar TODOS els moviments associats
+		for (let i = 0; i < grup.length; i++) {
+		await supabaseClient.from('estoc_moviments')
+        .delete()
+        .eq('referencia_id', grup[i].id);  // Sin .eq('tipus_moviment', 'fertilitzacio')
+}
         
         // Esborrar les fertilitzacions
         for (let i = 0; i < grup.length; i++) {
