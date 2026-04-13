@@ -1791,11 +1791,34 @@ async function eliminarFertilitzacioGrup(clau) {
             }]);
         }
         
-       // Esborrar TODOS els moviments associats
-		for (let i = 0; i < grup.length; i++) {
-		await supabaseClient.from('estoc_moviments')
-        .delete()
-        .eq('referencia_id', grup[i].id);  // Sin .eq('tipus_moviment', 'fertilitzacio')
+  // Crear moviment inverso PRIMER
+for (let i = 0; i < grup.length; i++) {
+    const f = grup[i];
+    const producte = fertilitzants.find(function(fert) { return fert.id === f.producte_id; });
+    
+    console.log('Creant devolucio per:', f.id, 'quantitat:', f.us_total); // ← LOG
+    
+    try {
+        const { data, error } = await supabaseClient.from('estoc_moviments').insert([{
+            data: new Date().toISOString().split('T')[0],
+            producte_id: f.producte_id,
+            tipus_producte: 'fertilitzant',
+            tipus_moviment: 'devolucio',
+            quantitat: f.us_total,
+            unitat: producte ? (producte.unitat_stock || 'kg') : 'kg',
+            referencia_id: f.id,
+            observacions: 'Devolució fertilització eliminada ' + f.data,
+            creat_per: currentUser ? currentUser.id : null
+        }]);
+        
+        if (error) {
+            console.error('Error creant devolucio:', error); // ← LOG ERROR
+        } else {
+            console.log('Devolucio creada:', data); // ← LOG SUCCESS
+        }
+    } catch (err) {
+        console.error('Exception creant devolucio:', err); // ← LOG EXCEPTION
+    }
 }
         
         // Esborrar les fertilitzacions
