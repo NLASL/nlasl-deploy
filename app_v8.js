@@ -501,7 +501,7 @@ async function carregarTaulaTractaments() {
             const t = tractaments[i];
             const parcella = parcelles.find(function(p) { return p.id === t.parcella_id; });
             const finca = parcella ? (parcella.finca || 'Sense finca') : 'Sense finca';
-            const clau = t.data + '|' + t.producte_id + '|' + finca;
+            const clau = f.data + '|' + f.producte_id + '|' + finca;
             if (!grups[clau]) {
                 grups[clau] = {
                     data: t.data,
@@ -539,13 +539,13 @@ async function carregarTaulaTractaments() {
             html += '<td>' + (grup.dosi || 0) + ' ' + (grup.unitat || 'L/Ha') + '</td>';
             html += '<td>';
 			html += '<button class="btn btn-sm btn-primary" onclick="veureTractamentGrup(\'' + clau + '\')">👁️</button> ';
-				if (podeEditar) {
+			if (podeEditar) {
 			html += '<button class="btn btn-sm btn-secondary" onclick="editarTractamentGrup(\'' + clau + '\')" style="margin-right:4px;">✏️</button> ';
 }
-				if (podeEliminar) {
+			if (podeEliminar) {
 			html += '<button class="btn btn-sm btn-danger" onclick="eliminarTractamentGrup(\'' + clau + '\')">🗑️</button>';
 }
-            html += '</td></tr>';
+			html += '</td></tr>';
         });
         
         tbody.innerHTML = html;
