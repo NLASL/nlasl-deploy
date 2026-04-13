@@ -1112,20 +1112,43 @@ async function eliminarTractamentGrup(clau) {
             return (t.data + '|' + t.producte_id + '|' + finca) === clau;
         });
         
- for (let i = 0; i < grup.length; i++) {
+        // Crear moviment inverso PRIMER (devolució d'estoc)
+        for (let i = 0; i < grup.length; i++) {
+            const t = grup[i];
+            const producte = fitosanitaris.find(function(fito) { return fito.id === t.producte_id; });
+            const factor = producte ? (parseFloat(producte.factor_conversio) || 1) : 1;
+            const quantitatConsumida = t.dosi * t.superficie_tractada * factor;
+            
+            // Insertar moviment d'entrada (positiu) per recuperar estoc
+            await supabaseClient.from('estoc_moviments').insert([{
+                data: new Date().toISOString().split('T')[0],
+                producte_id: t.producte_id,
+                tipus_producte: 'fitosanitari',
+                tipus_moviment: 'devolucio',
+                quantitat: quantitatConsumida,
+                unitat: producte ? (producte.unitat_stock || 'L') : 'L',
+                referencia_id: t.id,
+                observacions: 'Devolució tractament eliminat ' + t.data,
+                creat_per: currentUser ? currentUser.id : null
+            }]);
+        }
+        
+        // Esborrar moviments d'estoc originals
+        for (let i = 0; i < grup.length; i++) {
+            await supabaseClient.from('estoc_moviments')
+                .delete()
+                .eq('referencia_id', grup[i].id)
+                .eq('tipus_moviment', 'tractament');
+        }
+        
+        // Esborrar els tractaments
+        for (let i = 0; i < grup.length; i++) {
             await deleteTractament(grup[i].id);
         }
 
-        // Eliminar moviment d'estoc original
-        if (grup.length > 0) {
-            await supabaseClient.from('estoc_moviments')
-                .delete()
-                .eq('referencia_id', grup[0].id)
-                .eq('tipus_moviment', 'tractament');
-        }
-
-        mostrarNotificacio('Tractaments eliminats correctament', 'success');
+        mostrarNotificacio('Tractaments eliminats i estoc recuperat', 'success');
         await carregarTaulaTractaments();
+        await carregarTaulaExistencies();
     } catch (error) {
         console.error('Error eliminant:', error);
         mostrarNotificacio('Error: ' + error.message, 'error');
@@ -1750,7 +1773,26 @@ async function eliminarFertilitzacioGrup(clau) {
             return (f.data + '|' + f.producte_id + '|' + finca) === clau;
         });
         
-        // Esborrar moviments d'estoc PRIMER (un per cada fertilització)
+        // Crear moviment inverso PRIMER (devolució d'estoc)
+        for (let i = 0; i < grup.length; i++) {
+            const f = grup[i];
+            const producte = fertilitzants.find(function(fert) { return fert.id === f.producte_id; });
+            
+            // Insertar moviment d'entrada (positiu) per recuperar estoc
+            await supabaseClient.from('estoc_moviments').insert([{
+                data: new Date().toISOString().split('T')[0],
+                producte_id: f.producte_id,
+                tipus_producte: 'fertilitzant',
+                tipus_moviment: 'devolucio',
+                quantitat: f.us_total,
+                unitat: producte ? (producte.unitat_stock || 'kg') : 'kg',
+                referencia_id: f.id,
+                observacions: 'Devolució fertilització eliminada ' + f.data,
+                creat_per: currentUser ? currentUser.id : null
+            }]);
+        }
+        
+        // Esborrar moviments d'estoc originals
         for (let i = 0; i < grup.length; i++) {
             await supabaseClient.from('estoc_moviments')
                 .delete()
@@ -1758,12 +1800,12 @@ async function eliminarFertilitzacioGrup(clau) {
                 .eq('tipus_moviment', 'fertilitzacio');
         }
         
-        // Després esborrar les fertilitzacions
+        // Esborrar les fertilitzacions
         for (let i = 0; i < grup.length; i++) {
             await deleteFertilitzacio(grup[i].id);
         }
         
-        mostrarNotificacio('Fertilitzacions eliminades correctament', 'success');
+        mostrarNotificacio('Fertilitzacions eliminades i estoc recuperat', 'success');
         await carregarTaulaFertilitzacions();
         await carregarTaulaExistencies();
     } catch (error) {
