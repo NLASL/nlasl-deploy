@@ -1103,7 +1103,7 @@ async function editarTractamentGrup(clau) {
 }
 
 async function eliminarTractamentGrup(clau) {
-    console.log('=== INICIO eliminarTractamentGrup, clau:', clau); // ← LOG 1
+    alert('START: ' + clau);  // ← ALERT 1
 	if (!confirm('Segur que vols eliminar aquest grup de tractaments?')) return;
     
     try {
@@ -1113,11 +1113,11 @@ async function eliminarTractamentGrup(clau) {
             return (t.data + '|' + t.producte_id + '|' + finca) === clau;
         });
         
-	console.log('Grup a esborrar:', grup.length, 'tractaments'); // ← LOG 2
+	alert('GRUP: ' + grup.length);  // ← ALERT 2
 	
         // Crear moviment inverso PRIMER (devolució d'estoc)
         for (let i = 0; i < grup.length; i++) {
-	console.log('Creant devolucio', i, ':', grup[i].id); // ← LOG 3		
+	alert('FI: Tractaments eliminats');  // ← ALERT 3
             const t = grup[i];
             const producte = fitosanitaris.find(function(fito) { return fito.id === t.producte_id; });
             const factor = producte ? (parseFloat(producte.factor_conversio) || 1) : 1;
@@ -1148,7 +1148,7 @@ async function eliminarTractamentGrup(clau) {
             await deleteTractament(grup[i].id);
         }
         
-	console.log('Devolucio creada'); // ← LOG 4
+	alert('ERROR: ' + error.message);  // ← ALERT 4
 		
         mostrarNotificacio('Tractaments eliminats i estoc recuperat', 'success');
         await carregarTaulaTractaments();
