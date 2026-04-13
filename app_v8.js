@@ -1133,11 +1133,18 @@ async function eliminarTractamentGrup(clau) {
             }]);
         }
         
-       // Esborrar TODOS els moviments associats (originals + devolucio)
-for (let i = 0; i < grup.length; i++) {
-    await supabaseClient.from('estoc_moviments')
-        .delete()
-        .eq('referencia_id', grup[i].id);  // Sin .eq('tipus_moviment', 'tractament')
+       // Crear moviment inverso PRIMER (devolució d'estoc)
+		for (let i = 0; i < grup.length; i++) {
+			const t = grup[i];
+			console.log('Tractament a esborrar:', t.id, 'dosi:', t.dosi, 'superficie:', t.superficie_tractada);
+    
+			const producte = fitosanitaris.find(function(fito) { return fito.id === t.producte_id; });
+			const factor = producte ? (parseFloat(producte.factor_conversio) || 1) : 1;
+			const quantitatConsumida = t.dosi * t.superficie_tractada * factor;
+    
+			console.log('Devolucio:', quantitatConsumida, 'kg');
+    
+			// ... rest del insert
 }
         
         // Esborrar els tractaments
