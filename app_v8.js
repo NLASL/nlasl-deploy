@@ -804,13 +804,17 @@ async function guardarTractament(event) {
         return;
     }
     parcellesATractar = parcelles.filter(function(p) { 
-        return fincesSeleccionades.includes(p.finca); 
+        return fincesSeleccionades.includes(p.finca)
+            && p.cultiu !== null && p.cultiu !== ''
+            && p.varietat !== null && p.varietat !== '';
     });
 	} else if (tipus === 'varietat') {
         const finca = document.getElementById('tractament-finca-varietat').value;
         const varietat = document.getElementById('tractament-varietat').value;
         parcellesATractar = parcelles.filter(function(p) { 
-            return p.finca === finca && p.varietat === varietat; 
+            return p.finca === finca && p.varietat === varietat
+                && p.cultiu !== null && p.cultiu !== ''
+                && p.varietat !== null && p.varietat !== '';
         });
     } else {
         const select = document.getElementById('tractament-parcelles');
@@ -818,7 +822,7 @@ async function guardarTractament(event) {
         for (let i = 0; i < opcions.length; i++) {
             const parcellaId = opcions[i].value;
             const parcella = parcelles.find(function(p) { return p.id === parcellaId; });
-            if (parcella) {
+            if (parcella && parcella.cultiu !== null && parcella.cultiu !== '' && parcella.varietat !== null && parcella.varietat !== '') {
                 parcellesATractar.push(parcella);
             }
         }
@@ -869,24 +873,29 @@ async function guardarTractament(event) {
 
 		// INSERT normal
         const tractamentsCreats = [];
-        for (let i = 0; i < parcellesATractar.length; i++) {
-            const parcella = parcellesATractar[i];
-            const tractament = {
-                data: data,
-                data_limit: dataLimit.toISOString().split('T')[0],
-                parcella_id: parcella.id,
-                producte_id: producteId,
-                dosi: dosi,
-                unitat: unitat,
-                superficie_tractada: parcella.superficie,
-                operador: operador || null,
-                maquinaria: maquinaria || null,
-                condicions_meteo: meteo || null,
-                observacions: observacions || null
-            };
-            const creat = await createTractament(tractament);
-            tractamentsCreats.push(creat);
-        }
+        
+        // Calcular superfície total de les parcel·les seleccionades
+        const superficieTotal = parcellesATractar.reduce(function(sum, p) {
+            return sum + (parseFloat(p.superficie) || 0);
+        }, 0);
+        
+        // Crear UN sol registre amb la superfície total
+        const tractament = {
+            data: data,
+            data_limit: dataLimit.toISOString().split('T')[0],
+            parcella_id: parcellesATractar[0]?.id || null,  // Primera parcella com referència
+            producte_id: producteId,
+            dosi: dosi,
+            unitat: unitat,
+            superficie_tractada: superficieTotal,  // Superfície total
+            operador: operador || null,
+            maquinaria: maquinaria || null,
+            condicions_meteo: meteo || null,
+            observacions: observacions || null
+        };
+        
+        const creat = await createTractament(tractament);
+        tractamentsCreats.push(creat);
        
         // Generar moviment d'estoc (sortida)
         const producteFito = fitosanitaris.find(function(f) { return f.id === producteId; });
