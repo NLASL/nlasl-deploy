@@ -1119,7 +1119,6 @@ async function eliminarTractamentGrup(clau) {
             const factor = producte ? (parseFloat(producte.factor_conversio) || 1) : 1;
             const quantitatConsumida = t.dosi * t.superficie_tractada * factor;
             
-            // Insertar moviment d'entrada (positiu) per recuperar estoc
             await supabaseClient.from('estoc_moviments').insert([{
                 data: new Date().toISOString().split('T')[0],
                 producte_id: t.producte_id,
@@ -1133,25 +1132,18 @@ async function eliminarTractamentGrup(clau) {
             }]);
         }
         
-       // Crear moviment inverso PRIMER (devolució d'estoc)
-		for (let i = 0; i < grup.length; i++) {
-			const t = grup[i];
-			console.log('Tractament a esborrar:', t.id, 'dosi:', t.dosi, 'superficie:', t.superficie_tractada);
-    
-			const producte = fitosanitaris.find(function(fito) { return fito.id === t.producte_id; });
-			const factor = producte ? (parseFloat(producte.factor_conversio) || 1) : 1;
-			const quantitatConsumida = t.dosi * t.superficie_tractada * factor;
-    
-			console.log('Devolucio:', quantitatConsumida, 'kg');
-    
-			// ... rest del insert
-}
+        // Esborrar moviments d'estoc originals
+        for (let i = 0; i < grup.length; i++) {
+            await supabaseClient.from('estoc_moviments')
+                .delete()
+                .eq('referencia_id', grup[i].id);
+        }
         
         // Esborrar els tractaments
         for (let i = 0; i < grup.length; i++) {
             await deleteTractament(grup[i].id);
         }
-
+        
         mostrarNotificacio('Tractaments eliminats i estoc recuperat', 'success');
         await carregarTaulaTractaments();
         await carregarTaulaExistencies();
