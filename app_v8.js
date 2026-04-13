@@ -1750,20 +1750,22 @@ async function eliminarFertilitzacioGrup(clau) {
             return (f.data + '|' + f.producte_id + '|' + finca) === clau;
         });
         
-for (let i = 0; i < grup.length; i++) {
-            await deleteFertilitzacio(grup[i].id);
-        }
-
-        // Eliminar moviment d'estoc original
-        if (grup.length > 0) {
+        // Esborrar moviments d'estoc PRIMER (un per cada fertilització)
+        for (let i = 0; i < grup.length; i++) {
             await supabaseClient.from('estoc_moviments')
                 .delete()
-                .eq('referencia_id', grup[0].id)
+                .eq('referencia_id', grup[i].id)
                 .eq('tipus_moviment', 'fertilitzacio');
         }
-
+        
+        // Després esborrar les fertilitzacions
+        for (let i = 0; i < grup.length; i++) {
+            await deleteFertilitzacio(grup[i].id);
+        }
+        
         mostrarNotificacio('Fertilitzacions eliminades correctament', 'success');
         await carregarTaulaFertilitzacions();
+        await carregarTaulaExistencies();
     } catch (error) {
         console.error('Error eliminant:', error);
         mostrarNotificacio('Error: ' + error.message, 'error');
