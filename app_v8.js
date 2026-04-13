@@ -806,7 +806,9 @@ async function guardarTractament(event) {
     parcellesATractar = parcelles.filter(function(p) { 
         return fincesSeleccionades.includes(p.finca)
             && p.cultiu !== null && p.cultiu !== ''
-            && p.varietat !== null && p.varietat !== '';
+            && p.cultiu !== 'PROD. FORESTALS'
+            && p.cultiu !== 'GUARET'
+            && p.cultiu !== 'IMPROD';
     });
 	} else if (tipus === 'varietat') {
         const finca = document.getElementById('tractament-finca-varietat').value;
@@ -814,7 +816,9 @@ async function guardarTractament(event) {
         parcellesATractar = parcelles.filter(function(p) { 
             return p.finca === finca && p.varietat === varietat
                 && p.cultiu !== null && p.cultiu !== ''
-                && p.varietat !== null && p.varietat !== '';
+                && p.cultiu !== 'PROD. FORESTALS'
+                && p.cultiu !== 'GUARET'
+                && p.cultiu !== 'IMPROD';
         });
     } else {
         const select = document.getElementById('tractament-parcelles');
@@ -822,7 +826,10 @@ async function guardarTractament(event) {
         for (let i = 0; i < opcions.length; i++) {
             const parcellaId = opcions[i].value;
             const parcella = parcelles.find(function(p) { return p.id === parcellaId; });
-            if (parcella && parcella.cultiu !== null && parcella.cultiu !== '' && parcella.varietat !== null && parcella.varietat !== '') {
+            if (parcella && parcella.cultiu !== null && parcella.cultiu !== '' 
+                && parcella.cultiu !== 'PROD. FORESTALS'
+                && parcella.cultiu !== 'GUARET'
+                && parcella.cultiu !== 'IMPROD') {
                 parcellesATractar.push(parcella);
             }
         }
@@ -1527,7 +1534,9 @@ let parcellesAFertilitzar = [];
         parcellesAFertilitzar = parcelles.filter(function(p) { 
             return fincesSeleccionades.includes(p.finca)
                 && p.cultiu !== null && p.cultiu !== ''
-                && p.varietat !== null && p.varietat !== '';
+                && p.cultiu !== 'PROD. FORESTALS'
+                && p.cultiu !== 'GUARET'
+                && p.cultiu !== 'IMPROD';
         });
     } else if (tipus === 'varietat') {
         const finca = document.getElementById('fertilitzacio-finca-varietat').value;
@@ -1535,7 +1544,9 @@ let parcellesAFertilitzar = [];
         parcellesAFertilitzar = parcelles.filter(function(p) { 
             return p.finca === finca && p.varietat === varietat
                 && p.cultiu !== null && p.cultiu !== ''
-                && p.varietat !== null && p.varietat !== '';
+                && p.cultiu !== 'PROD. FORESTALS'
+                && p.cultiu !== 'GUARET'
+                && p.cultiu !== 'IMPROD';
         });
     }
     
