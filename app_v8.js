@@ -832,7 +832,11 @@ async function guardarTractament(event) {
     const placSeguretat = producte ? (producte.plac || 0) : 0;
     const dataLimit = new Date(data);
     dataLimit.setDate(dataLimit.getDate() + placSeguretat);
-
+	const quantitatTotalConsumida = superficieTotal * dosi;
+	const quantitatTotal = parcellesAtractar.reduce(function(sum, p) {
+        return sum + (parseFloat(p.superficie) || 0);
+    }, 0) * dosi;
+	
     try {
         let tractamentId;
 
