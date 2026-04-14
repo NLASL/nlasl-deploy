@@ -1112,41 +1112,29 @@ async function eliminarTractamentGrup(clau) {
             return (t.data + '|' + t.producte_id + '|' + finca) === clau;
         });
         
-        // Crear moviment inverso PRIMER (devolució d'estoc)
+        const dataAvui = new Date().toISOString().split('T')[0];
+        
+        // Marcar tractaments com a anulats
         for (let i = 0; i < grup.length; i++) {
-            const t = grup[i];
-            const producte = fitosanitaris.find(function(fito) { return fito.id === t.producte_id; });
-            const factor = producte ? (parseFloat(producte.factor_conversio) || 1) : 1;
-            const quantitatConsumida = t.dosi * t.superficie_tractada * factor;
-            
-            // Insertar moviment d'entrada (positiu) per recuperar estoc
-            await supabaseClient.from('estoc_moviments').insert([{
-                data: new Date().toISOString().split('T')[0],
-                producte_id: t.producte_id,
-                tipus_producte: 'fitosanitari',
-                tipus_moviment: 'devolucio',
-                quantitat: quantitatConsumida,
-                unitat: producte ? (producte.unitat_stock || 'L') : 'L',
-                referencia_id: t.id,
-                observacions: 'Devolució tractament eliminat ' + t.data,
-                creat_per: currentUser ? currentUser.id : null
-            }]);
+            await supabaseClient.from('tractaments')
+                .update({
+                    estat: 'anulat',
+                    data_anulacio: dataAvui
+                })
+                .eq('id', grup[i].id);
         }
         
-        // Esborrar moviments d'estoc originals
+        // Marcar moviments com a anulats
         for (let i = 0; i < grup.length; i++) {
             await supabaseClient.from('estoc_moviments')
-                .delete()
-                .eq('referencia_id', grup[i].id)
-                .eq('tipus_moviment', 'tractament');
+                .update({
+                    estat: 'anulat',
+                    data_anulacio: dataAvui
+                })
+                .eq('referencia_id', grup[i].id);
         }
         
-        // Esborrar els tractaments
-        for (let i = 0; i < grup.length; i++) {
-            await deleteTractament(grup[i].id);
-        }
-
-        mostrarNotificacio('Tractaments eliminats i estoc recuperat', 'success');
+        mostrarNotificacio('Tractaments anulats correctament', 'success');
         await carregarTaulaTractaments();
         await carregarTaulaExistencies();
     } catch (error) {
@@ -1773,39 +1761,29 @@ async function eliminarFertilitzacioGrup(clau) {
             return (f.data + '|' + f.producte_id + '|' + finca) === clau;
         });
         
-        // Crear moviment inverso PRIMER (devolució d'estoc)
+        const dataAvui = new Date().toISOString().split('T')[0];
+        
+        // Marcar fertilitzacions com a anulades
         for (let i = 0; i < grup.length; i++) {
-            const f = grup[i];
-            const producte = fertilitzants.find(function(fert) { return fert.id === f.producte_id; });
-            
-            // Insertar moviment d'entrada (positiu) per recuperar estoc
-            await supabaseClient.from('estoc_moviments').insert([{
-                data: new Date().toISOString().split('T')[0],
-                producte_id: f.producte_id,
-                tipus_producte: 'fertilitzant',
-                tipus_moviment: 'devolucio',
-                quantitat: f.us_total,
-                unitat: producte ? (producte.unitat_stock || 'kg') : 'kg',
-                referencia_id: f.id,
-                observacions: 'Devolució fertilització eliminada ' + f.data,
-                creat_per: currentUser ? currentUser.id : null
-            }]);
+            await supabaseClient.from('fertilitzacions')
+                .update({ 
+                    estat: 'anulat',
+                    data_anulacio: dataAvui
+                })
+                .eq('id', grup[i].id);
         }
         
-        // Esborrar moviments d'estoc originals
+        // Marcar moviments com a anulats
         for (let i = 0; i < grup.length; i++) {
             await supabaseClient.from('estoc_moviments')
-                .delete()
-                .eq('referencia_id', grup[i].id)
-                .eq('tipus_moviment', 'fertilitzacio');
+                .update({
+                    estat: 'anulat',
+                    data_anulacio: dataAvui
+                })
+                .eq('referencia_id', grup[i].id);
         }
         
-        // Esborrar les fertilitzacions
-        for (let i = 0; i < grup.length; i++) {
-            await deleteFertilitzacio(grup[i].id);
-        }
-        
-        mostrarNotificacio('Fertilitzacions eliminades i estoc recuperat', 'success');
+        mostrarNotificacio('Fertilitzacions anulades correctament', 'success');
         await carregarTaulaFertilitzacions();
         await carregarTaulaExistencies();
     } catch (error) {
