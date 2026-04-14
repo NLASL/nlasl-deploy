@@ -501,7 +501,7 @@ async function carregarTaulaTractaments() {
             const t = tractaments[i];
             const parcella = parcelles.find(function(p) { return p.id === t.parcella_id; });
             const finca = parcella ? (parcella.finca || 'Sense finca') : 'Sense finca';
-            const clau = f.data + '|' + f.producte_id + '|' + finca;
+            const clau = f.data + '|' + t.producte_id + '|' + finca;
             if (!grups[clau]) {
                 grups[clau] = {
                     data: t.data,
