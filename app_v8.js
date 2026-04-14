@@ -488,7 +488,12 @@ async function carregarTaulaTractaments() {
     if (!tbody) return;
     
     try {
-        tractaments = await getTractaments();
+        const { data } = await supabaseClient
+			.from('tractaments')
+			.select('*')
+			.eq('estat', 'actiu')
+			.order('data', { ascending: false });
+		tractaments = data || [];
         
         if (tractaments.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hi ha tractaments</td></tr>';
@@ -2226,7 +2231,12 @@ async function carregarTaulaFertilitzants() {
     if (!tbody) return;
     
     try {
-        fertilitzants = await getFertilitzants();
+        const { data } = await supabaseClient
+			.from('fertilitzacions')
+			.select('*')
+			.eq('estat', 'actiu')
+			.order('data', { ascending: false });
+		fertilitzacions = data || [];	
         fertilitzants.sort(function(a, b) { return (a.nom || '').localeCompare(b.nom || ''); });
         
         if (fertilitzants.length === 0) {

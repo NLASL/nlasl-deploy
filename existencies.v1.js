@@ -52,8 +52,9 @@ async function carregarTaulaExistencies() {
 
         // Obtenir tots els moviments
         const { data: moviments, error } = await supabaseClient
-            .from('estoc_moviments')
-            .select('*');
+			.from('estoc_moviments')
+			.select('*')
+			.eq('estat', 'actiu');
         if (error) throw error;
 
         // Calcular estoc per producte
