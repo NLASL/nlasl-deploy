@@ -1103,8 +1103,8 @@ async function editarTractamentGrup(clau) {
 }
 
 async function eliminarTractamentGrup(clau) {
-    alert('START: ' + clau);  // ← ALERT 1
-	if (!confirm('Segur que vols eliminar aquest grup de tractaments?')) return;
+    console.log('=== INICIO eliminarTractamentGrup, clau:', clau);
+    if (!confirm('Segur que vols eliminar aquest grup de tractaments?')) return;
     
     try {
         const grup = tractaments.filter(function(t) {
@@ -1113,11 +1113,11 @@ async function eliminarTractamentGrup(clau) {
             return (t.data + '|' + t.producte_id + '|' + finca) === clau;
         });
         
-	alert('GRUP: ' + grup.length);  // ← ALERT 2
-	
+        console.log('Grup a esborrar:', grup.length, 'tractaments');
+        
         // Crear moviment inverso PRIMER (devolució d'estoc)
         for (let i = 0; i < grup.length; i++) {
-	alert('FI: Tractaments eliminats');  // ← ALERT 3
+            console.log('Creant devolucio', i, ':', grup[i].id);
             const t = grup[i];
             const producte = fitosanitaris.find(function(fito) { return fito.id === t.producte_id; });
             const factor = producte ? (parseFloat(producte.factor_conversio) || 1) : 1;
@@ -1137,23 +1137,23 @@ async function eliminarTractamentGrup(clau) {
         }
         
         // Esborrar moviments d'estoc originals
-		for (let i = 0; i < grup.length; i++) {
-		const { error } = await supabaseClient.from('estoc_moviments')
-        .delete()
-        .eq('referencia_id', grup[i].id);
-    
-		if (error) {
-        console.error('Error esborrant moviment:', error);
-    }
-}
+        for (let i = 0; i < grup.length; i++) {
+            const { error } = await supabaseClient.from('estoc_moviments')
+                .delete()
+                .eq('referencia_id', grup[i].id);
+            
+            if (error) {
+                console.error('Error esborrant moviment:', error);
+            }
+        }
         
         // Esborrar els tractaments
         for (let i = 0; i < grup.length; i++) {
             await deleteTractament(grup[i].id);
         }
         
-	alert('ERROR: ' + error.message);  // ← ALERT 4
-		
+        console.log('Devolucio creada');
+        
         mostrarNotificacio('Tractaments eliminats i estoc recuperat', 'success');
         await carregarTaulaTractaments();
         await carregarTaulaExistencies();
