@@ -789,6 +789,7 @@ finques.forEach(function(finca) {
 async function guardarTractament(event) {
     event.preventDefault();
     
+    // 1. Captura de dades del formulari
     const tipus = document.querySelector('input[name="seleccio-tipus"]:checked').value;
     const data = document.getElementById('tractament-data').value;
     const producteId = document.getElementById('tractament-producte').value;
@@ -799,158 +800,119 @@ async function guardarTractament(event) {
     const meteo = document.getElementById('tractament-meteo').value.trim();
     const observacions = document.getElementById('tractament-observacions').value.trim();
     
+    const editMode = document.getElementById('form-tractament').dataset.editMode === 'true';
+    const editIds = editMode ? document.getElementById('form-tractament').dataset.editIds.split(',') : [];
+
+    // 2. Selecció de parcel·les segons la teva jerarquia (Finca o Varietat)
     let parcellesATractar = [];
-    
     if (tipus === 'finca') {
-    const checks = document.querySelectorAll('#tractament-finques-checks input[type="checkbox"]:checked');
-    const fincesSeleccionades = Array.from(checks).map(function(c) { return c.value; });
-    if (fincesSeleccionades.length === 0) {
-        mostrarNotificacio('Cal seleccionar almenys una finca', 'error');
-        return;
-    }
-    parcellesATractar = parcelles.filter(function(p) { 
-        return fincesSeleccionades.includes(p.finca)
-            && p.cultiu !== null && p.cultiu !== ''
-            && p.cultiu !== 'PROD. FORESTALS'
-            && p.cultiu !== 'GUARET'
-            && p.cultiu !== 'IMPROD';
-    });
-	} else if (tipus === 'varietat') {
+        const checks = document.querySelectorAll('#tractament-finques-checks input[type="checkbox"]:checked');
+        const finquesSeleccionades = Array.from(checks).map(c => c.value);
+        
+        parcellesATractar = parcelles.filter(p => 
+            finquesSeleccionades.includes(p.finca) && esParcellaApta(p)
+        );
+    } else if (tipus === 'varietat') {
         const finca = document.getElementById('tractament-finca-varietat').value;
         const varietat = document.getElementById('tractament-varietat').value;
-        parcellesATractar = parcelles.filter(function(p) { 
-            return p.finca === finca && p.varietat === varietat
-                && p.cultiu !== null && p.cultiu !== ''
-                && p.cultiu !== 'PROD. FORESTALS'
-                && p.cultiu !== 'GUARET'
-                && p.cultiu !== 'IMPROD';
-        });
-    } else {
-        const select = document.getElementById('tractament-parcelles');
-        const opcions = select.selectedOptions;
-        for (let i = 0; i < opcions.length; i++) {
-            const parcellaId = opcions[i].value;
-            const parcella = parcelles.find(function(p) { return p.id === parcellaId; });
-            if (parcella && parcella.cultiu !== null && parcella.cultiu !== '' 
-                && parcella.cultiu !== 'PROD. FORESTALS'
-                && parcella.cultiu !== 'GUARET'
-                && parcella.cultiu !== 'IMPROD') {
-                parcellesATractar.push(parcella);
-            }
-        }
+        
+        parcellesATractar = parcelles.filter(p => 
+            p.finca === finca && p.varietat === varietat && esParcellaApta(p)
+        );
     }
-    
+
     if (parcellesATractar.length === 0) {
-        mostrarNotificacio('Cal seleccionar almenys una parcel·la', 'error');
+        mostrarNotificacio('No hi ha parcel·les aptes seleccionades', 'error');
         return;
     }
-    
-    const producte = fitosanitaris.find(function(f) { return f.id === producteId; });
+
+    // 3. Càlculs comuns
+    const superficieTotal = parcellesATractar.reduce((sum, p) => sum + (parseFloat(p.superficie) || 0), 0);
+    const producte = fitosanitaris.find(f => f.id === producteId);
     const placSeguretat = producte ? (producte.plac || 0) : 0;
     const dataLimit = new Date(data);
     dataLimit.setDate(dataLimit.getDate() + placSeguretat);
-    
+
     try {
-        const editMode = document.getElementById('form-tractament').dataset.editMode === 'true';
-        
+        let tractamentId;
+
         if (editMode) {
-            // UPDATE — actualitzar camps comuns de tots els registres del grup
-            const editIds = document.getElementById('form-tractament').dataset.editIds.split(',');
-            const producte = fitosanitaris.find(function(f) { return f.id === producteId; });
-            const placSeguretat = producte ? (producte.plac || 0) : 0;
-            const dataLimit = new Date(data);
-            dataLimit.setDate(dataLimit.getDate() + placSeguretat);
-
-            for (let i = 0; i < editIds.length; i++) {
-                await updateTractament(editIds[i], {
-                    data: data,
-                    data_limit: dataLimit.toISOString().split('T')[0],
-                    producte_id: producteId,
-                    dosi: dosi,
-                    unitat: unitat,
-                    operador: operador || null,
-                    maquinaria: maquinaria || null,
-                    condicions_meteo: meteo || null,
-                    observacions: observacions || null
-                });
-            }
-
-            document.getElementById('form-tractament').dataset.editMode = 'false';
-            document.getElementById('form-tractament').dataset.editIds = '';
-            mostrarNotificacio('Tractament actualitzat correctament', 'success');
-            tancarModal('modal-tractament');
-            await carregarTaulaTractaments();
-            return;
-        }
-
-		// INSERT normal
-        const tractamentsCreats = [];
-        
-        // Calcular superfície total de les parcel·les seleccionades
-        const superficieTotal = parcellesATractar.reduce(function(sum, p) {
-            return sum + (parseFloat(p.superficie) || 0);
-        }, 0);
-        
-        // Crear UN sol registre amb la superfície total
-        const tractament = {
-            data: data,
-            data_limit: dataLimit.toISOString().split('T')[0],
-            parcella_id: parcellesATractar[0]?.id || null,  // Primera parcella com referència
-            producte_id: producteId,
-            dosi: dosi,
-            unitat: unitat,
-            superficie_tractada: superficieTotal,  // Superfície total
-            operador: operador || null,
-            maquinaria: maquinaria || null,
-            condicions_meteo: meteo || null,
-            observacions: observacions || null
-        };
-        
-        const creat = await createTractament(tractament);
-        tractamentsCreats.push(creat);
-       
-        // Generar moviment d'estoc (sortida)
-        const producteFito = fitosanitaris.find(function(f) { return f.id === producteId; });
-        if (producteFito) {
-            const unitatStock = producteFito.unitat_stock || 'L';
-            const factor = parseFloat(producteFito.factor_conversio) || 1;
-            const superficieTotal = parcellesATractar.reduce(function(sum, p) { 
-                return sum + (parseFloat(p.superficie) || 0); 
-            }, 0);
-            const quantitatConsumida = dosi * superficieTotal * factor;
-            
-            await supabaseClient.from('estoc_moviments').insert([{
-                data: data,
+            // --- LÒGICA D'EDICIÓ ---
+            // Actualitzem el registre principal (el primer del grup o l'únic)
+            tractamentId = editIds[0];
+            await updateTractament(tractamentId, {
+                data,
+                data_limit: dataLimit.toISOString().split('T')[0],
                 producte_id: producteId,
-                tipus_producte: 'fitosanitari',
-                tipus_moviment: 'tractament',
-                quantitat: -quantitatConsumida,
-                unitat: unitatStock,
-                referencia_id: tractamentsCreats[0]?.id || null,
-                observacions: 'Tractament ' + data + ' — ' + parcellesATractar.length + ' parcel·les',
-                creat_per: currentUser ? currentUser.id : null
-            }]);
+                dosi,
+                unitat,
+                superficie_tractada: superficieTotal,
+                operador, maquinaria, condicions_meteo: meteo, observacions
+            });
+            
+            // Si hi hagués més registres al grup (històric), els podríem marcar com anul·lats o actualitzar-los
+            mostrarNotificacio('Tractament actualitzat', 'success');
+        } else {
+            // --- LÒGICA D'ALTA ---
+            const nouTractament = {
+                data,
+                data_limit: dataLimit.toISOString().split('T')[0],
+                parcella_id: parcellesATractar[0].id, // Referència a la primera parcel·la del grup
+                producte_id: producteId,
+                dosi,
+                unitat,
+                superficie_tractada: superficieTotal,
+                operador, maquinaria, condicions_meteo: meteo, observacions,
+                estat: 'actiu'
+            };
+            const creat = await createTractament(nouTractament);
+            tractamentId = creat.id;
+            mostrarNotificacio('Tractament registrat', 'success');
         }
 
-        mostrarNotificacio('Tractament creat correctament (' + parcellesATractar.length + ' parcel·les)', 'success');
+        // 4. GESTIÓ D'ESTOC HOMOGENITZADA (Sortida de magatzem)
+        // Primer eliminem qualsevol moviment d'estoc previ d'aquest tractament (per si és edició)
+        await supabaseClient.from('estoc_moviments').delete().eq('referencia_id', tractamentId);
+
+        // Creem el nou moviment d'estoc (sempre negatiu per ser sortida)
+        const quantitatConsumida = dosi * superficieTotal; // Factor 1 segons acordat
+        await supabaseClient.from('estoc_moviments').insert([{
+            data: data,
+            producte_id: producteId,
+            tipus_producte: 'fitosanitari',
+            tipus_moviment: 'tractament',
+            quantitat: -quantitatConsumida,
+            unitat: unitat.split('/')[0],
+            referencia_id: tractamentId,
+            observacions: `Tractament a ${tipus}: ${superficieTotal.toFixed(2)} Ha`,
+            creat_per: currentUser ? currentUser.id : null
+        }]);
+
+        // 5. Neteja i tancament
         tancarModal('modal-tractament');
         await carregarTaulaTractaments();
-        
-		// Reset checkboxes i superfície
-		document.getElementById('form-tractament').dataset.editMode = 'false';
-		document.getElementById('form-tractament').dataset.editIds = '';
-		document.querySelectorAll('#tractament-finques-checks input[type="checkbox"]').forEach(function(cb) {
-			cb.checked = false;
-		});
-		document.getElementById('superficie-total').textContent = '0';
-		document.getElementById('quantitat-total').textContent = '0';
-		
+        resetFormulariTractaments();
+
     } catch (error) {
-        console.error('Error guardant:', error);
-        mostrarNotificacio('Error: ' + error.message, 'error');
+        console.error('Error en el procés:', error);
+        mostrarNotificacio('Error en guardar: ' + error.message, 'error');
     }
 }
 
+// Funció auxiliar per mantenir els filtres homogenis
+function esParcellaApta(p) {
+    const cultiusProhibits = ['PROD. FORESTALS', 'GUARET', 'IMPROD'];
+    return p.cultiu && p.cultiu.trim() !== '' && !cultiusProhibits.includes(p.cultiu.toUpperCase());
+}
+
+function resetFormulariTractaments() {
+    const form = document.getElementById('form-tractament');
+    form.reset();
+    form.dataset.editMode = 'false';
+    form.dataset.editIds = '';
+    document.getElementById('superficie-total').textContent = '0';
+    document.getElementById('quantitat-total').textContent = '0';
+}
 async function veureTractamentGrup(clau) {
     // La clau ara és: data-producte_id-finca
     const grupTractaments = tractaments.filter(function(t) {
