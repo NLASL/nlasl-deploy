@@ -538,14 +538,14 @@ async function carregarTaulaTractaments() {
             html += '<td>' + superficieTotal.toFixed(2) + '</td>';
             html += '<td>' + (grup.dosi || 0) + ' ' + (grup.unitat || 'L/Ha') + '</td>';
             html += '<td>';
-			html += '<button class="btn btn-sm btn-primary" onclick="veureTractamentGrup(\'' + clau + '\')">👁️</button> ';
-			if (podeEditar) {
-			html += '<button class="btn btn-sm btn-secondary" onclick="editarTractamentGrup(\'' + clau + '\')" style="margin-right:4px;">✏️</button> ';
+			html += '<button class="btn btn-sm btn-primary" onclick="veureTractamentGrup(\'' + clau.replace(/'/g, "\\'") + '\')">👁️</button> ';
+				if (podeEditar) {
+			html += '<button class="btn btn-sm btn-secondary" onclick="editarTractamentGrup(\'' + clau.replace(/'/g, "\\'") + '\')" style="margin-right:4px;">✏️</button> ';
 }
-			if (podeEliminar) {
-			html += '<button class="btn btn-sm btn-danger" onclick="eliminarTractamentGrup(\'' + clau + '\')">🗑️</button>';
+				if (podeEliminar) {
+			html += '<button class="btn btn-sm btn-danger" onclick="eliminarTractamentGrup(\'' + clau.replace(/'/g, "\\'") + '\')">🗑️</button>';
 }
-			html += '</td></tr>';
+            html += '</td></tr>';
         });
         
         tbody.innerHTML = html;
@@ -1103,7 +1103,6 @@ async function editarTractamentGrup(clau) {
 }
 
 async function eliminarTractamentGrup(clau) {
-    console.log('=== INICIO eliminarTractamentGrup, clau:', clau);
     if (!confirm('Segur que vols eliminar aquest grup de tractaments?')) return;
     
     try {
@@ -1113,16 +1112,14 @@ async function eliminarTractamentGrup(clau) {
             return (t.data + '|' + t.producte_id + '|' + finca) === clau;
         });
         
-        console.log('Grup a esborrar:', grup.length, 'tractaments');
-        
         // Crear moviment inverso PRIMER (devolució d'estoc)
         for (let i = 0; i < grup.length; i++) {
-            console.log('Creant devolucio', i, ':', grup[i].id);
             const t = grup[i];
             const producte = fitosanitaris.find(function(fito) { return fito.id === t.producte_id; });
             const factor = producte ? (parseFloat(producte.factor_conversio) || 1) : 1;
             const quantitatConsumida = t.dosi * t.superficie_tractada * factor;
             
+            // Insertar moviment d'entrada (positiu) per recuperar estoc
             await supabaseClient.from('estoc_moviments').insert([{
                 data: new Date().toISOString().split('T')[0],
                 producte_id: t.producte_id,
@@ -1138,22 +1135,17 @@ async function eliminarTractamentGrup(clau) {
         
         // Esborrar moviments d'estoc originals
         for (let i = 0; i < grup.length; i++) {
-            const { error } = await supabaseClient.from('estoc_moviments')
+            await supabaseClient.from('estoc_moviments')
                 .delete()
-                .eq('referencia_id', grup[i].id);
-            
-            if (error) {
-                console.error('Error esborrant moviment:', error);
-            }
+                .eq('referencia_id', grup[i].id)
+                .eq('tipus_moviment', 'tractament');
         }
         
         // Esborrar els tractaments
         for (let i = 0; i < grup.length; i++) {
             await deleteTractament(grup[i].id);
         }
-        
-        console.log('Devolucio creada');
-        
+
         mostrarNotificacio('Tractaments eliminats i estoc recuperat', 'success');
         await carregarTaulaTractaments();
         await carregarTaulaExistencies();
@@ -1243,12 +1235,12 @@ async function carregarTaulaFertilitzacions() {
             html += '<td>' + superficieTotal.toFixed(2) + '</td>';
             html += '<td>' + (grup.dosi || 0) + ' ' + (grup.unitat || 'kg/Ha') + '</td>';
             html += '<td>';
-            html += '<button class="btn btn-sm btn-primary" onclick="veureFertilitzacioGrup(\'' + clau + '\')">👁️</button> ';
+            html += '<button class="btn btn-sm btn-primary" onclick="veureFertilitzacioGrup(\'' + clau.replace(/'/g, "\\'") + '\')">👁️</button> ';
 				if (podeEditar) {
-			html += '<button class="btn btn-sm btn-secondary" onclick="editarFertilitzacioGrup(\'' + clau + '\')" style="margin-right:4px;">✏️</button> ';
+			html += '<button class="btn btn-sm btn-secondary" onclick="editarFertilitzacioGrup(\'' + clau.replace(/'/g, "\\'") + '\')" style="margin-right:4px;">✏️</button> ';
 }
 				if (podeEliminar) {
-			html += '<button class="btn btn-sm btn-danger" onclick="eliminarFertilitzacioGrup(\'' + clau + '\')">🗑️</button>';
+			html += '<button class="btn btn-sm btn-danger" onclick="eliminarFertilitzacioGrup(\'' + clau.replace(/'/g, "\\'") + '\')">🗑️</button>';
 }
             html += '</td></tr>';
         });
@@ -1800,35 +1792,13 @@ async function eliminarFertilitzacioGrup(clau) {
             }]);
         }
         
-  // Crear moviment inverso PRIMER
-for (let i = 0; i < grup.length; i++) {
-    const f = grup[i];
-    const producte = fertilitzants.find(function(fert) { return fert.id === f.producte_id; });
-    
-    console.log('Creant devolucio per:', f.id, 'quantitat:', f.us_total); // ← LOG
-    
-    try {
-        const { data, error } = await supabaseClient.from('estoc_moviments').insert([{
-            data: new Date().toISOString().split('T')[0],
-            producte_id: f.producte_id,
-            tipus_producte: 'fertilitzant',
-            tipus_moviment: 'devolucio',
-            quantitat: f.us_total,
-            unitat: producte ? (producte.unitat_stock || 'kg') : 'kg',
-            referencia_id: f.id,
-            observacions: 'Devolució fertilització eliminada ' + f.data,
-            creat_per: currentUser ? currentUser.id : null
-        }]);
-        
-        if (error) {
-            console.error('Error creant devolucio:', error); // ← LOG ERROR
-        } else {
-            console.log('Devolucio creada:', data); // ← LOG SUCCESS
+        // Esborrar moviments d'estoc originals
+        for (let i = 0; i < grup.length; i++) {
+            await supabaseClient.from('estoc_moviments')
+                .delete()
+                .eq('referencia_id', grup[i].id)
+                .eq('tipus_moviment', 'fertilitzacio');
         }
-    } catch (err) {
-        console.error('Exception creant devolucio:', err); // ← LOG EXCEPTION
-    }
-}
         
         // Esborrar les fertilitzacions
         for (let i = 0; i < grup.length; i++) {
