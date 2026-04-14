@@ -1137,11 +1137,15 @@ async function eliminarTractamentGrup(clau) {
         }
         
         // Esborrar moviments d'estoc originals
-        for (let i = 0; i < grup.length; i++) {
-            await supabaseClient.from('estoc_moviments')
-                .delete()
-                .eq('referencia_id', grup[i].id);
-        }
+		for (let i = 0; i < grup.length; i++) {
+		const { error } = await supabaseClient.from('estoc_moviments')
+        .delete()
+        .eq('referencia_id', grup[i].id);
+    
+		if (error) {
+        console.error('Error esborrant moviment:', error);
+    }
+}
         
         // Esborrar els tractaments
         for (let i = 0; i < grup.length; i++) {
