@@ -589,12 +589,11 @@ function crearModalTractament() {
     html += '<div id="info-fitosanitari" style="display:none; background: #e8f5e9; padding: 12px; border-radius: 6px; margin-bottom: 15px;"></div>';
     
 	html += '<div class="form-group"><label>Dosi *</label><div style="display: flex; gap: 10px;">';
-    html += '<input type="number" id="tractament-dosi" required min="0" step="0.01" style="flex: 2;">';
-    html += '<select id="tractament-unitat" style="flex: 1;"><option value="L/Ha">L/Ha</option><option value="kg/Ha">kg/Ha</option><option value="g/Ha">g/Ha</option></select>';
-    html += '</div></div>';
-    
-    html += '<div class="form-group"><label>Quantitat Total: <span id="quantitat-total">0</span> <span id="unitat-total">L</span></label></div>';
-    
+	html += '<input type="number" id="tractament-dosi" required min="0" step="0.01" style="flex: 2;" onchange="calcularQuantitatTotal()">';
+	html += '<select id="tractament-unitat" style="flex: 1;" onchange="calcularQuantitatTotal()"><option value="L/Ha">L/Ha</option><option value="kg/Ha">kg/Ha</option><option value="g/Ha">g/Ha</option></select>';
+	html += '</div></div>';
+
+	html += '<div class="form-group"><label>Quantitat Total: <span id="quantitat-total">0</span> <span id="unitat-total">L</span></label></div>';
     html += '<div class="form-group"><label>Operador</label><input type="text" id="tractament-operador"></div>';
     html += '<div class="form-group"><label>Maquinària</label><input type="text" id="tractament-maquinaria"></div>';
     html += '<div class="form-group"><label>Condicions Meteorològiques</label><textarea id="tractament-meteo" rows="2" placeholder="Temp: 22°C, Vent: Calma, Humitat: 60%"></textarea></div>';
@@ -827,15 +826,14 @@ async function guardarTractament(event) {
     }
 
     // 3. Càlculs comuns
-    const superficieTotal = parcellesATractar.reduce((sum, p) => sum + (parseFloat(p.superficie) || 0), 0);
-    const producte = fitosanitaris.find(f => f.id === producteId);
-    const placSeguretat = producte ? (producte.plac || 0) : 0;
-    const dataLimit = new Date(data);
-    dataLimit.setDate(dataLimit.getDate() + placSeguretat);
-	const quantitatTotalConsumida = superficieTotal * dosi;
-	const quantitatTotal = parcellesAtractar.reduce(function(sum, p) {
-        return sum + (parseFloat(p.superficie) || 0);
-    }, 0) * dosi;
+		const superficieTotal = parcellesATractar.reduce((sum, p) => sum + (parseFloat(p.superficie) || 0), 0);
+		const producte = fitosanitaris.find(f => f.id === producteId);
+		const placSeguretat = producte ? (producte.plac || 0) : 0;
+		const dataLimit = new Date(data);
+		dataLimit.setDate(dataLimit.getDate() + placSeguretat);
+		const quantitatTotal = parcellesATractar.reduce(function(sum, p) {
+		return sum + (parseFloat(p.superficie) || 0);
+		}, 0) * dosi;
 	
     try {
         let tractamentId;
@@ -874,7 +872,7 @@ async function guardarTractament(event) {
             mostrarNotificacio('Tractament registrat', 'success');
         }
 
-        // 4. GESTIÓ D'ESTOC HOMOGENITZADA (Sortida de magatzem)
+        // 4. GESTIÓ D'ESTOC (Sortida de magatzem)
         // Primer eliminem qualsevol moviment d'estoc previ d'aquest tractament (per si és edició)
         await supabaseClient.from('estoc_moviments').delete().eq('referencia_id', tractamentId);
 
@@ -1449,6 +1447,18 @@ function calcularQuantitatTotalFert() {
     } else {
         document.getElementById('totals-npk').style.display = 'none';
     }
+}
+
+function calcularQuantitatTotal() {
+    const superficie = parseFloat(document.getElementById('superficie-total').textContent) || 0;
+    const dosi = parseFloat(document.getElementById('tractament-dosi').value) || 0;
+    const unitat = document.getElementById('tractament-unitat').value;
+    
+    const quantitat = superficie * dosi;
+    document.getElementById('quantitat-total').textContent = quantitat.toFixed(2);
+    
+    const unitatBase = unitat.split('/')[0];
+    document.getElementById('unitat-total').textContent = unitatBase;
 }
 
 async function obrirModalFertilitzacio() {
