@@ -4879,8 +4879,8 @@ async function carregarVistaGasoil() {
     html += '</div></div>';
 
     html += '<div class="table-container"><table class="data-table">';
-    html += '<thead><tr><th>Data</th><th>Proveïdor</th><th>Litres</th><th>Preu/L</th><th>IVA %</th><th>Import Net</th><th>Import Total</th><th>Accions</th></tr></thead>';
-    html += '<tbody id="tbody-gasoil"><tr><td colspan="8">Carregant...</td></tr></tbody>';
+    html += '<thead><tr><th>Data</th><th>nº Factura</th><th>Proveïdor</th><th>Litres</th><th>Preu/L</th><th>IVA %</th><th>Import Net</th><th>Import Total</th><th>Accions</th></tr></thead>';
+	html += '<tbody id="tbody-gasoil"><tr><td colspan="9">Carregant...</td></tr></tbody>';
     html += '</table></div></div>';
 
     html += crearModalGasoil();
