@@ -42,6 +42,12 @@ async function carregarVistaCollita() {
 // ============================================================
 
 async function mostrarFormulariAlbaraEntrada() {
+    // Cargar datos PRIMERO
+    await carregarDadesCollita();
+    
+    const container = document.getElementById('view-container');
+        
+async function mostrarFormulariAlbaraEntrada() {
     const content = document.getElementById('collita-content');
     
     // Obté varietats per fruita
@@ -264,6 +270,12 @@ async function eliminarAlbaraEntrada(id) {
 // 4. FORMULARI ALBARÀ ESCANDALL
 // ============================================================
 
+async function mostrarFormulariAlbaraEscandall() {
+    // Cargar datos PRIMERO
+    await carregarDadesCollita();
+    
+    const container = document.getElementById('view-container');
+        
 async function mostrarFormulariAlbaraEscandall() {
     const content = document.getElementById('collita-content');
     

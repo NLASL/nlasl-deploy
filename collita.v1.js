@@ -14,6 +14,14 @@ let escandallEnEdicio = null;
 // ============================================================
 // 1. CÀRREGA DE DADES
 // ============================================================
+async function iniciarCollita() {
+    console.log('🚀 Inicialitzant Collita...');
+    await carregarDadesCollita();
+    console.log('✅ Collita inicialitzada');
+}
+
+// Quan es carregui el DOM
+document.addEventListener('DOMContentLoaded', iniciarCollita);
 
 async function carregarDadesCollita() {
     try {
