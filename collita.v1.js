@@ -24,10 +24,18 @@ async function iniciarCollita() {
 document.addEventListener('DOMContentLoaded', iniciarCollita);
 
 async function carregarDadesCollita() {
+    
     try {
         console.log('🔄 Iniciant carregarDadesCollita...');
-        console.log('supabaseClient exists:', !!supabaseClient);
         
+        // 🗑️ BUIDAR les caixes (arrays)
+        fruites = [];
+        varietats = [];
+        qualitats = [];
+        
+        // Aquí ja pots carregar les dades noves
+        const { data: frutesData } = await supabaseClient...
+		
         // Fruites
         console.log('Carregant fruites...');
         const fruitesResp = await supabaseClient.from('fruites').select('*');
