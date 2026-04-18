@@ -25,16 +25,19 @@ document.addEventListener('DOMContentLoaded', iniciarCollita);
 
 async function carregarDadesCollita() {
     try {
-        console.log('🔄 Carregant dades Collita...');
+        console.log('🔄 Iniciant carregarDadesCollita...');
+        console.log('supabaseClient exists:', !!supabaseClient);
         
         // Fruites
-        const { data: frutesData, error: fruitesError } = await supabaseClient
-            .from('fruites')
-            .select('*');
-        if (fruitesError) throw new Error('Error fruites: ' + fruitesError.message);
-        fruites = frutesData || [];
-        console.log('✅ Fruites carregades:', fruites.length);
-
+        console.log('Carregant fruites...');
+        const fruitesResp = await supabaseClient.from('fruites').select('*');
+        console.log('Fruites response:', fruitesResp);
+        
+        if (fruitesResp.error) throw fruitesResp.error;
+        fruites = fruitesResp.data || [];
+        console.log('✅ Fruites carregades:', fruites);
+        
+        
         // Varietats
         const { data: varietatsData, error: varietatsError } = await supabaseClient
             .from('fruita_varietats')
