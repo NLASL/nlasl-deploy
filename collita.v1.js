@@ -6,6 +6,7 @@
 let fruites = [];
 let varietats = [];
 let qualitats = [];
+let finques = [];
 let calibresFruita = {};
 let classificacionsNoCom = [];
 let entradaEnEdicio = null;
@@ -17,32 +18,41 @@ let escandallEnEdicio = null;
 
 async function carregarDadesCollita() {
     try {
+        console.log('🔄 Carregant dades Collita...');
+        
         // Fruites
-        const { data: frutesData } = await supabaseClient
+        const { data: frutesData, error: fruitesError } = await supabaseClient
             .from('fruites')
             .select('*');
+        if (fruitesError) throw new Error('Error fruites: ' + fruitesError.message);
         fruites = frutesData || [];
+        console.log('✅ Fruites carregades:', fruites.length);
 
         // Varietats
-        const { data: varietatsData } = await supabaseClient
+        const { data: varietatsData, error: varietatsError } = await supabaseClient
             .from('fruita_varietats')
             .select('*');
+        if (varietatsError) throw new Error('Error varietats: ' + varietatsError.message);
         varietats = varietatsData || [];
+        console.log('✅ Varietats carregades:', varietats.length);
 
         // Qualitats (campanya actual)
-        const { data: qualitatData } = await supabaseClient
+        const { data: qualitatData, error: qualitatError } = await supabaseClient
             .from('qualitats_collita')
             .select('*')
             .eq('actiu', true)
             .eq('campanya', 2025);
+        if (qualitatError) throw new Error('Error qualitats: ' + qualitatError.message);
         qualitats = qualitatData || [];
+        console.log('✅ Qualitats carregades:', qualitats.length);
 
         // Calibres per fruita (campanya actual)
-        const { data: calibresData } = await supabaseClient
+        const { data: calibresData, error: calibresError } = await supabaseClient
             .from('calibres_fruites')
             .select('*')
             .eq('campanya', 2025)
             .eq('actiu', true);
+        if (calibresError) throw new Error('Error calibres: ' + calibresError.message);
         
         calibresFruita = {};
         (calibresData || []).forEach(c => {
@@ -51,21 +61,25 @@ async function carregarDadesCollita() {
             }
             calibresFruita[c.fruita_id].push(c.calibre);
         });
+        console.log('✅ Calibres carregats');
 
         // Classificacions No Comercial (campanya actual)
-        const { data: classData } = await supabaseClient
+        const { data: classData, error: classError } = await supabaseClient
             .from('classificacions_no_comercial')
             .select('*')
             .eq('campanya', 2025)
             .eq('actiu', true);
+        if (classError) throw new Error('Error classificacions: ' + classError.message);
         classificacionsNoCom = classData || [];
+        console.log('✅ Classificacions No Comercial carregades:', classificacionsNoCom.length);
 
-        // Finques (referència a finques existents)
-        // Suposem que ja estan carregades a finques global
+        // Finques (referència a finques existents - ja carregades a app_v8.js)
+        console.log('✅ Finques disponibles:', finques.length);
         
-        console.log('✅ Dades Collita carregades');
+        console.log('✅✅ TODAS LES DADES COLLITA CARREGADES CORRECTAMENT');
     } catch (error) {
         console.error('❌ Error carregant dades Collita:', error);
+        mostrarNotificacio('❌ Error carregant dades Collita: ' + error.message, 'error');
     }
 }
 
