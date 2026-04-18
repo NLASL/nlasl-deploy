@@ -26,7 +26,9 @@ function canviarVistaCollita(vista) {
 // 1. VISTA ENTRADES (Taula + Botons)
 // ============================================================
 
-async function mostrarVista_Entrades() {
+async function mostrarVista_Entradas() {
+    await carregarDadesCollita();  // ← Cargar datos PRIMERO
+    
     const container = document.getElementById('view-container');
     
     let html = '<div class="vista-entrades">';
@@ -89,6 +91,8 @@ async function mostrarTaulaEntrades() {
 // ============================================================
 
 async function mostrarFormulariAlbaraEntrada() {
+    await carregarDadesCollita();  // ← ESTO debe estar PRIMERO
+    
     const container = document.getElementById('view-container');
     
     // Obté varietats per fruita
