@@ -1,40 +1,87 @@
 // ============================================================
-// COLLITA UI - Funcions per integrar a app_v8.js
+// COLLITA-UI.V1.JS - UI Modular (Vistes separades)
 // ============================================================
 
-// Afegir aquesta línia al SWITCH de canviarVista:
-/*
-    case 'collita':
-        carregarVistaCollita();
-        break;
-*/
+// Variable de control
+let vistaColltitaActual = 'entrades';
 
 // ============================================================
-// 1. VISTA PRINCIPAL COLLITA
+// 0. DISPATCHER (canviar entre vistes)
 // ============================================================
 
 async function carregarVistaCollita() {
+    if (vistaColltitaActual === 'entrades') {
+        await mostrarVista_Entrades();
+    } else if (vistaColltitaActual === 'escandalls') {
+        await mostrarVista_Escandalls();
+    }
+}
+
+function canviarVistaCollita(vista) {
+    vistaColltitaActual = vista;
+    carregarVistaCollita();
+}
+
+// ============================================================
+// 1. VISTA ENTRADES (Taula + Botons)
+// ============================================================
+
+async function mostrarVista_Entrades() {
     const container = document.getElementById('view-container');
     
-    let html = '<div class="vista-collita">';
-    html += '<h2>🍎 Collita</h2>';
+    let html = '<div class="vista-entrades">';
+    html += '<h2>🍎 Collita - Entrades</h2>';
     
-    // Navegació interna
-    html += '<div class="collita-nav" style="margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px;">';
+    // Navegació
+    html += '<div style="margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px;">';
     html += '<button class="btn btn-primary" onclick="mostrarFormulariAlbaraEntrada()" style="margin-right: 10px;">➕ Nova Entrada</button>';
-    html += '<button class="btn btn-primary" onclick="mostrarFormulariAlbaraEscandall()" style="margin-right: 10px;">➕ Nou Escandall</button>';
-    html += '<button class="btn btn-secondary" onclick="mostrarTaulaEntrades()" style="margin-right: 10px;">📋 Entrades</button>';
-    html += '<button class="btn btn-secondary" onclick="mostrarTaulaEscandalls()">📋 Escandalls</button>';
+    html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'escandalls\')" style="margin-right: 10px;">→ Escandalls</button>';
     html += '</div>';
     
-    // Àrea de contingut
+    // Taula
     html += '<div id="collita-content"></div>';
-    
     html += '</div>';
-    container.innerHTML = html;
     
-    // Carrega taula entrades per defecte
+    container.innerHTML = html;
     await mostrarTaulaEntrades();
+}
+
+async function mostrarTaulaEntrades() {
+    const content = document.getElementById('collita-content');
+    const entrades = await obtenirTodasEntradas();
+    
+    let html = '<div class="taula-entrades">';
+    html += '<table class="data-table" style="width: 100%;">';
+    html += '<thead><tr>';
+    html += '<th>Data</th><th>Num. Albarà</th><th>Fruita-Varietat</th><th>Finca</th><th>Qualitat</th>';
+    html += '<th>Pes Net (kg)</th><th>Palots</th><th>Pes Mig</th><th>Accions</th>';
+    html += '</tr></thead>';
+    html += '<tbody>';
+    
+    entrades.forEach(e => {
+        const fruita = fruites.find(f => f.id === (e.fruita_varietat_id?.fruita_id || null));
+        const varietat = e.fruita_varietat_id?.varietat || '-';
+        const finca = finques.find(f => f.id === e.finca_id);
+        
+        html += '<tr>';
+        html += '<td>' + formatData(e.data) + '</td>';
+        html += '<td><strong>' + e.num_albara + '</strong></td>';
+        html += '<td>' + (fruita ? fruita.nom : '-') + ' / ' + varietat + '</td>';
+        html += '<td>' + (finca ? finca.nom : '-') + '</td>';
+        html += '<td>' + (e.qualitat || '-') + '</td>';
+        html += '<td>' + (e.pes_net || 0).toFixed(2) + '</td>';
+        html += '<td>' + (e.quantitat_palots_entrada || 0) + '</td>';
+        html += '<td>' + (e.pes_mig || 0).toFixed(2) + '</td>';
+        html += '<td>';
+        html += '<button class="btn btn-sm btn-primary" onclick="veureAlbaraEntrada(\'' + e.id + '\')">👁️</button> ';
+        html += '<button class="btn btn-sm btn-secondary" onclick="editarAlbaraEntrada(\'' + e.id + '\')">✏️</button> ';
+        html += '<button class="btn btn-sm btn-danger" onclick="eliminarAlbaraEntradaConfirm(\'' + e.id + '\')">🗑️</button>';
+        html += '</td>';
+        html += '</tr>';
+    });
+    
+    html += '</tbody></table></div>';
+    content.innerHTML = html;
 }
 
 // ============================================================
@@ -42,13 +89,7 @@ async function carregarVistaCollita() {
 // ============================================================
 
 async function mostrarFormulariAlbaraEntrada() {
-    // Cargar datos PRIMERO
-    await carregarDadesCollita();
-    
     const container = document.getElementById('view-container');
-        
-async function mostrarFormulariAlbaraEntrada() {
-    const content = document.getElementById('collita-content');
     
     // Obté varietats per fruita
     const varietatsPorFruita = {};
@@ -59,9 +100,9 @@ async function mostrarFormulariAlbaraEntrada() {
         varietatsPorFruita[v.fruita_id].push(v);
     });
     
-    let html = '<div class="formulari-entrada" style="background: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 20px;">';
-    html += '<h3>📥 Nova Entrada d\'Albarà</h3>';
-    html += '<form id="form-entrada" onsubmit="guardarAlbaraEntrada(event)">';
+    let html = '<div class="formulari-entrada">';
+    html += '<h2>🍎 Collita - Nova Entrada</h2>';
+    html += '<form id="form-entrada" onsubmit="guardarAlbaraEntrada(event)" style="background: #f9f9f9; padding: 20px; border-radius: 8px;">';
     
     // Row 1
     html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">';
@@ -124,12 +165,12 @@ async function mostrarFormulariAlbaraEntrada() {
     // Botons
     html += '<div style="margin-top: 20px;">';
     html += '<button type="submit" class="btn btn-success">💾 Guardar Entrada</button>';
-    html += '<button type="button" class="btn btn-secondary" onclick="mostrarTaulaEntrades()" style="margin-left: 10px;">❌ Cancelar</button>';
+    html += '<button type="button" class="btn btn-secondary" onclick="canviarVistaCollita(\'entrades\')" style="margin-left: 10px;">❌ Cancelar</button>';
     html += '</div>';
     
     html += '</form></div>';
     
-    content.innerHTML = html;
+    container.innerHTML = html;
     
     // Inicialitzar data actual
     document.getElementById('entrada-data').valueAsDate = new Date();
@@ -196,54 +237,11 @@ async function guardarAlbaraEntrada(event) {
         
         await crearAlbaraEntrada(dades);
         mostrarNotificacio('✅ Entrada d\'albarà guardada', 'success');
-        await mostrarTaulaEntrades();
+        canviarVistaCollita('entrades');
     } catch (error) {
         console.error('Error:', error);
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
     }
-}
-
-// ============================================================
-// 3. TAULA ENTRADES
-// ============================================================
-
-async function mostrarTaulaEntrades() {
-    const content = document.getElementById('collita-content');
-    const entrades = await obtenirTodasEntradas();
-    
-    let html = '<div class="taula-entrades">';
-    html += '<h3>📋 Albarans d\'Entrada</h3>';
-    html += '<table class="data-table" style="width: 100%;">';
-    html += '<thead><tr>';
-    html += '<th>Data</th><th>Num. Albarà</th><th>Fruita-Varietat</th><th>Finca</th><th>Qualitat</th>';
-    html += '<th>Pes Net (kg)</th><th>Palots</th><th>Pes Mig</th><th>Accions</th>';
-    html += '</tr></thead>';
-    html += '<tbody>';
-    
-    entrades.forEach(e => {
-        const fruita = fruites.find(f => f.id === (e.fruita_varietat_id?.fruita_id || null));
-        const varietat = e.fruita_varietat_id?.varietat || '-';
-        const finca = finques.find(f => f.id === e.finca_id);
-        
-        html += '<tr>';
-        html += '<td>' + formatData(e.data) + '</td>';
-        html += '<td><strong>' + e.num_albara + '</strong></td>';
-        html += '<td>' + (fruita ? fruita.nom : '-') + ' / ' + varietat + '</td>';
-        html += '<td>' + (finca ? finca.nom : '-') + '</td>';
-        html += '<td>' + (e.qualitat || '-') + '</td>';
-        html += '<td>' + (e.pes_net || 0).toFixed(2) + '</td>';
-        html += '<td>' + (e.quantitat_palots_entrada || 0) + '</td>';
-        html += '<td>' + (e.pes_mig || 0).toFixed(2) + '</td>';
-        html += '<td>';
-        html += '<button class="btn btn-sm btn-primary" onclick="veureAlbaraEntrada(\'' + e.id + '\')">👁️</button> ';
-        html += '<button class="btn btn-sm btn-secondary" onclick="editarAlbaraEntrada(\'' + e.id + '\')">✏️</button> ';
-        html += '<button class="btn btn-sm btn-danger" onclick="eliminarAlbaraEntrada(\'' + e.id + '\')">🗑️</button>';
-        html += '</td>';
-        html += '</tr>';
-    });
-    
-    html += '</tbody></table></div>';
-    content.innerHTML = html;
 }
 
 function veureAlbaraEntrada(id) {
@@ -254,16 +252,78 @@ function editarAlbaraEntrada(id) {
     mostrarNotificacio('Editar entrada: ' + id, 'info');
 }
 
-async function eliminarAlbaraEntrada(id) {
+async function eliminarAlbaraEntradaConfirm(id) {
     if (!confirm('Segur que vols eliminar aquesta entrada?')) return;
     
     try {
         await eliminarAlbaraEntrada(id);
         mostrarNotificacio('✅ Entrada eliminada', 'success');
-        await mostrarTaulaEntrades();
+        canviarVistaCollita('entrades');
     } catch (error) {
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
     }
+}
+
+// ============================================================
+// 3. VISTA ESCANDALLS (Taula + Botons)
+// ============================================================
+
+async function mostrarVista_Escandalls() {
+    const container = document.getElementById('view-container');
+    
+    let html = '<div class="vista-escandalls">';
+    html += '<h2>🍎 Collita - Escandalls</h2>';
+    
+    // Navegació
+    html += '<div style="margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px;">';
+    html += '<button class="btn btn-primary" onclick="mostrarFormulariAlbaraEscandall()" style="margin-right: 10px;">➕ Nou Escandall</button>';
+    html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'entrades\')">← Entrades</button>';
+    html += '</div>';
+    
+    // Taula
+    html += '<div id="collita-content"></div>';
+    html += '</div>';
+    
+    container.innerHTML = html;
+    await mostrarTaulaEscandalls();
+}
+
+async function mostrarTaulaEscandalls() {
+    const content = document.getElementById('collita-content');
+    const escandalls = await obtenirTodasEscandalls();
+    
+    let html = '<div class="taula-escandalls">';
+    html += '<table class="data-table" style="width: 100%;">';
+    html += '<thead><tr>';
+    html += '<th>Data</th><th>Num. Escandall</th><th>Fruita-Varietat</th><th>Pes Net (kg)</th>';
+    html += '<th>Qualitat Orig → Reclassificada</th><th>Alerts</th><th>Accions</th>';
+    html += '</tr></thead>';
+    html += '<tbody>';
+    
+    escandalls.forEach(e => {
+        const fruita = fruites.find(f => f.id === (e.fruita_varietat_id?.fruita_id || null));
+        const varietat = e.fruita_varietat_id?.varietat || '-';
+        
+        let alertIcon = '✅';
+        if (e.diferencia_pes_net > 0) alertIcon = '⚠️';
+        if (e.diferencia_palots > 0) alertIcon = '⚠️';
+        
+        html += '<tr>';
+        html += '<td>' + formatData(e.data) + '</td>';
+        html += '<td><strong>' + e.num_albara_escandall + '</strong></td>';
+        html += '<td>' + (fruita ? fruita.nom : '-') + ' / ' + varietat + '</td>';
+        html += '<td>' + (e.pes_net || 0).toFixed(2) + '</td>';
+        html += '<td>' + (e.qualitat_original || '-') + ' → ' + (e.qualitat_reclassificada || '-') + '</td>';
+        html += '<td>' + alertIcon + '</td>';
+        html += '<td>';
+        html += '<button class="btn btn-sm btn-primary" onclick="veureEscandall(\'' + e.id + '\')">👁️</button> ';
+        html += '<button class="btn btn-sm btn-secondary" onclick="editarEscandall(\'' + e.id + '\')">✏️</button>';
+        html += '</td>';
+        html += '</tr>';
+    });
+    
+    html += '</tbody></table></div>';
+    content.innerHTML = html;
 }
 
 // ============================================================
@@ -271,17 +331,11 @@ async function eliminarAlbaraEntrada(id) {
 // ============================================================
 
 async function mostrarFormulariAlbaraEscandall() {
-    // Cargar datos PRIMERO
-    await carregarDadesCollita();
-    
     const container = document.getElementById('view-container');
-        
-async function mostrarFormulariAlbaraEscandall() {
-    const content = document.getElementById('collita-content');
     
-    let html = '<div class="formulari-escandall" style="background: #f9f9f9; padding: 20px; border-radius: 8px;">';
-    html += '<h3>📊 Nou Escandall</h3>';
-    html += '<form id="form-escandall" onsubmit="guardarAlbaraEscandall(event)">';
+    let html = '<div class="formulari-escandall">';
+    html += '<h2>🍎 Collita - Nou Escandall</h2>';
+    html += '<form id="form-escandall" onsubmit="guardarAlbaraEscandall(event)" style="background: #f9f9f9; padding: 20px; border-radius: 8px;">';
     
     // Buscar entrada
     html += '<div class="form-group"><label>Num. Albarà Entrada *</label>';
@@ -289,7 +343,7 @@ async function mostrarFormulariAlbaraEscandall() {
     html += '<div id="entrada-info" style="margin-top: 10px; padding: 10px; background: #e3f2fd; border-radius: 4px; display: none;"></div>';
     html += '</div>';
     
-    html += '<div class="form-group"><label>Num. Albarà Escandall *</label><input type="number" id="escandall-num-albara" required></div>';
+    html += '<div class="form-group"><label>Num. Albarà Escandall *</label><input type="text" id="escandall-num-albara" required></div>';
     html += '<div class="form-group"><label>Data *</label><input type="date" id="escandall-data" required></div>';
     
     // Pesos
@@ -340,12 +394,12 @@ async function mostrarFormulariAlbaraEscandall() {
     // Botons
     html += '<div style="margin-top: 20px;">';
     html += '<button type="submit" class="btn btn-success">💾 Guardar Escandall</button>';
-    html += '<button type="button" class="btn btn-secondary" onclick="mostrarTaulaEscandalls()" style="margin-left: 10px;">❌ Cancelar</button>';
+    html += '<button type="button" class="btn btn-secondary" onclick="canviarVistaCollita(\'escandalls\')" style="margin-left: 10px;">❌ Cancelar</button>';
     html += '</div>';
     
     html += '</form></div>';
     
-    content.innerHTML = html;
+    container.innerHTML = html;
     document.getElementById('escandall-data').valueAsDate = new Date();
 }
 
@@ -387,8 +441,10 @@ function calcularPesNetEscandall() {
 function afegirFilaCalibres() {
     const tbody = document.querySelector('#taula-calibres tbody');
     const tr = document.createElement('tr');
+    const allCalibres = Object.values(calibresFruita).flat();
+    
     tr.innerHTML = `
-        <td><select onchange="actualitzarPercentatgesCal()"><option>- Selecciona -</option>${Object.keys(calibresFruita).map(fId => (calibresFruita[fId] || []).map(c => `<option>${c}</option>`).join('')).join('')}</select></td>
+        <td><select onchange="actualitzarPercentatgesCal()"><option>- Selecciona -</option>${allCalibres.map(c => `<option>${c}</option>`).join('')}</select></td>
         <td><input type="number" min="0" step="0.01" onchange="actualitzarPercentatgesCal()"></td>
         <td><input type="number" readonly style="background: #e8f5e9;"></td>
         <td><input type="text" readonly style="background: #f0f0f0;"></td>
@@ -509,54 +565,11 @@ async function guardarAlbaraEscandall(event) {
         
         await crearAlbaraEscandall(dades, calibres, noComercios, industria);
         mostrarNotificacio('✅ Escandall guardat correctament', 'success');
-        await mostrarTaulaEscandalls();
+        canviarVistaCollita('escandalls');
     } catch (error) {
         console.error('Error:', error);
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
     }
-}
-
-// ============================================================
-// 5. TAULA ESCANDALLS
-// ============================================================
-
-async function mostrarTaulaEscandalls() {
-    const content = document.getElementById('collita-content');
-    const escandalls = await obtenirTodasEscandalls();
-    
-    let html = '<div class="taula-escandalls">';
-    html += '<h3>📋 Albarans d\'Escandall</h3>';
-    html += '<table class="data-table" style="width: 100%;">';
-    html += '<thead><tr>';
-    html += '<th>Data</th><th>Num. Escandall</th><th>Fruita-Varietat</th><th>Pes Net (kg)</th>';
-    html += '<th>Qualitat Orig → Reclassificada</th><th>Alerts</th><th>Accions</th>';
-    html += '</tr></thead>';
-    html += '<tbody>';
-    
-    escandalls.forEach(e => {
-        const fruita = fruites.find(f => f.id === (e.fruita_varietat_id?.fruita_id || null));
-        const varietat = e.fruita_varietat_id?.varietat || '-';
-        
-        let alertIcon = '✅';
-        if (e.diferencia_pes_net > 0) alertIcon = '⚠️';
-        if (e.diferencia_palots > 0) alertIcon = '⚠️';
-        
-        html += '<tr>';
-        html += '<td>' + formatData(e.data) + '</td>';
-        html += '<td><strong>' + e.num_albara_escandall + '</strong></td>';
-        html += '<td>' + (fruita ? fruita.nom : '-') + ' / ' + varietat + '</td>';
-        html += '<td>' + (e.pes_net || 0).toFixed(2) + '</td>';
-        html += '<td>' + (e.qualitat_original || '-') + ' → ' + (e.qualitat_reclassificada || '-') + '</td>';
-        html += '<td>' + alertIcon + '</td>';
-        html += '<td>';
-        html += '<button class="btn btn-sm btn-primary" onclick="veureEscandall(\'' + e.id + '\')">👁️</button> ';
-        html += '<button class="btn btn-sm btn-secondary" onclick="editarEscandall(\'' + e.id + '\')">✏️</button>';
-        html += '</td>';
-        html += '</tr>';
-    });
-    
-    html += '</tbody></table></div>';
-    content.innerHTML = html;
 }
 
 function veureEscandall(id) {
