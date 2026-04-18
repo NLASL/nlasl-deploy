@@ -110,7 +110,7 @@ async function mostrarFormulariAlbaraEntrada() {
     html += '<div class="form-group"><label>Num. Albarà *</label><input type="text" id="entrada-num-albara" required placeholder="ex: 11072025"></div>';
     html += '<div class="form-group"><label>Fruita *</label><select id="entrada-fruita" required onchange="actualitzarVarietats()"><option value="">- Selecciona -</option>';
     fruites.forEach(f => {
-        html += '<option value="' + f.id + '">' + f.nom + '</option>';
+    html += (fruites.map(f => '<option value="' + f.id + '">' + f.nom + '</option>').join(''));
     });
     html += '</select></div>';
     html += '</div>';
