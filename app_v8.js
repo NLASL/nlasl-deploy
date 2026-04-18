@@ -150,11 +150,13 @@ function canviarVista(vista) {
 		case 'existencies':
 			carregarVistaExistencies();
 			break;	
-	
-    case 'control-horari':
-    const role = currentUserProfile ? currentUserProfile.role : 'visor';
-    const treballadorActiu = treballadors.find(function(t) { 
-        return t.auth_user_id === currentUser.id; 
+		case 'collita':
+			carregarVistaCollita();
+			break;
+		case 'control-horari':
+			const role = currentUserProfile ? currentUserProfile.role : 'visor';
+			const treballadorActiu = treballadors.find(function(t) { 
+			return t.auth_user_id === currentUser.id; 
     });
     if (treballadorActiu && role === 'visor') {
         carregarVistaControlHorariTreballador();
