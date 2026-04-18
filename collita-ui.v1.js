@@ -120,8 +120,8 @@ async function mostrarFormulariAlbaraEntrada() {
     html += '<div class="form-group"><label>Varietat *</label><select id="entrada-varietat" required><option value="">- Selecciona fruita -</option></select></div>';
     html += '<div class="form-group"><label>Finca *</label><select id="entrada-finca" required><option value="">- Selecciona -</option>';
     finques.forEach(f => {
-        html += '<option value="' + f.id + '">' + f.nom + '</option>';
-    });
+    html += '<option value="' + f + '">' + f + '</option>';
+	});
     html += '</select></div>';
     html += '<div class="form-group"><label>Qualitat *</label><select id="entrada-qualitat" required><option value="">- Selecciona -</option>';
     qualitats.forEach(q => {
