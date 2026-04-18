@@ -89,7 +89,7 @@
     <div class="nav-group">
         <button class="nav-btn nav-group-btn" onclick="toggleSubmenu('consums')">📦 Consums ▾</button>
         <div id="submenu-consums" class="submenu" style="display:none;">
-            <button class="nav-btn submenu-btn" disabled style="opacity:0.5;">🍎 Collita (pròximament)</button>
+            <button class="nav-btn submenu-btn" onclick="canviarVista('collita');tancarSubmenus();" data-view="collita">🍎 Collita</button>n>
             <button class="nav-btn submenu-btn" onclick="canviarVista('reg');tancarSubmenus();" data-view="reg">💧 Reg</button>
             <button class="nav-btn submenu-btn" onclick="canviarVista('gasoil');tancarSubmenus();" data-view="gasoil">⛽ Gasoil</button>
             <button class="nav-btn submenu-btn" onclick="canviarVista('compres');tancarSubmenus();" data-view="compres">🛒 Compres</button>
@@ -133,6 +133,8 @@
 		console.log('📍 supabaseClient exists?', typeof supabaseClient !== 'undefined');
 		</script>
 		<script src="/auth.v3.js"></script>
+		<script src="/collita.v1.js"></script>
+		<script src="/collita-ui.v1.js"></script>
 		<script src="/app_v8.js"></script>
 		<script src="/horari-extensions.v1.js"></script>
 		<script src="/admin-panel.v1.js"></script>
