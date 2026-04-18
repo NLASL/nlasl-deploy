@@ -24,7 +24,6 @@ async function iniciarCollita() {
 document.addEventListener('DOMContentLoaded', iniciarCollita);
 
 async function carregarDadesCollita() {
-    
     try {
         console.log('🔄 Iniciant carregarDadesCollita...');
         
@@ -32,11 +31,9 @@ async function carregarDadesCollita() {
         fruites = [];
         varietats = [];
         qualitats = [];
+        calibresFruita = {};
+        classificacionsNoCom = [];
         
-        // Aquí ja pots carregar les dades noves
-        const { data: frutesData } = await supabaseClient...
-		
-        // Fruites
         console.log('Carregant fruites...');
         const fruitesResp = await supabaseClient.from('fruites').select('*');
         console.log('Fruites response:', fruitesResp);
@@ -44,16 +41,15 @@ async function carregarDadesCollita() {
         if (fruitesResp.error) throw fruitesResp.error;
         fruites = fruitesResp.data || [];
         console.log('✅ Fruites carregades:', fruites);
-        
-        
+
         // Varietats
-        const { data: varietatsData, error: varietatsError } = await supabaseClient
-            .from('fruita_varietats')
-            .select('*');
-        if (varietatsError) throw new Error('Error varietats: ' + varietatsError.message);
-        varietats = varietatsData || [];
+        console.log('Carregant varietats...');
+        const varietatsResp = await supabaseClient.from('fruita_varietats').select('*');
+        if (varietatsResp.error) throw varietatsResp.error;
+        varietats = varietatsResp.data || [];
         console.log('✅ Varietats carregades:', varietats.length);
 
+    
         // Qualitats (campanya actual)
         const { data: qualitatData, error: qualitatError } = await supabaseClient
             .from('qualitats_collita')
