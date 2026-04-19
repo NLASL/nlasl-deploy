@@ -50,7 +50,7 @@ async function mostrarVista_Entradas() {
 
 async function mostrarTaulaEntrades() {
     const content = document.getElementById('collita-content');
-    const entrades = await obtenirTodasEntradas();
+    const entrades = await obtenirTodasEntrades();
     
     let html = '<div class="taula-entrades">';
     html += '<table class="data-table" style="width: 100%;">';
