@@ -212,11 +212,16 @@ async function guardarAlbaraEntrada(event) {
     event.preventDefault();
     
     try {
+		// Obtener el ID de parcella que tiene esa finca
+			const fincaNombre = document.getElementById('entrada-finca').value;
+			const parcellaAmbFinca = parcelles.find(p => p.finca === fincaNombre);
+			const fincaId = parcellaAmbFinca ? parcellaAmbFinca.id : null;
+			
         const dades = {
             data: document.getElementById('entrada-data').value,
             num_albara: document.getElementById('entrada-num-albara').value,
             fruita_varietat_id: document.getElementById('entrada-varietat').value,
-            finca_id: document.getElementById('entrada-finca').value,
+            finca_id: fincaId,  // ← CORRECTO: es un UUID
             qualitat: document.getElementById('entrada-qualitat').value,
             
             tipus_envases_entrada: document.getElementById('entrada-tipus-envases').value,
