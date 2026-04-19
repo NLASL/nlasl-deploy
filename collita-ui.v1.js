@@ -26,7 +26,7 @@ function canviarVistaCollita(vista) {
 // 1. VISTA ENTRADES (Taula + Botons)
 // ============================================================
 
-async function mostrarVista_Entradas() {
+async function mostrarVista_Entrades() {
     await carregarDadesCollita();  // ← Cargar datos PRIMERO
     
     const container = document.getElementById('view-container');
