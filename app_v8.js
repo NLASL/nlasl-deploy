@@ -789,8 +789,8 @@ finques.forEach(function(finca) {
 
 async function guardarTractament(event) {
     event.preventDefault();
-    
-    // 1. Captura de dades del formulari
+
+    // 1. Dades del formulari
     const tipus = document.querySelector('input[name="seleccio-tipus"]:checked').value;
     const data = document.getElementById('tractament-data').value;
     const producteId = document.getElementById('tractament-producte').value;
@@ -800,99 +800,115 @@ async function guardarTractament(event) {
     const maquinaria = document.getElementById('tractament-maquinaria').value.trim();
     const meteo = document.getElementById('tractament-meteo').value.trim();
     const observacions = document.getElementById('tractament-observacions').value.trim();
-    
-    const editMode = document.getElementById('form-tractament').dataset.editMode === 'true';
-    const editIds = editMode ? document.getElementById('form-tractament').dataset.editIds.split(',') : [];
 
-    // 2. Selecció de parcel·les segons la teva jerarquia (Finca o Varietat)
+    const form = document.getElementById('form-tractament');
+    const editMode = form.dataset.editMode === 'true';
+    const editIds = editMode && form.dataset.editIds ? form.dataset.editIds.split(',') : [];
+
+    // 2. Selecció de parcel·les
     let parcellesATractar = [];
+
     if (tipus === 'finca') {
         const checks = document.querySelectorAll('#tractament-finques-checks input[type="checkbox"]:checked');
         const finquesSeleccionades = Array.from(checks).map(c => c.value);
-        
-        parcellesATractar = parcelles.filter(p => 
+
+        parcellesATractar = parcelles.filter(p =>
             finquesSeleccionades.includes(p.finca) && esParcellaApta(p)
         );
+
     } else if (tipus === 'varietat') {
         const finca = document.getElementById('tractament-finca-varietat').value;
         const varietat = document.getElementById('tractament-varietat').value;
-        
-        parcellesATractar = parcelles.filter(p => 
-            p.finca === finca && p.varietat === varietat && esParcellaApta(p)
+
+        parcellesATractar = parcelles.filter(p =>
+            p.finca === finca &&
+            p.varietat === varietat &&
+            esParcellaApta(p)
         );
     }
 
-    if (parcellesATractar.length === 0) {
+    if (!parcellesATractar.length) {
         mostrarNotificacio('No hi ha parcel·les aptes seleccionades', 'error');
         return;
     }
 
     // 3. Càlculs comuns
-		const superficieTotal = parcellesATractar.reduce((sum, p) => sum + (parseFloat(p.superficie) || 0), 0);
-		const producte = fitosanitaris.find(f => f.id === producteId);
-		const placSeguretat = producte ? (producte.plac || 0) : 0;
-		const dataLimit = new Date(data);
-		dataLimit.setDate(dataLimit.getDate() + placSeguretat);
-		const quantitatTotal = parcellesATractar.reduce(function(sum, p) {
-		return sum + (parseFloat(p.superficie) || 0);
-		}, 0) * dosi;
-	
-    try {
-        let tractamentId;
+    const producte = fitosanitaris.find(f => f.id === producteId);
+    const placSeguretat = producte ? (producte.plac || 0) : 0;
 
-        if (editMode) {
-            // --- LÒGICA D'EDICIÓ ---
-            // Actualitzem el registre principal (el primer del grup o l'únic)
-            tractamentId = editIds[0];
-            await updateTractament(tractamentId, {
-                data,
-                data_limit: dataLimit.toISOString().split('T')[0],
-                producte_id: producteId,
-                dosi,
-                unitat,
-                superficie_tractada: superficieTotal,
-                operador, maquinaria, condicions_meteo: meteo, observacions
-            });
-            
-            // Si hi hagués més registres al grup (històric), els podríem marcar com anul·lats o actualitzar-los
-            mostrarNotificacio('Tractament actualitzat', 'success');
-        } else {
-            // --- LÒGICA D'ALTA ---
-            const nouTractament = {
-                data,
-                data_limit: dataLimit.toISOString().split('T')[0],
-                parcella_id: parcellesATractar[0].id, // Referència a la primera parcel·la del grup
-                producte_id: producteId,
-                dosi,
-                unitat,
-                superficie_tractada: superficieTotal,
-                operador, maquinaria, condicions_meteo: meteo, observacions,
-                estat: 'actiu'
-            };
-            const creat = await createTractament(nouTractament);
-            tractamentId = creat.id;
-            mostrarNotificacio('Tractament registrat', 'success');
+    const dataLimit = new Date(data);
+    dataLimit.setDate(dataLimit.getDate() + placSeguretat);
+    const dataLimitStr = dataLimit.toISOString().split('T')[0];
+
+    try {
+        // Si estem editant, esborrem tractaments i moviments d’estoc anteriors del grup
+        if (editMode && editIds.length) {
+            await supabaseClient.from('tractaments').delete().in('id', editIds);
+            await supabaseClient.from('estoc_moviments').delete().in('referencia_id', editIds);
         }
 
-        // 4. GESTIÓ D'ESTOC (Sortida de magatzem)
-        // Primer eliminem qualsevol moviment d'estoc previ d'aquest tractament (per si és edició)
-        await supabaseClient.from('estoc_moviments').delete().eq('referencia_id', tractamentId);
+        const tractamentIds = [];
+        const grupsEstoc = {}; 
+        // clau: finca|varietat  → { finca, varietat, superficieTotal, consumTotal, referenciaId }
 
-        // Creem el nou moviment d'estoc (sempre negatiu per ser sortida)
-        const quantitatConsumida = dosi * superficieTotal; // Factor 1 segons acordat
-        await supabaseClient.from('estoc_moviments').insert([{
-            data: data,
+        // 4. Crear tractaments per parcel·la i preparar agrupació per finca+varietat
+        for (const p of parcellesATractar) {
+            const superficieParcel = parseFloat(p.superficie) || 0;
+            const varietat = p.varietat || 'Sense varietat';
+            const finca = p.finca || 'Sense finca';
+            const clauGrup = finca + '|' + varietat;
+
+            const nouTractament = {
+                data,
+                data_limit: dataLimitStr,
+                parcella_id: p.id,
+                producte_id: producteId,
+                dosi,
+                unitat,
+                superficie_tractada: superficieParcel,
+                operador,
+                maquinaria,
+                condicions_meteo: meteo,
+                observacions,
+                estat: 'actiu'
+            };
+
+            const creat = await createTractament(nouTractament);
+            tractamentIds.push(creat.id);
+
+            if (!grupsEstoc[clauGrup]) {
+                grupsEstoc[clauGrup] = {
+                    finca,
+                    varietat,
+                    superficieTotal: 0,
+                    consumTotal: 0,
+                    referenciaId: creat.id   // fem servir el primer tractament del grup
+                };
+            }
+
+            grupsEstoc[clauGrup].superficieTotal += superficieParcel;
+            grupsEstoc[clauGrup].consumTotal += superficieParcel * dosi;
+        }
+
+        // 5. Crear moviments d’estoc agregats per finca + varietat
+        const moviments = Object.values(grupsEstoc).map(g => ({
+            data,
             producte_id: producteId,
             tipus_producte: 'fitosanitari',
             tipus_moviment: 'tractament',
-            quantitat: -quantitatConsumida,
+            quantitat: -g.consumTotal,
             unitat: unitat.split('/')[0],
-            referencia_id: tractamentId,
-            observacions: `Tractament a ${tipus}: ${superficieTotal.toFixed(2)} Ha`,
+            referencia_id: g.referenciaId,
+            observacions: `Tractament a ${g.finca} – ${g.varietat} (${g.superficieTotal.toFixed(2)} Ha)`,
             creat_per: currentUser ? currentUser.id : null
-        }]);
+        }));
 
-        // 5. Neteja i tancament
+        if (moviments.length) {
+            await supabaseClient.from('estoc_moviments').insert(moviments);
+        }
+
+        mostrarNotificacio(editMode ? 'Tractament actualitzat' : 'Tractament registrat', 'success');
+
         tancarModal('modal-tractament');
         await carregarTaulaTractaments();
         resetFormulariTractaments();
@@ -902,6 +918,7 @@ async function guardarTractament(event) {
         mostrarNotificacio('Error en guardar: ' + error.message, 'error');
     }
 }
+
 
 // Funció auxiliar per mantenir els filtres homogenis
 function esParcellaApta(p) {
