@@ -90,7 +90,7 @@ async function carregarDadesCollita() {
         // Finques (referència a finques existents - ja carregades a app_v8.js)
         console.log('✅ Finques disponibles:', finques.length);
         
-        console.log('✅✅ TODAS LES DADES COLLITA CARREGADES CORRECTAMENT');
+        console.log('✅✅ TOTES LES DADES COLLITA CARREGADES CORRECTAMENT');
     } catch (error) {
         console.error('❌ Error carregant dades Collita:', error);
         mostrarNotificacio('❌ Error carregant dades Collita: ' + error.message, 'error');
@@ -219,7 +219,7 @@ async function obtenerAlbaraEntradaPorNum(numAlbara) {
     }
 }
 
-async function obtenirTodasEntradas(campanya = 2025) {
+async function obtenirTotesEntrades(campanya = 2025) {
     try {
         const { data, error } = await supabaseClient
             .from('collita_entrada')
@@ -315,7 +315,7 @@ async function crearAlbaraEscandall(dades, calibres, noComercios, industria) {
     }
 }
 
-async function obtenirTodasEscandalls() {
+async function obtenirTotsEscandalls() {
     try {
         const { data, error } = await supabaseClient
             .from('collita_escandall')

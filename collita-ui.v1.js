@@ -50,7 +50,7 @@ async function mostrarVista_Entrades() {
 
 async function mostrarTaulaEntrades() {
     const content = document.getElementById('collita-content');
-    const entrades = await obtenirTodasEntrades();
+    const entrades = await obtenirTotesEntrades();
     
     let html = '<div class="taula-entrades">';
     html += '<table class="data-table" style="width: 100%;">';
@@ -294,7 +294,7 @@ async function mostrarVista_Escandalls() {
 
 async function mostrarTaulaEscandalls() {
     const content = document.getElementById('collita-content');
-    const escandalls = await obtenirTodasEscandalls();
+    const escandalls = await obtenirTotsEscandalls();
     
     let html = '<div class="taula-escandalls">';
     html += '<table class="data-table" style="width: 100%;">';
