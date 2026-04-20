@@ -446,9 +446,7 @@ async function buscarEntrada() {
 
 		// --- NOVA LÒGICA DE CALIBRES ---
 		// Buscar la varietat para obtener fruita_id
-		const varietat = varietats.find(v => v.id === entrada.fruita_varietat_id);
-		const fruita = fruites.find(f => f.id === varietat?.fruita_id);
-
+		
 		if (fruita) {
 			const calibresDisponibles = calibresFruita[fruita.id] || [];
     
