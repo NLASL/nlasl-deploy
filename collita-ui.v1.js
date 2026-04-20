@@ -552,11 +552,7 @@ async function guardarAlbaraEscandall(event) {
 		const entrada = await obtenerAlbaraEntradaPorNum(document.getElementById('escandall-num-entrada').value);
 		const num_albara_escandall = entrada.num_albara + '-ESC';  // Autoassignado
 		if (!entrada) throw new Error('Entrada no trobada');
-	
-		
-        const entrada = await obtenerAlbaraEntradaPorNum(document.getElementById('escandall-num-entrada').value);
-        if (!entrada) throw new Error('Entrada no trobada');
-        
+			                
         const calibres = [];
         document.querySelectorAll('#taula-calibres tbody tr').forEach(tr => {
             calibres.push({
