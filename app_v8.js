@@ -488,80 +488,85 @@ async function carregarVistaTractaments() {
 async function carregarTaulaTractaments() {
     const tbody = document.getElementById('tbody-tractaments');
     if (!tbody) return;
-    
+
     try {
         const { data } = await supabaseClient
-			.from('tractaments')
-			.select('*')
-			.eq('estat', 'actiu')
-			.order('data', { ascending: false });
-		tractaments = data || [];
-        
-        if (tractaments.length === 0) {
+            .from('tractaments')
+            .select('*')
+            .eq('estat', 'actiu')
+            .order('data', { ascending: false });
+
+        tractaments = data || [];
+
+        if (!tractaments.length) {
             tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hi ha tractaments</td></tr>';
             return;
         }
-        
-        // Agrupar tractaments per data + producte + finca
+
+        // 🔵 AGRUPACIÓ PER DATA + PRODUCTE + FINCA + VARIETAT
         const grups = {};
-        for (let i = 0; i < tractaments.length; i++) {
-            const t = tractaments[i];
-            const parcella = parcelles.find(function(p) { return p.id === t.parcella_id; });
-            const finca = parcella ? (parcella.finca || 'Sense finca') : 'Sense finca';
-            const clau = t.data + '|' + t.producte_id + '|' + finca;
+
+        tractaments.forEach(t => {
+            const p = parcelles.find(pa => pa.id === t.parcella_id);
+            if (!p) return;
+
+            const finca = p.finca || 'Sense finca';
+            const varietat = p.varietat || 'Sense varietat';
+
+            const clau = `${t.data}|${t.producte_id}|${finca}|${varietat}`;
+
             if (!grups[clau]) {
                 grups[clau] = {
                     data: t.data,
                     producte_id: t.producte_id,
-                    finca: finca,
+                    finca,
+                    varietat,
                     dosi: t.dosi,
                     unitat: t.unitat,
                     tractaments: []
                 };
             }
+
             grups[clau].tractaments.push(t);
-        }
-        
+        });
+
         const podeEditar = hasPermission('update');
         const podeEliminar = hasPermission('delete');
-        
+
         let html = '';
-        Object.keys(grups).sort().reverse().forEach(function(clau) {
-            const grup = grups[clau];
-            const producte = fitosanitaris.find(function(f) { return f.id === grup.producte_id; });
+
+        Object.keys(grups).sort().reverse().forEach(clau => {
+            const g = grups[clau];
+            const producte = fitosanitaris.find(f => f.id === g.producte_id);
             const nomProducte = producte ? producte.nom : 'Producte desconegut';
-            
-            const superficieTotal = grup.tractaments.reduce(function(sum, t) {
-                return sum + (parseFloat(t.superficie_tractada) || 0);
-            }, 0);
-            
-            const numParcelles = grup.tractaments.length;
-            
-            html += '<tr>';
-            html += '<td><strong>' + formatData(grup.data) + '</strong></td>';
-            html += '<td>' + nomProducte + '</td>';
-            html += '<td>' + grup.finca + '</td>';
-            html += '<td>' + numParcelles + ' parcel·les</td>';
-            html += '<td>' + superficieTotal.toFixed(2) + '</td>';
-            html += '<td>' + (grup.dosi || 0) + ' ' + (grup.unitat || 'L/Ha') + '</td>';
-            html += '<td>';
-			html += '<button class="btn btn-sm btn-primary" onclick="veureTractamentGrup(\'' + clau.replace(/'/g, "\\'") + '\')">👁️</button> ';
-				if (podeEditar) {
-			html += '<button class="btn btn-sm btn-secondary" onclick="editarTractamentGrup(\'' + clau.replace(/'/g, "\\'") + '\')" style="margin-right:4px;">✏️</button> ';
-}
-				if (podeEliminar) {
-			html += '<button class="btn btn-sm btn-danger" onclick="eliminarTractamentGrup(\'' + clau.replace(/'/g, "\\'") + '\')">🗑️</button>';
-}
-            html += '</td></tr>';
+
+            const superficieTotal = g.tractaments.reduce((sum, t) =>
+                sum + (parseFloat(t.superficie_tractada) || 0), 0);
+
+            html += `
+                <tr>
+                    <td><strong>${formatData(g.data)}</strong></td>
+                    <td>${nomProducte}</td>
+                    <td>${g.finca}</td>
+                    <td>${g.varietat}</td>
+                    <td>${superficieTotal.toFixed(2)}</td>
+                    <td>${g.dosi} ${g.unitat}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="veureTractamentGrup('${clau}')">👁️</button>
+                        ${podeEditar ? `<button class="btn btn-sm btn-secondary" onclick="editarTractamentGrup('${clau}')">✏️</button>` : ''}
+                        ${podeEliminar ? `<button class="btn btn-sm btn-danger" onclick="eliminarTractamentGrup('${clau}')">🗑️</button>` : ''}
+                    </td>
+                </tr>`;
         });
-        
+
         tbody.innerHTML = html;
-        
+
     } catch (error) {
-        console.error('Error:', error);
+        console.error(error);
         tbody.innerHTML = '<tr><td colspan="7">Error carregant dades</td></tr>';
     }
 }
+
 
 function crearModalTractament() {
     let html = '<div id="modal-tractament" class="modal" style="display: none;">';
@@ -935,201 +940,180 @@ function resetFormulariTractaments() {
     document.getElementById('quantitat-total').textContent = '0';
 }
 async function veureTractamentGrup(clau) {
-    // La clau ara és: data-producte_id-finca
-    const grupTractaments = tractaments.filter(function(t) {
-        const parcella = parcelles.find(function(p) { return p.id === t.parcella_id; });
-        const finca = parcella ? (parcella.finca || 'Sense finca') : 'Sense finca';
-        return (t.data + '|' + t.producte_id + '|' + finca) === clau;
+    const [data, producteId, finca, varietat] = clau.split('|');
+
+    const grup = tractaments.filter(t => {
+        const p = parcelles.find(pa => pa.id === t.parcella_id);
+        return t.data === data &&
+               t.producte_id === producteId &&
+               p && p.finca === finca &&
+               (p.varietat || 'Sense varietat') === varietat;
     });
-    
-    if (grupTractaments.length === 0) return;
-    
-    const primer = grupTractaments[0];
-    const producte = fitosanitaris.find(function(f) { return f.id === primer.producte_id; });
+
+    if (!grup.length) return;
+
+    const primer = grup[0];
+    const producte = fitosanitaris.find(f => f.id === primer.producte_id);
     const nomProducte = producte ? producte.nom : 'Producte desconegut';
-    
-    const superficieTotal = grupTractaments.reduce(function(sum, t) {
-        return sum + (parseFloat(t.superficie_tractada) || 0);
-    }, 0);
-    
-    const quantitatTotal = superficieTotal * (parseFloat(primer.dosi) || 0);
-    const unitatBase = (primer.unitat || 'L/Ha').split('/')[0];
-    
-    let html = '<div id="modal-veure-tractament" class="modal" style="display: block;">';
-    html += '<div class="modal-content" style="max-width: 700px;">';
-    html += '<span class="close" onclick="tancarModal(\'modal-veure-tractament\')">&times;</span>';
-    html += '<h2>📋 Detall Tractament</h2>';
-    
-    html += '<div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">';
-    html += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">';
-    html += '<div><strong>📅 Data:</strong> ' + formatData(primer.data) + '</div>';
-    html += '<div><strong>🧪 Producte:</strong> ' + nomProducte + '</div>';
-    html += '<div><strong>💧 Dosi:</strong> ' + (primer.dosi || 0) + ' ' + (primer.unitat || 'L/Ha') + '</div>';
-    html += '<div><strong>📏 Superfície total:</strong> ' + superficieTotal.toFixed(2) + ' Ha</div>';
-    html += '<div><strong>📦 Quantitat total:</strong> ' + quantitatTotal.toFixed(2) + ' ' + unitatBase + '</div>';
-    if (primer.data_limit) {
-        html += '<div><strong>⏰ Data límit:</strong> ' + formatData(primer.data_limit) + '</div>';
-    }
-    html += '</div></div>';
-    
-    html += '<h3 style="margin-top: 20px; margin-bottom: 10px;">🗺️ Parcel·les Tractades (' + grupTractaments.length + ')</h3>';
-    html += '<div class="table-container"><table class="data-table">';
-    html += '<thead><tr><th>Parcel·la</th><th>Finca</th><th>Cultiu</th><th>Varietat</th><th>Superfície (Ha)</th></tr></thead>';
-    html += '<tbody>';
-    
-    grupTractaments.forEach(function(t) {
-        const parcella = parcelles.find(function(p) { return p.id === t.parcella_id; });
-        if (parcella) {
-            html += '<tr>';
-            html += '<td><strong>' + (parcella.nom || '-') + '</strong></td>';
-            html += '<td>' + (parcella.finca || '-') + '</td>';
-            html += '<td>' + (parcella.cultiu || '-') + '</td>';
-            html += '<td>' + (parcella.varietat || '-') + '</td>';
-            html += '<td>' + (t.superficie_tractada || 0) + '</td>';
-            html += '</tr>';
-        }
+
+    const superficieTotal = grup.reduce((sum, t) =>
+        sum + (parseFloat(t.superficie_tractada) || 0), 0);
+
+    const quantitatTotal = superficieTotal * primer.dosi;
+    const unitatBase = primer.unitat.split('/')[0];
+
+    let html = `
+    <div id="modal-veure-tractament" class="modal" style="display:block;">
+        <div class="modal-content" style="max-width:700px;">
+            <span class="close" onclick="tancarModal('modal-veure-tractament')">&times;</span>
+            <h2>📋 Detall Tractament</h2>
+
+            <div style="background:#f5f5f5;padding:15px;border-radius:8px;margin-bottom:20px;">
+                <div><strong>📅 Data:</strong> ${formatData(primer.data)}</div>
+                <div><strong>🧪 Producte:</strong> ${nomProducte}</div>
+                <div><strong>🏞️ Finca:</strong> ${finca}</div>
+                <div><strong>🌱 Varietat:</strong> ${varietat}</div>
+                <div><strong>💧 Dosi:</strong> ${primer.dosi} ${primer.unitat}</div>
+                <div><strong>📏 Superfície total:</strong> ${superficieTotal.toFixed(2)} Ha</div>
+                <div><strong>📦 Quantitat total:</strong> ${quantitatTotal.toFixed(2)} ${unitatBase}</div>
+                ${primer.data_limit ? `<div><strong>⏰ Data límit:</strong> ${formatData(primer.data_limit)}</div>` : ''}
+            </div>
+
+            <h3>🗺️ Parcel·les Tractades (${grup.length})</h3>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Parcel·la</th>
+                            <th>Cultiu</th>
+                            <th>Superfície (Ha)</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+    grup.forEach(t => {
+        const p = parcelles.find(pa => pa.id === t.parcella_id);
+        html += `
+            <tr>
+                <td><strong>${p.nom}</strong></td>
+                <td>${p.cultiu}</td>
+                <td>${t.superficie_tractada}</td>
+            </tr>`;
     });
-    
-    html += '</tbody></table></div>';
-    
-    if (primer.operador || primer.maquinaria || primer.condicions_meteo || primer.observacions) {
-        html += '<h3 style="margin-top: 20px; margin-bottom: 10px;">📝 Informació Addicional</h3>';
-        html += '<div style="background: #f5f5f5; padding: 15px; border-radius: 8px;">';
-        if (primer.operador) {
-            html += '<div style="margin-bottom: 10px;"><strong>👤 Operador:</strong> ' + primer.operador + '</div>';
-        }
-        if (primer.maquinaria) {
-            html += '<div style="margin-bottom: 10px;"><strong>🚜 Maquinària:</strong> ' + primer.maquinaria + '</div>';
-        }
-        if (primer.condicions_meteo) {
-            html += '<div style="margin-bottom: 10px;"><strong>🌤️ Condicions Meteo:</strong> ' + primer.condicions_meteo + '</div>';
-        }
-        if (primer.observacions) {
-            html += '<div><strong>📄 Observacions:</strong> ' + primer.observacions + '</div>';
-        }
-        html += '</div>';
-    }
-    
-    html += '<div class="form-actions" style="margin-top: 20px;">';
-    html += '<button type="button" class="btn btn-primary" onclick="tancarModal(\'modal-veure-tractament\')">Tancar</button>';
-    html += '</div>';
-    
-    html += '</div></div>';
-    
+
+    html += `
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="form-actions" style="margin-top:20px;">
+                <button class="btn btn-primary" onclick="tancarModal('modal-veure-tractament')">Tancar</button>
+            </div>
+        </div>
+    </div>`;
+
     document.body.insertAdjacentHTML('beforeend', html);
 }
-async function editarTractamentGrup(clau) {
-    // Reconstruir el grup
-    const parts = clau.split('|');
-	const data = parts[0];
-	const producteId = parts[1];
-	const finca = parts[2];
 
-    const grup = tractaments.filter(function(t) {
-        const p = parcelles.find(function(pa) { return pa.id === t.parcella_id; });
-        const f = p ? (p.finca || 'Sense finca') : 'Sense finca';
+
+async function editarTractamentGrup(clau) {
+    const [data, producteId, finca] = clau.split('|');
+
+    // 1. Recuperar tots els tractaments del grup
+    const grup = tractaments.filter(t => {
+        const p = parcelles.find(pa => pa.id === t.parcella_id);
+        const f = p ? p.finca : null;
         return t.data === data && t.producte_id === producteId && f === finca;
     });
 
-    if (grup.length === 0) return;
+    if (!grup.length) return;
+
     const primer = grup[0];
-	
-	// Assegurar que el modal existeix al DOM
-    if (!document.getElementById('modal-tractament')) {
+
+    // 2. Obrir modal i preparar-lo
+    const modal = document.getElementById('modal-tractament');
+    if (!modal) {
         const div = document.createElement('div');
         div.innerHTML = crearModalTractament();
         document.body.appendChild(div.firstElementChild);
     }
 
-    // Reutilitzar modal existent
     document.getElementById('modal-tractament-titol').textContent = 'Editar Tractament';
-    document.getElementById('form-tractament').reset();
-    document.getElementById('form-tractament').dataset.editIds = grup.map(function(t) { return t.id; }).join(',');
-    document.getElementById('form-tractament').dataset.editMode = 'true';
+    const form = document.getElementById('form-tractament');
+    form.reset();
 
- // Carregar finques i parcel·les
-    const selectFincaVarietat = document.getElementById('tractament-finca-varietat');
-    selectFincaVarietat.innerHTML = '<option value="">Seleccionar...</option>';
+    // 3. Marcar mode edició
+    form.dataset.editMode = 'true';
+    form.dataset.editIds = grup.map(t => t.id).join(',');
 
+    // 4. Seleccionar finca al modal
     const checksContainer = document.getElementById('tractament-finques-checks');
     checksContainer.innerHTML = '';
-    finques.forEach(function(f) {
-        checksContainer.innerHTML += 
-            '<div style="padding:4px 0;display:table;width:100%;">' +
-            '<input type="checkbox" value="' + f + '" onchange="actualitzarParcellesSeleccionades()" style="display:table-cell;vertical-align:middle;width:20px;">' +
-            '<span style="font-size:13px;display:table-cell;vertical-align:middle;padding-left:8px;color:black;text-align:left;width:100%;">' + f + '</span>' +
-            '</div>';
-        selectFincaVarietat.innerHTML += '<option value="' + f + '">' + f + '</option>';
+    finques.forEach(f => {
+        const checked = f === finca ? 'checked' : '';
+        checksContainer.innerHTML += `
+            <div style="padding:4px 0;">
+                <input type="checkbox" value="${f}" ${checked} onchange="actualitzarParcellesSeleccionades()">
+                <span>${f}</span>
+            </div>`;
     });
 
-    // Seleccionar la finca del grup
-    const checkFinca = checksContainer.querySelector('input[value="' + finca + '"]');
-    if (checkFinca) checkFinca.checked = true;
-
-     // Omplir camps
+    // 5. Omplir camps
     document.getElementById('tractament-data').value = primer.data;
-    document.getElementById('tractament-dosi').value = primer.dosi || '';
-    document.getElementById('tractament-unitat').value = primer.unitat || 'L/Ha';
+    document.getElementById('tractament-dosi').value = primer.dosi;
+    document.getElementById('tractament-unitat').value = primer.unitat;
     document.getElementById('tractament-operador').value = primer.operador || '';
     document.getElementById('tractament-maquinaria').value = primer.maquinaria || '';
-    document.getElementById('tractament-meteo').value = primer.meteo || '';
+    document.getElementById('tractament-meteo').value = primer.condicions_meteo || '';
     document.getElementById('tractament-observacions').value = primer.observacions || '';
- 
- // Carregar productes i seleccionar
+
+    // 6. Seleccionar producte
     const selectProducte = document.getElementById('tractament-producte');
-    selectProducte.innerHTML = '<option value="">Seleccionar...</option>';
-    const fitosanitarisOrdenats = fitosanitaris.slice().sort(function(a, b) {
-        return (a.nom || '').localeCompare(b.nom || '');
-    });
-    fitosanitarisOrdenats.forEach(function(f) {
-        selectProducte.innerHTML += '<option value="' + f.id + '">' + f.nom + '</option>';
-    });
     selectProducte.value = producteId;
     actualitzarDosisRecomanada();
 
+    // 7. Mostrar modal
     document.getElementById('modal-tractament').style.display = 'block';
+
+    // 8. Recalcular superfícies
+    actualitzarParcellesSeleccionades();
 }
+
 
 async function eliminarTractamentGrup(clau) {
     if (!confirm('Segur que vols eliminar aquest grup de tractaments?')) return;
-    
+
+    const [data, producteId, finca] = clau.split('|');
+
+    // 1. Recuperar tractaments del grup
+    const grup = tractaments.filter(t => {
+        const p = parcelles.find(pa => pa.id === t.parcella_id);
+        const f = p ? p.finca : null;
+        return t.data === data && t.producte_id === producteId && f === finca;
+    });
+
+    if (!grup.length) return;
+
+    const ids = grup.map(t => t.id);
+
     try {
-        const grup = tractaments.filter(function(t) {
-            const parcella = parcelles.find(function(p) { return p.id === t.parcella_id; });
-            const finca = parcella ? (parcella.finca || 'Sense finca') : 'Sense finca';
-            return (t.data + '|' + t.producte_id + '|' + finca) === clau;
-        });
-        
-        const dataAvui = new Date().toISOString().split('T')[0];
-        
-        // Marcar tractaments com a anulats
-        for (let i = 0; i < grup.length; i++) {
-            await supabaseClient.from('tractaments')
-                .update({
-                    estat: 'anulat',
-                    data_anulacio: dataAvui
-                })
-                .eq('id', grup[i].id);
-        }
-        
-        // Marcar moviments com a anulats
-        for (let i = 0; i < grup.length; i++) {
-            await supabaseClient.from('estoc_moviments')
-                .update({
-                    estat: 'anulat',
-                    data_anulacio: dataAvui
-                })
-                .eq('referencia_id', grup[i].id);
-        }
-        
-        mostrarNotificacio('Tractaments anulats correctament', 'success');
+        // 2. Esborrar tractaments
+        await supabaseClient.from('tractaments').delete().in('id', ids);
+
+        // 3. Esborrar moviments d’estoc associats
+        await supabaseClient.from('estoc_moviments').delete().in('referencia_id', ids);
+
+        mostrarNotificacio('Tractament eliminat', 'success');
+
+        // 4. Actualitzar vista
         await carregarTaulaTractaments();
-        await carregarTaulaExistencies();
+
     } catch (error) {
-        console.error('Error eliminant:', error);
-        mostrarNotificacio('Error: ' + error.message, 'error');
+        console.error(error);
+        mostrarNotificacio('Error eliminant tractament', 'error');
     }
 }
+
 
 // ============================================================
 // VISTA FERTILITZACIONS AMB CRUD
