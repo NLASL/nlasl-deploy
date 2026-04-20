@@ -445,16 +445,19 @@ async function buscarEntrada() {
 		calcularPesNetEscandall();
 
 		// --- NOVA LÒGICA DE CALIBRES ---
-		const fruita = fruites.find(f => f.id === entrada.fruita_varietat_id);
+		// Buscar la varietat para obtener fruita_id
+		const varietat = varietats.find(v => v.id === entrada.fruita_varietat_id);
+		const fruita = fruites.find(f => f.id === varietat?.fruita_id);
+
 		if (fruita) {
 			const calibresDisponibles = calibresFruita[fruita.id] || [];
     
 			// Netejar taula calibres
 			document.querySelector('#taula-calibres tbody').innerHTML = '';
-    
+		
 			// Afegir files amb calibres disponibles
 			calibresDisponibles.forEach(calibre => {
-			afegirFilaCalibres(calibre);
+				afegirFilaCalibres(calibre);
     });
 }
         // -------------------------------
