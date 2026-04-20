@@ -421,21 +421,21 @@ async function buscarEntrada() {
     if (entrada) {
         document.getElementById('entrada-info').style.display = 'block';
         
-        // Busquem la fruita per obtenir el nom i l'ID
-        // Necesitas hacer un JOIN o cargar los datos relacionados
-		const varietat = varietats.find(v => v.id === entrada.fruita_varietat_id);
-		const fruita = fruites.find(f => f.id === varietat?.fruita_id);  // ← Usar fruita_id de varietat
-
-		// Obtener nombre finca desde parcelles
-		const parcellaAmbFinca = parcelles.find(p => p.id === entrada.finca_id);
-		const fincaNom = entrada.finca || 'Desconeguda';
-
-		document.getElementById('entrada-info').innerHTML = `
-			<strong>Fruita:</strong> ${fruita?.nom || '-'} / ${varietat?.varietat || '-'}<br>
-			<strong>Finca:</strong> ${fincaNom}<br>
+        // OBTENER FRUITA
+        const varietat = varietats.find(v => v.id === entrada.fruita_varietat_id);
+        const fruita = fruites.find(f => f.id === varietat?.fruita_id);
+        
+        // OBTENER FINCA desde parcelles usando finca_id
+        const parcellaAmbFinca = parcelles.find(p => p.id === entrada.finca_id);
+        const fincaNom = parcellaAmbFinca?.finca || 'Desconeguda';
+        
+        document.getElementById('entrada-info').innerHTML = `
+            <strong>Fruita:</strong> ${fruita?.nom || '-'} / ${varietat?.varietat || '-'}<br>
+            <strong>Finca:</strong> ${fincaNom}<br>
             <strong>Pes Net:</strong> ${(entrada.pes_net || 0).toFixed(2)} kg<br>
             <strong>Palots Entrada:</strong> ${entrada.quantitat_palots_entrada || 0}
         `;
+        
         
         // Guardar palots entrada
         document.getElementById('escandall-palots-entrada').value = entrada.quantitat_palots_entrada || 0;
