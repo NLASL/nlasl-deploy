@@ -380,7 +380,7 @@ async function mostrarFormulariAlbaraEscandall() {
     html += '<h4 style="margin-top: 20px;">📏 Calibres</h4>';
     html += '<div id="escandall-calibres-container">';
     html += '<button type="button" class="btn btn-sm btn-success" onclick="afegirFilaCalibres()">➕ Afegir Calibre</button>';
-    html += '<table id="taula-calibres" class="data-table" style="margin-top: 10px; width: 100%;"><thead><tr><th>Calibre</th><th>Pes (kg)</th><th>%</th><th>Categoria</th><th></th></tr></thead><tbody></tbody></table>';
+    html += '<table id="taula-calibres" class="data-table" style="margin-top: 10px; width: 100%;"><thead><tr><th>Calibre</th><th>Pes (kg)</th><th>%</th><th>Color</th><th>Categoria</th><th></th></tr></thead><tbody></tbody></table>';
     html += '</div>';
     
     // No Comercial
@@ -401,12 +401,15 @@ async function mostrarFormulariAlbaraEscandall() {
     html += '<div id="validacio-percentatges" style="margin-top: 20px; padding: 10px; background: #fff3cd; border-radius: 4px; display: none;"></div>';
     
     // Botons
-    html += '<div style="margin-top: 20px;">';
-    html += '<button type="submit" class="btn btn-success">💾 Guardar Escandall</button>';
-    html += '<button type="button" class="btn btn-secondary" onclick="canviarVistaCollita(\'escandalls\')" style="margin-left: 10px;">❌ Cancelar</button>';
-    html += '</div>';
-    
-    html += '</form></div>';
+	html += '<div style="margin-top: 20px;">';
+	html += '<button type="submit" class="btn btn-success">💾 Guardar Escandall</button>';
+	html += '<button type="button" class="btn btn-secondary" onclick="canviarVistaCollita(\'escandalls\')" style="margin-left: 10px;">❌ Cancelar</button>';
+	html += '</div>';
+
+	// Camp hidden (DINS del form)
+	html += '<input type="hidden" id="escandall-palots-entrada" value="">';
+
+	html += '</form></div>';
     
     container.innerHTML = html;
     document.getElementById('escandall-data').valueAsDate = new Date();
@@ -418,19 +421,40 @@ async function buscarEntrada() {
     
     if (entrada) {
         document.getElementById('entrada-info').style.display = 'block';
+        
+        // Busquem la fruita per obtenir el nom i l'ID
+        const fruita = fruites.find(f => f.id === entrada.fruita_varietat_id?.fruita_id);
+        
         document.getElementById('entrada-info').innerHTML = `
-            <strong>Fruita:</strong> ${fruites.find(f => f.id === entrada.fruita_varietat_id?.fruita_id)?.nom || '-'} / 
-            ${entrada.fruita_varietat_id?.varietat || '-'}<br>
-            <strong>Finca:</strong> ${finques.find(f => f.id === entrada.finca_id)?.nom || '-'}<br>
+            <strong>Fruita:</strong> ${fruita?.nom || '-'} / ${entrada.fruita_varietat_id?.varietat || '-'}<br>
+            <strong>Finca:</strong> ${finques.find(f => f === entrada.finca)?.nom || entrada.finca}<br>
             <strong>Pes Net:</strong> ${(entrada.pes_net || 0).toFixed(2)} kg<br>
-            <strong>Palots:</strong> ${entrada.quantitat_palots_entrada || 0}
+            <strong>Palots Entrada:</strong> ${entrada.quantitat_palots_entrada || 0}
         `;
+        
+        // Guardar palots entrada
+        document.getElementById('escandall-palots-entrada').value = entrada.quantitat_palots_entrada || 0;
         
         // Copiar dades a escandall
         document.getElementById('escandall-qualitat-original').value = entrada.qualitat || '-';
         document.getElementById('escandall-pes-brut').value = entrada.pes_brut || '';
         document.getElementById('escandall-tara-env').value = entrada.tara_envases || '';
         document.getElementById('escandall-tara-vehicle').value = entrada.tara_vehicle || '';
+        
+        // --- NOVA LÒGICA DE CALIBRES ---
+        if (fruita) {
+            const calibresDisponibles = calibresFruita[fruita.id] || [];
+            
+            // Opcional: Netejar la taula de calibres abans d'afegir-ne de nous
+            // const tableBody = document.getElementById('taula-calibres-body');
+            // if (tableBody) tableBody.innerHTML = ''; 
+
+            calibresDisponibles.forEach(calibre => {
+                afegirFilaCalibres(calibre); 
+            });
+        }
+        // -------------------------------
+
         calcularPesNetEscandall();
     } else {
         document.getElementById('entrada-info').style.display = 'none';
@@ -520,6 +544,16 @@ async function guardarAlbaraEscandall(event) {
     event.preventDefault();
     
     try {
+		const palotsentrada = parseInt(document.getElementById('escandall-palots-entrada').value) || 0;
+    
+		// Los palots del escandall = número de filas de calibres (cada fila = 1 palot aproximadamente)
+		// O: suma de calibres / pes_mig de entrada
+		// En guardarAlbaraEscandall:
+		const entrada = await obtenerAlbaraEntradaPorNum(document.getElementById('escandall-num-entrada').value);
+		const num_albara_escandall = entrada.num_albara + '-ESC';  // Autoassignado
+		if (!entrada) throw new Error('Entrada no trobada');
+	
+		
         const entrada = await obtenerAlbaraEntradaPorNum(document.getElementById('escandall-num-entrada').value);
         if (!entrada) throw new Error('Entrada no trobada');
         
@@ -560,7 +594,8 @@ async function guardarAlbaraEscandall(event) {
             tara_vehicle: parseFloat(document.getElementById('escandall-tara-vehicle').value),
             pes_net: parseFloat(document.getElementById('escandall-pes-net').value),
             created_by: currentUser ? currentUser.id : null
-        };
+			  diferencia_palots: Math.abs(palotsentrada - (entrada.quantitat_palots_entrada || 0))
+           };
         
         // Comparar entrada vs escandall
         const comparativa = await compararEntradaVsEscandall(entrada.id, dades);
