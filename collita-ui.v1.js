@@ -424,8 +424,12 @@ async function buscarEntrada() {
         
         // Busquem la fruita per obtenir el nom i l'ID
         // Necesitas hacer un JOIN o cargar los datos relacionados
-		const fruita = fruites.find(f => f.id === entrada.fruita_varietat_id);  // Buscar por ID directo
-		const varietat = varietats.find(v => v.id === entrada.fruita_varietat_id);  // O así
+		const varietat = varietats.find(v => v.id === entrada.fruita_varietat_id);
+		const fruita = fruites.find(f => f.id === varietat?.fruita_id);  // ← Usar fruita_id de varietat
+
+		// Obtener nombre finca desde parcelles
+		const parcellaAmbFinca = parcelles.find(p => p.id === entrada.finca_id);
+		const fincaNom = parcellaAmbFinca?.finca || 'Desconeguda';
 
 		document.getElementById('entrada-info').innerHTML = `
 			<strong>Fruita:</strong> ${fruita?.nom || '-'} / ${varietat?.varietat || '-'}<br>
