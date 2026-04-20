@@ -214,14 +214,13 @@ async function guardarAlbaraEntrada(event) {
     try {
 		// Obtener el ID de parcella que tiene esa finca
 			const fincaNombre = document.getElementById('entrada-finca').value;
-			const parcellaAmbFinca = parcelles.find(p => p.finca === fincaNombre);
-			const fincaId = parcellaAmbFinca ? parcellaAmbFinca.id : null;
 			
+						
         const dades = {
             data: document.getElementById('entrada-data').value,
             num_albara: document.getElementById('entrada-num-albara').value,
             fruita_varietat_id: document.getElementById('entrada-varietat').value,
-            finca_id: fincaId,  // ← CORRECTO: es un UUID
+            finca: fincaNombre,  // ← Guardar el NOMBRE, no fincaId
             qualitat: document.getElementById('entrada-qualitat').value,
             
             tipus_envases_entrada: document.getElementById('entrada-tipus-envases').value,
@@ -429,11 +428,11 @@ async function buscarEntrada() {
 
 		// Obtener nombre finca desde parcelles
 		const parcellaAmbFinca = parcelles.find(p => p.id === entrada.finca_id);
-		const fincaNom = parcellaAmbFinca?.finca || 'Desconeguda';
+		const fincaNom = entrada.finca || 'Desconeguda';
 
 		document.getElementById('entrada-info').innerHTML = `
 			<strong>Fruita:</strong> ${fruita?.nom || '-'} / ${varietat?.varietat || '-'}<br>
-			<strong>Finca:</strong> ${entrada.finca}<br>
+			<strong>Finca:</strong> ${fincaNom}<br>
             <strong>Pes Net:</strong> ${(entrada.pes_net || 0).toFixed(2)} kg<br>
             <strong>Palots Entrada:</strong> ${entrada.quantitat_palots_entrada || 0}
         `;
