@@ -423,11 +423,13 @@ async function buscarEntrada() {
         document.getElementById('entrada-info').style.display = 'block';
         
         // Busquem la fruita per obtenir el nom i l'ID
-        const fruita = fruites.find(f => f.id === entrada.fruita_varietat_id?.fruita_id);
-        
-        document.getElementById('entrada-info').innerHTML = `
-            <strong>Fruita:</strong> ${fruita?.nom || '-'} / ${entrada.fruita_varietat_id?.varietat || '-'}<br>
-            <strong>Finca:</strong> ${finques.find(f => f === entrada.finca)?.nom || entrada.finca}<br>
+        // Necesitas hacer un JOIN o cargar los datos relacionados
+		const fruita = fruites.find(f => f.id === entrada.fruita_varietat_id);  // Buscar por ID directo
+		const varietat = varietats.find(v => v.id === entrada.fruita_varietat_id);  // O así
+
+		document.getElementById('entrada-info').innerHTML = `
+			<strong>Fruita:</strong> ${fruita?.nom || '-'} / ${varietat?.varietat || '-'}<br>
+			<strong>Finca:</strong> ${entrada.finca}<br>
             <strong>Pes Net:</strong> ${(entrada.pes_net || 0).toFixed(2)} kg<br>
             <strong>Palots Entrada:</strong> ${entrada.quantitat_palots_entrada || 0}
         `;
@@ -435,24 +437,26 @@ async function buscarEntrada() {
         // Guardar palots entrada
         document.getElementById('escandall-palots-entrada').value = entrada.quantitat_palots_entrada || 0;
         
-        // Copiar dades a escandall
-        document.getElementById('escandall-qualitat-original').value = entrada.qualitat || '-';
-        document.getElementById('escandall-pes-brut').value = entrada.pes_brut || '';
-        document.getElementById('escandall-tara-env').value = entrada.tara_envases || '';
-        document.getElementById('escandall-tara-vehicle').value = entrada.tara_vehicle || '';
-        
-        // --- NOVA LÒGICA DE CALIBRES ---
-        if (fruita) {
-            const calibresDisponibles = calibresFruita[fruita.id] || [];
-            
-            // Opcional: Netejar la taula de calibres abans d'afegir-ne de nous
-            // const tableBody = document.getElementById('taula-calibres-body');
-            // if (tableBody) tableBody.innerHTML = ''; 
+		// Copiar dades a escandall
+		document.getElementById('escandall-qualitat-original').value = entrada.qualitat || '-';
+		document.getElementById('escandall-pes-brut').value = entrada.pes_brut || '';
+		document.getElementById('escandall-tara-env').value = entrada.tara_envases || '';
+		document.getElementById('escandall-tara-vehicle').value = entrada.tara_vehicle || '';
+		calcularPesNetEscandall();
 
-            calibresDisponibles.forEach(calibre => {
-                afegirFilaCalibres(calibre); 
-            });
-        }
+		// --- NOVA LÒGICA DE CALIBRES ---
+		const fruita = fruites.find(f => f.id === entrada.fruita_varietat_id);
+		if (fruita) {
+			const calibresDisponibles = calibresFruita[fruita.id] || [];
+    
+			// Netejar taula calibres
+			document.querySelector('#taula-calibres tbody').innerHTML = '';
+    
+			// Afegir files amb calibres disponibles
+			calibresDisponibles.forEach(calibre => {
+			afegirFilaCalibres(calibre);
+    });
+}
         // -------------------------------
 
         calcularPesNetEscandall();
@@ -578,7 +582,7 @@ async function guardarAlbaraEscandall(event) {
         
         const dades = {
             collita_entrada_id: entrada.id,
-            data: document.getElementById('escandall-data').value,
+            data: new Date().toISOString().split('T')[0],  // ← HOY automático
             num_albara_escandall: document.getElementById('escandall-num-albara').value,
             fruita_varietat_id: entrada.fruita_varietat_id,
             finca_id: entrada.finca_id,
@@ -606,6 +610,9 @@ async function guardarAlbaraEscandall(event) {
         await crearAlbaraEscandall(dades, calibres, noComercios, industria);
         mostrarNotificacio('✅ Escandall guardat correctament', 'success');
         canviarVistaCollita('escandalls');
+		
+		
+		
     } catch (error) {
         console.error('Error:', error);
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
