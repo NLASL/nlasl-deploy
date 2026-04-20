@@ -589,7 +589,7 @@ async function guardarAlbaraEscandall(event) {
             tara_envases: parseFloat(document.getElementById('escandall-tara-env').value),
             tara_vehicle: parseFloat(document.getElementById('escandall-tara-vehicle').value),
             pes_net: parseFloat(document.getElementById('escandall-pes-net').value),
-            created_by: currentUser ? currentUser.id : null
+            created_by: currentUser ? currentUser.id : null,
 			  diferencia_palots: Math.abs(palotsentrada - (entrada.quantitat_palots_entrada || 0))
            };
         
