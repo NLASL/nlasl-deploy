@@ -1161,11 +1161,10 @@ async function carregarVistaFertilitzacions() {
     
     container.innerHTML = html;
 
-    // ✔ Carregar campanyes i aplicar filtre FUNCIÓ DE MOMENT NO NECESSARIA
-    // await carregarCampanyes();
-    //document.getElementById('filtre-campanya').addEventListener('change', carregarTaulaFertilitzacions);
-
-    //await carregarTaulaFertilitzacions();
+	// ✔ Carregar campanyes i aplicar filtre
+	// await carregarCampanyes();  // ← ELIMINA O COMENTA
+	document.getElementById('filtre-campanya').addEventListener('change', carregarTaulaFertilitzacions);
+	await carregarTaulaFertilitzacions();
 }
 
 
