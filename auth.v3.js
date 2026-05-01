@@ -208,10 +208,8 @@ function mostrarInfoUsuari() {
         'visor': 'Visor'
     }[currentUserProfile.role] || 'Usuari';
     
-    userInfo.innerHTML = '<span class="user-name">' + (currentUserProfile.email || 'Usuari') + '</span>' +
-        '<span class="user-badge ' + badgeClass + '">' + rolText + '</span>';
+	userInfo.innerHTML = '<span class="user-name">' + (currentUserProfile.email || 'Usuari') + '</span>' +
+    '<span class="user-badge ' + badgeClass + '">' + rolText + '</span>';
 }
 
-
-console.log('âœ?Auth system v3 carregat');
-});
+console.log('?Auth system v3 carregat');
