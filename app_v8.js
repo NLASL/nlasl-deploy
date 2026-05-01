@@ -102,6 +102,21 @@ function hasPermission(action) {
     
     return false;
 }
+const nouTractament = {
+    data,
+    data_limit: dataLimitStr,
+    parcella_id: p.id,
+    producte_id: producteId,
+    dosi,
+    unitat,
+    superficie_tractada: superficieParcel,
+    operador,
+    maquinaria,
+    condicions_meteo: meteo,
+    observacions,
+    estat: 'actiu',
+    campanya: obtenirCampanya(data)
+};
 
 // Navegació
 function canviarVista(vista) {
@@ -151,6 +166,10 @@ function canviarVista(vista) {
 			carregarVistaExistencies();
 			break;	
 		case 'collita':
+			carregarVistaCollita();
+			break;
+		case 'collita-registres':
+			canviarVistaCollita('registres');
 			carregarVistaCollita();
 			break;
 		case 'control-horari':
@@ -876,6 +895,7 @@ async function guardarTractament(event) {
                 condicions_meteo: meteo,
                 observacions,
                 estat: 'actiu'
+				campanya: obtenirCampanya(data),
             };
 
             const creat = await createTractament(nouTractament);
@@ -1124,12 +1144,29 @@ async function carregarVistaFertilitzacions() {
     const podeCrear = hasPermission('insert');
     
     let html = '<div class="view-fertilitzacions">';
+    
+    // ─────────────────────────────────────────────
+    // BLOC SUPERIOR: Títol + Botó
+    // ─────────────────────────────────────────────
     html += '<div style="display: flex; justify-content: space-between; margin-bottom: 20px;">';
-    html += '<h2>🌿 Fertilitzacions</h2>';
+    html += '<h2>🌿 Fertilitzacions <span id="campanya-titol"></span></h2>';
     if (podeCrear) {
         html += '<button class="btn btn-primary" onclick="obrirModalFertilitzacio()">➕ Nova Fertilització</button>';
     }
     html += '</div>';
+
+    // ─────────────────────────────────────────────
+    // ✔ AFEGIT: FILTRE DE CAMPANYA
+    // ─────────────────────────────────────────────
+    html += '<div style="margin-bottom: 15px;">';
+    html += 'Campanya: <select id="filtre-campanya" class="form-control" style="width: 150px; display: inline-block; margin-left: 8px;">';
+    html += '<option value="">Totes</option>';
+    html += '</select>';
+    html += '</div>';
+    
+    // ─────────────────────────────────────────────
+    // TAULA
+    // ─────────────────────────────────────────────
     html += '<div class="table-container"><table class="data-table">';
     html += '<thead><tr><th>Data</th><th>Producte</th><th>Finca</th><th>Parcel·les</th><th>Superfície (Ha)</th><th>Dosi</th><th>Accions</th></tr></thead>';
     html += '<tbody id="tbody-fertilitzacions"><tr><td colspan="7">Carregant...</td></tr></tbody>';
@@ -1138,8 +1175,14 @@ async function carregarVistaFertilitzacions() {
     html += crearModalFertilitzacio();
     
     container.innerHTML = html;
+
+    // ✔ Carregar campanyes i aplicar filtre
+    await carregarCampanyes();
+    document.getElementById('filtre-campanya').addEventListener('change', carregarTaulaFertilitzacions);
+
     await carregarTaulaFertilitzacions();
 }
+
 
 async function carregarTaulaFertilitzacions() {
     const tbody = document.getElementById('tbody-fertilitzacions');
@@ -1642,7 +1685,8 @@ async function guardarFertilitzacio(event) {
                     observacions: observacions || null,
                     n_total: (producte.n || 0) * parc.superficie * dosi / 100,
                     p_total: (producte.p || 0) * parc.superficie * dosi / 100,
-                    k_total: (producte.k || 0) * parc.superficie * dosi / 100
+                    k_total: (producte.k || 0) * parc.superficie * dosi / 100,
+					campanya: obtenirCampanya(data)
                 };
 
                 const creada = await createFertilitzacio(nova);

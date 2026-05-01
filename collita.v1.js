@@ -6,6 +6,7 @@
 let fruites = [];
 let varietats = [];
 let qualitats = [];
+let finques = [];
 let calibresFruita = {};
 let classificacionsNoCom = [];
 let entradaEnEdicio = null;
@@ -14,42 +15,27 @@ let escandallEnEdicio = null;
 // ============================================================
 // 1. CÀRREGA DE DADES
 // ============================================================
-async function iniciarCollita() {
-    console.log('🚀 Inicialitzant Collita...');
-    await carregarDadesCollita();
-    console.log('✅ Collita inicialitzada');
-}
-
-// Quan es carregui el DOM
-document.addEventListener('DOMContentLoaded', iniciarCollita);
 
 async function carregarDadesCollita() {
     try {
-        console.log('🔄 Iniciant carregarDadesCollita...');
+        console.log('🔄 Carregant dades Collita...');
         
-        // 🗑️ BUIDAR les caixes (arrays)
-        fruites = [];
-        varietats = [];
-        qualitats = [];
-        calibresFruita = {};
-        classificacionsNoCom = [];
-        
-        console.log('Carregant fruites...');
-        const fruitesResp = await supabaseClient.from('fruites').select('*');
-        console.log('Fruites response:', fruitesResp);
-        
-        if (fruitesResp.error) throw fruitesResp.error;
-        fruites = fruitesResp.data || [];
-        console.log('✅ Fruites carregades:', fruites);
+        // Fruites
+        const { data: frutesData, error: fruitesError } = await supabaseClient
+            .from('fruites')
+            .select('*');
+        if (fruitesError) throw new Error('Error fruites: ' + fruitesError.message);
+        fruites = frutesData || [];
+        console.log('✅ Fruites carregades:', fruites.length);
 
         // Varietats
-        console.log('Carregant varietats...');
-        const varietatsResp = await supabaseClient.from('fruita_varietats').select('*');
-        if (varietatsResp.error) throw varietatsResp.error;
-        varietats = varietatsResp.data || [];
+        const { data: varietatsData, error: varietatsError } = await supabaseClient
+            .from('fruita_varietats')
+            .select('*');
+        if (varietatsError) throw new Error('Error varietats: ' + varietatsError.message);
+        varietats = varietatsData || [];
         console.log('✅ Varietats carregades:', varietats.length);
 
-    
         // Qualitats (campanya actual)
         const { data: qualitatData, error: qualitatError } = await supabaseClient
             .from('qualitats_collita')
@@ -90,7 +76,7 @@ async function carregarDadesCollita() {
         // Finques (referència a finques existents - ja carregades a app_v8.js)
         console.log('✅ Finques disponibles:', finques.length);
         
-        console.log('✅✅ TOTES LES DADES COLLITA CARREGADES CORRECTAMENT');
+        console.log('✅✅ TODAS LES DADES COLLITA CARREGADES CORRECTAMENT');
     } catch (error) {
         console.error('❌ Error carregant dades Collita:', error);
         mostrarNotificacio('❌ Error carregant dades Collita: ' + error.message, 'error');
@@ -219,7 +205,7 @@ async function obtenerAlbaraEntradaPorNum(numAlbara) {
     }
 }
 
-async function obtenirTotesEntrades(campanya = 2025) {
+async function obtenirTodasEntradas(campanya = 2025) {
     try {
         const { data, error } = await supabaseClient
             .from('collita_entrada')
@@ -315,7 +301,7 @@ async function crearAlbaraEscandall(dades, calibres, noComercios, industria) {
     }
 }
 
-async function obtenirTotsEscandalls() {
+async function obtenirTodasEscandalls() {
     try {
         const { data, error } = await supabaseClient
             .from('collita_escandall')
@@ -486,3 +472,40 @@ async function iniciarCollita() {
 
 // Quan es carregui el DOM
 document.addEventListener('DOMContentLoaded', iniciarCollita);
+
+// ============================================================
+// 8. EDICIÓ ALBARANS
+// ============================================================
+
+async function obtenerAlbaraEntradaPorId(id) {
+    try {
+        const { data, error } = await supabaseClient
+            .from('collita_entrada')
+            .select('*')
+            .eq('id', id)
+            .single();
+        
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('❌ Error obtenint albarà:', error);
+        throw error;
+    }
+}
+
+async function actualitzarAlbaraEntrada(id, dades) {
+    try {
+        console.log('Actualitzant albarà:', id, dades);
+        
+        const { error } = await supabaseClient
+            .from('collita_entrada')
+            .update(dades)
+            .eq('id', id);
+        
+        if (error) throw error;
+        console.log('✅ Albarà actualitzat');
+    } catch (error) {
+        console.error('❌ Error actualitzant albarà:', error);
+        throw error;
+    }
+}

@@ -87,15 +87,23 @@
     </div>
 
     <div class="nav-group">
-        <button class="nav-btn nav-group-btn" onclick="toggleSubmenu('consums')">📦 Consums ▾</button>
-        <div id="submenu-consums" class="submenu" style="display:none;">
-            <button class="nav-btn submenu-btn" onclick="canviarVista('collita');tancarSubmenus();" data-view="collita">🍎 Collita</button>
-            <button class="nav-btn submenu-btn" onclick="canviarVista('reg');tancarSubmenus();" data-view="reg">💧 Reg</button>
-            <button class="nav-btn submenu-btn" onclick="canviarVista('gasoil');tancarSubmenus();" data-view="gasoil">⛽ Gasoil</button>
-            <button class="nav-btn submenu-btn" onclick="canviarVista('compres');tancarSubmenus();" data-view="compres">🛒 Compres</button>
-			<button class="nav-btn submenu-btn" onclick="canviarVista('existencies');tancarSubmenus();" data-view="existencies">📦 Existències</button>
+    <button class="nav-btn nav-group-btn" onclick="toggleSubmenu('consums')">📦 Consums ▾</button>
+    <div id="submenu-consums" class="submenu" style="display:none;">
+        
+        <!-- COLLITA SUBMENU -->
+        <button class="nav-btn submenu-btn" onclick="toggleSubmenu('collita')">🍎 Collita ▾</button>
+        <div id="submenu-collita" class="submenu" style="display:none; margin-left: 20px;">
+            <button class="nav-btn submenu-btn" onclick="canviarVista('collita'); canviarVistaCollita('entrades'); tancarSubmenus();" data-view="collita">➕ Nova Entrada</button>
+            <button class="nav-btn submenu-btn" onclick="canviarVista('collita'); canviarVistaCollita('registres'); tancarSubmenus();" data-view="collita">📋 Registres</button>
+            <button class="nav-btn submenu-btn" onclick="canviarVista('collita'); canviarVistaCollita('escandalls'); tancarSubmenus();" data-view="collita">➕ Nou Escandall</button>
         </div>
+        
+        <button class="nav-btn submenu-btn" onclick="canviarVista('reg');tancarSubmenus();" data-view="reg">💧 Reg</button>
+        <button class="nav-btn submenu-btn" onclick="canviarVista('gasoil');tancarSubmenus();" data-view="gasoil">⛽ Gasoil</button>
+        <button class="nav-btn submenu-btn" onclick="canviarVista('compres');tancarSubmenus();" data-view="compres">🛒 Compres</button>
+        <button class="nav-btn submenu-btn" onclick="canviarVista('existencies');tancarSubmenus();" data-view="existencies">📦 Existències</button>
     </div>
+</div>
 
     <div class="nav-group">
         <button class="nav-btn nav-group-btn" onclick="toggleSubmenu('gestio')">⚙️ Gestió ▾</button>

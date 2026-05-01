@@ -14,6 +14,8 @@ async function carregarVistaCollita() {
         await mostrarVista_Entrades();
     } else if (vistaColltitaActual === 'escandalls') {
         await mostrarVista_Escandalls();
+    } else if (vistaColltitaActual === 'registres') {
+        await mostrarVista_Registres();
     }
 }
 
@@ -27,8 +29,6 @@ function canviarVistaCollita(vista) {
 // ============================================================
 
 async function mostrarVista_Entrades() {
-    await carregarDadesCollita();  // ← Cargar datos PRIMERO
-    
     const container = document.getElementById('view-container');
     
     let html = '<div class="vista-entrades">';
@@ -50,7 +50,7 @@ async function mostrarVista_Entrades() {
 
 async function mostrarTaulaEntrades() {
     const content = document.getElementById('collita-content');
-    const entrades = await obtenirTotesEntrades();
+    const entrades = await obtenirTodasEntradas();
     
     let html = '<div class="taula-entrades">';
     html += '<table class="data-table" style="width: 100%;">';
@@ -91,8 +91,6 @@ async function mostrarTaulaEntrades() {
 // ============================================================
 
 async function mostrarFormulariAlbaraEntrada() {
-    await carregarDadesCollita();  // ← ESTO debe estar PRIMERO
-    
     const container = document.getElementById('view-container');
     
     // Obté varietats per fruita
@@ -114,7 +112,7 @@ async function mostrarFormulariAlbaraEntrada() {
     html += '<div class="form-group"><label>Num. Albarà *</label><input type="text" id="entrada-num-albara" required placeholder="ex: 11072025"></div>';
     html += '<div class="form-group"><label>Fruita *</label><select id="entrada-fruita" required onchange="actualitzarVarietats()"><option value="">- Selecciona -</option>';
     fruites.forEach(f => {
-    html += (fruites.map(f => '<option value="' + f.id + '">' + f.nom + '</option>').join(''));
+        html += '<option value="' + f.id + '">' + f.nom + '</option>';
     });
     html += '</select></div>';
     html += '</div>';
@@ -124,8 +122,8 @@ async function mostrarFormulariAlbaraEntrada() {
     html += '<div class="form-group"><label>Varietat *</label><select id="entrada-varietat" required><option value="">- Selecciona fruita -</option></select></div>';
     html += '<div class="form-group"><label>Finca *</label><select id="entrada-finca" required><option value="">- Selecciona -</option>';
     finques.forEach(f => {
-    html += '<option value="' + f + '">' + f + '</option>';
-	});
+        html += '<option value="' + f.id + '">' + f.nom + '</option>';
+    });
     html += '</select></div>';
     html += '<div class="form-group"><label>Qualitat *</label><select id="entrada-qualitat" required><option value="">- Selecciona -</option>';
     qualitats.forEach(q => {
@@ -211,19 +209,13 @@ function calcularPesNet() {
 async function guardarAlbaraEntrada(event) {
     event.preventDefault();
     
-   try {
-    // Obtener el ID de parcella que tiene esa finca
-    const fincaNombre = document.getElementById('entrada-finca').value;
-    const parcellaAmbFinca = parcelles.find(p => p.finca === fincaNombre);
-    const fincaId = parcellaAmbFinca ? parcellaAmbFinca.id : null;
-    
-		const dades = {
-			data: document.getElementById('entrada-data').value,
-			num_albara: document.getElementById('entrada-num-albara').value,
-			fruita_varietat_id: document.getElementById('entrada-varietat').value,
-			finca_id: fincaId,  // ← AQUÍ: usar fincaId (UUID)
-			finca: fincaNombre,     // ← String (para mostrar)
-			qualitat: document.getElementById('entrada-qualitat').value,
+    try {
+        const dades = {
+            data: document.getElementById('entrada-data').value,
+            num_albara: document.getElementById('entrada-num-albara').value,
+            fruita_varietat_id: document.getElementById('entrada-varietat').value,
+            finca_id: document.getElementById('entrada-finca').value,
+            qualitat: document.getElementById('entrada-qualitat').value,
             
             tipus_envases_entrada: document.getElementById('entrada-tipus-envases').value,
             quantitat_palots_entrada: parseInt(document.getElementById('entrada-quantitat-palots').value) || 0,
@@ -300,7 +292,7 @@ async function mostrarVista_Escandalls() {
 
 async function mostrarTaulaEscandalls() {
     const content = document.getElementById('collita-content');
-    const escandalls = await obtenirTotsEscandalls();
+    const escandalls = await obtenirTodasEscandalls();
     
     let html = '<div class="taula-escandalls">';
     html += '<table class="data-table" style="width: 100%;">';
@@ -381,7 +373,7 @@ async function mostrarFormulariAlbaraEscandall() {
     html += '<h4 style="margin-top: 20px;">📏 Calibres</h4>';
     html += '<div id="escandall-calibres-container">';
     html += '<button type="button" class="btn btn-sm btn-success" onclick="afegirFilaCalibres()">➕ Afegir Calibre</button>';
-    html += '<table id="taula-calibres" class="data-table" style="margin-top: 10px; width: 100%;"><thead><tr><th>Calibre</th><th>Pes (kg)</th><th>%</th><th>Color</th><th>Categoria</th><th></th></tr></thead><tbody></tbody></table>';
+    html += '<table id="taula-calibres" class="data-table" style="margin-top: 10px; width: 100%;"><thead><tr><th>Calibre</th><th>Pes (kg)</th><th>%</th><th>Categoria</th><th></th></tr></thead><tbody></tbody></table>';
     html += '</div>';
     
     // No Comercial
@@ -402,15 +394,12 @@ async function mostrarFormulariAlbaraEscandall() {
     html += '<div id="validacio-percentatges" style="margin-top: 20px; padding: 10px; background: #fff3cd; border-radius: 4px; display: none;"></div>';
     
     // Botons
-	html += '<div style="margin-top: 20px;">';
-	html += '<button type="submit" class="btn btn-success">💾 Guardar Escandall</button>';
-	html += '<button type="button" class="btn btn-secondary" onclick="canviarVistaCollita(\'escandalls\')" style="margin-left: 10px;">❌ Cancelar</button>';
-	html += '</div>';
-
-	// Camp hidden (DINS del form)
-	html += '<input type="hidden" id="escandall-palots-entrada" value="">';
-
-	html += '</form></div>';
+    html += '<div style="margin-top: 20px;">';
+    html += '<button type="submit" class="btn btn-success">💾 Guardar Escandall</button>';
+    html += '<button type="button" class="btn btn-secondary" onclick="canviarVistaCollita(\'escandalls\')" style="margin-left: 10px;">❌ Cancelar</button>';
+    html += '</div>';
+    
+    html += '</form></div>';
     
     container.innerHTML = html;
     document.getElementById('escandall-data').valueAsDate = new Date();
@@ -422,49 +411,19 @@ async function buscarEntrada() {
     
     if (entrada) {
         document.getElementById('entrada-info').style.display = 'block';
-        
-        // OBTENER FRUITA
-        const varietat = varietats.find(v => v.id === entrada.fruita_varietat_id);
-        const fruita = fruites.find(f => f.id === varietat?.fruita_id);
-        
-        // OBTENER FINCA desde parcelles usando finca_id
-        const parcellaAmbFinca = parcelles.find(p => p.id === entrada.finca_id);
-        const fincaNom = entrada.finca || 'Desconeguda';  // Ya tienes el nombre!
-        
         document.getElementById('entrada-info').innerHTML = `
-            <strong>Fruita:</strong> ${fruita?.nom || '-'} / ${varietat?.varietat || '-'}<br>
-            <strong>Finca:</strong> ${fincaNom}<br>
+            <strong>Fruita:</strong> ${fruites.find(f => f.id === entrada.fruita_varietat_id?.fruita_id)?.nom || '-'} / 
+            ${entrada.fruita_varietat_id?.varietat || '-'}<br>
+            <strong>Finca:</strong> ${finques.find(f => f.id === entrada.finca_id)?.nom || '-'}<br>
             <strong>Pes Net:</strong> ${(entrada.pes_net || 0).toFixed(2)} kg<br>
-            <strong>Palots Entrada:</strong> ${entrada.quantitat_palots_entrada || 0}
+            <strong>Palots:</strong> ${entrada.quantitat_palots_entrada || 0}
         `;
         
-        
-        // Guardar palots entrada
-        document.getElementById('escandall-palots-entrada').value = entrada.quantitat_palots_entrada || 0;
-        
-		// Copiar dades a escandall
-		document.getElementById('escandall-qualitat-original').value = entrada.qualitat || '-';
-		document.getElementById('escandall-pes-brut').value = entrada.pes_brut || '';
-		document.getElementById('escandall-tara-env').value = entrada.tara_envases || '';
-		document.getElementById('escandall-tara-vehicle').value = entrada.tara_vehicle || '';
-		calcularPesNetEscandall();
-
-		// --- NOVA LÒGICA DE CALIBRES ---
-		// Buscar la varietat para obtener fruita_id
-		
-		if (fruita) {
-			const calibresDisponibles = calibresFruita[fruita.id] || [];
-    
-			// Netejar taula calibres
-			document.querySelector('#taula-calibres tbody').innerHTML = '';
-		
-			// Afegir files amb calibres disponibles
-			calibresDisponibles.forEach(calibre => {
-				afegirFilaCalibres(calibre);
-    });
-}
-        // -------------------------------
-
+        // Copiar dades a escandall
+        document.getElementById('escandall-qualitat-original').value = entrada.qualitat || '-';
+        document.getElementById('escandall-pes-brut').value = entrada.pes_brut || '';
+        document.getElementById('escandall-tara-env').value = entrada.tara_envases || '';
+        document.getElementById('escandall-tara-vehicle').value = entrada.tara_vehicle || '';
         calcularPesNetEscandall();
     } else {
         document.getElementById('entrada-info').style.display = 'none';
@@ -554,15 +513,9 @@ async function guardarAlbaraEscandall(event) {
     event.preventDefault();
     
     try {
-		const palotsentrada = parseInt(document.getElementById('escandall-palots-entrada').value) || 0;
-    
-		// Los palots del escandall = número de filas de calibres (cada fila = 1 palot aproximadamente)
-		// O: suma de calibres / pes_mig de entrada
-		// En guardarAlbaraEscandall:
-		const entrada = await obtenerAlbaraEntradaPorNum(document.getElementById('escandall-num-entrada').value);
-		const num_albara_escandall = entrada.num_albara + '-ESC';  // Autoassignado
-		if (!entrada) throw new Error('Entrada no trobada');
-			                
+        const entrada = await obtenerAlbaraEntradaPorNum(document.getElementById('escandall-num-entrada').value);
+        if (!entrada) throw new Error('Entrada no trobada');
+        
         const calibres = [];
         document.querySelectorAll('#taula-calibres tbody tr').forEach(tr => {
             calibres.push({
@@ -588,7 +541,7 @@ async function guardarAlbaraEscandall(event) {
         
         const dades = {
             collita_entrada_id: entrada.id,
-            data: new Date().toISOString().split('T')[0],  // ← HOY automático
+            data: document.getElementById('escandall-data').value,
             num_albara_escandall: document.getElementById('escandall-num-albara').value,
             fruita_varietat_id: entrada.fruita_varietat_id,
             finca_id: entrada.finca_id,
@@ -599,9 +552,8 @@ async function guardarAlbaraEscandall(event) {
             tara_envases: parseFloat(document.getElementById('escandall-tara-env').value),
             tara_vehicle: parseFloat(document.getElementById('escandall-tara-vehicle').value),
             pes_net: parseFloat(document.getElementById('escandall-pes-net').value),
-            created_by: currentUser ? currentUser.id : null,
-			  diferencia_palots: Math.abs(palotsentrada - (entrada.quantitat_palots_entrada || 0))
-           };
+            created_by: currentUser ? currentUser.id : null
+        };
         
         // Comparar entrada vs escandall
         const comparativa = await compararEntradaVsEscandall(entrada.id, dades);
@@ -616,9 +568,6 @@ async function guardarAlbaraEscandall(event) {
         await crearAlbaraEscandall(dades, calibres, noComercios, industria);
         mostrarNotificacio('✅ Escandall guardat correctament', 'success');
         canviarVistaCollita('escandalls');
-		
-		
-		
     } catch (error) {
         console.error('Error:', error);
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
@@ -631,4 +580,227 @@ function veureEscandall(id) {
 
 function editarEscandall(id) {
     mostrarNotificacio('Editar escandall: ' + id, 'info');
+}
+
+// ============================================================
+// 5. VISTA REGISTRES D'ALBARANS (Taula completa)
+// ============================================================
+
+async function mostrarVista_Registres() {
+    const container = document.getElementById('view-container');
+    
+    let html = '<div class="vista-registres">';
+    html += '<h2>📋 Registres d\'Albarans</h2>';
+    
+    // Navegació
+    html += '<div style="margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px;">';
+    html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'entrades\')">← Entrades</button>';
+    html += '</div>';
+    
+    // Taula
+    html += '<div id="collita-content"></div>';
+    html += '</div>';
+    
+    container.innerHTML = html;
+    await mostrarTaulaRegistres();
+}
+
+async function mostrarTaulaRegistres() {
+    await carregarDadesCollita();
+    const content = document.getElementById('collita-content');
+    const entrades = await obtenirTotesEntrades();
+    
+    let html = '<div class="taula-registres" style="overflow-x: auto;">';
+    html += '<table class="data-table" style="width: 100%;">';
+    html += '<thead><tr>';
+    html += '<th>Data</th><th>Num. Albarà</th><th>Fruita-Varietat</th><th>Finca</th><th>Qualitat</th>';
+    html += '<th>Pes Net (kg)</th><th>Palots</th><th>Pes Mig</th><th>Estat</th><th>Accions</th>';
+    html += '</tr></thead>';
+    html += '<tbody>';
+    
+    entrades.forEach(e => {
+        const varietat = varietats.find(v => v.id === e.fruita_varietat_id);
+        const fruita = fruites.find(f => f.id === varietat?.fruita_id);
+        const finca = e.finca || 'Desconeguda';
+        const estat = e.estat === 'actiu' ? '✅ Actiu' : '❌ Anulat';
+        
+        html += '<tr>';
+        html += '<td>' + formatData(e.data) + '</td>';
+        html += '<td><strong>' + e.num_albara + '</strong></td>';
+        html += '<td>' + (fruita ? fruita.nom : '-') + ' / ' + (varietat ? varietat.varietat : '-') + '</td>';
+        html += '<td>' + finca + '</td>';
+        html += '<td>' + (e.qualitat || '-') + '</td>';
+        html += '<td>' + (e.pes_net || 0).toFixed(2) + '</td>';
+        html += '<td>' + (e.quantitat_palots_entrada || 0) + '</td>';
+        html += '<td>' + (e.pes_mig || 0).toFixed(2) + '</td>';
+        html += '<td>' + estat + '</td>';
+        html += '<td>';
+        html += '<button class="btn btn-sm btn-primary" onclick="veureAlbaraRegistre(\'' + e.id + '\')">👁️</button> ';
+        html += '<button class="btn btn-sm btn-secondary" onclick="editarAlbaraRegistre(\'' + e.id + '\')">✏️</button> ';
+        if (e.estat === 'actiu') {
+            html += '<button class="btn btn-sm btn-danger" onclick="eliminarAlbaraRegistreConfirm(\'' + e.id + '\')">🗑️</button>';
+        }
+        html += '</td>';
+        html += '</tr>';
+    });
+    
+    html += '</tbody></table></div>';
+    content.innerHTML = html;
+}
+
+// ============================================================
+// 6. FORMULARI EDICIÓ ALBARÀ
+// ============================================================
+
+async function editarAlbaraRegistre(id) {
+    await carregarDadesCollita();
+    
+    const entrada = await obtenerAlbaraEntradaPorId(id);
+    if (!entrada) {
+        mostrarNotificacio('❌ Albarà no trobat', 'error');
+        return;
+    }
+    
+    const container = document.getElementById('view-container');
+    
+    let html = '<div class="formulari-edicio-albara">';
+    html += '<h2>✏️ Editar Albarà: ' + entrada.num_albara + '</h2>';
+    html += '<form id="form-edicio-albara" onsubmit="guardarEdicionAlbara(event, \'' + id + '\')" style="background: #f9f9f9; padding: 20px; border-radius: 8px;">';
+    
+    // Row 1
+    html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">';
+    html += '<div class="form-group"><label>Data</label><input type="date" id="edicio-data" value="' + entrada.data + '" required></div>';
+    html += '<div class="form-group"><label>Num. Albarà</label><input type="text" id="edicio-num-albara" value="' + entrada.num_albara + '" readonly style="background: #f0f0f0;"></div>';
+    html += '<div class="form-group"><label>Fruita</label><select id="edicio-fruita" required onchange="actualitzarVarietatsEdicio()"><option value="">- Selecciona -</option>';
+    fruites.forEach(f => {
+        const selected = f.id === varietats.find(v => v.id === entrada.fruita_varietat_id)?.fruita_id ? 'selected' : '';
+        html += '<option value="' + f.id + '" ' + selected + '>' + f.nom + '</option>';
+    });
+    html += '</select></div>';
+    html += '</div>';
+    
+    // Row 2
+    html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">';
+    html += '<div class="form-group"><label>Varietat</label><select id="edicio-varietat" required>';
+    const varietatActual = varietats.find(v => v.id === entrada.fruita_varietat_id);
+    if (varietatActual) {
+        html += '<option value="' + varietatActual.id + '" selected>' + varietatActual.varietat + '</option>';
+    }
+    html += '</select></div>';
+    html += '<div class="form-group"><label>Finca</label><select id="edicio-finca" required>';
+    html += '<option value="' + entrada.finca + '" selected>' + entrada.finca + '</option>';
+    finques.forEach(f => {
+        if (f !== entrada.finca) {
+            html += '<option value="' + f + '">' + f + '</option>';
+        }
+    });
+    html += '</select></div>';
+    html += '<div class="form-group"><label>Qualitat</label><select id="edicio-qualitat" required>';
+    html += '<option value="' + entrada.qualitat + '" selected>' + entrada.qualitat + '</option>';
+    qualitats.forEach(q => {
+        if (q.nom !== entrada.qualitat) {
+            html += '<option value="' + q.nom + '">' + q.nom + '</option>';
+        }
+    });
+    html += '</select></div>';
+    html += '</div>';
+    
+    // Pesos
+    html += '<h4 style="margin-top: 20px;">⚖️ Pesos</h4>';
+    html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px;">';
+    html += '<div class="form-group"><label>Pes Brut (kg)</label><input type="number" id="edicio-pes-brut" value="' + (entrada.pes_brut || '') + '" step="0.01" required onchange="calcularPesNetEdicio()"></div>';
+    html += '<div class="form-group"><label>Tara Envases (kg)</label><input type="number" id="edicio-tara-env" value="' + (entrada.tara_envases || '') + '" step="0.01" required onchange="calcularPesNetEdicio()"></div>';
+    html += '<div class="form-group"><label>Tara Vehicle (kg)</label><input type="number" id="edicio-tara-vehicle" value="' + (entrada.tara_vehicle || '') + '" step="0.01" required onchange="calcularPesNetEdicio()"></div>';
+    html += '<div class="form-group"><label>Pes Net (kg)</label><input type="number" id="edicio-pes-net" value="' + (entrada.pes_net || '') + '" readonly style="background: #e8f5e9;"></div>';
+    html += '</div>';
+    
+    html += '<div class="form-group"><label>Pes Mig (kg/palot)</label><input type="number" id="edicio-pes-mig" value="' + (entrada.pes_mig || '') + '" readonly style="background: #e8f5e9;"></div>';
+    
+    // Palots
+    html += '<div class="form-group"><label>Quantitat Palots</label><input type="number" id="edicio-palots" value="' + (entrada.quantitat_palots_entrada || 0) + '" min="0" step="1" onchange="calcularPesNetEdicio()"></div>';
+    
+    // Observacions
+    html += '<div class="form-group"><label>Observacions</label><textarea id="edicio-observacions" rows="3">' + (entrada.observacions || '') + '</textarea></div>';
+    
+    // Botons
+    html += '<div style="margin-top: 20px;">';
+    html += '<button type="submit" class="btn btn-success">💾 Guardar Canvis</button>';
+    html += '<button type="button" class="btn btn-secondary" onclick="canviarVistaCollita(\'registres\')" style="margin-left: 10px;">❌ Cancelar</button>';
+    html += '</div>';
+    
+    html += '</form></div>';
+    
+    container.innerHTML = html;
+    actualitzarVarietatsEdicio();
+}
+
+function actualitzarVarietatsEdicio() {
+    const fruitaId = document.getElementById('edicio-fruita').value;
+    const varietatSelect = document.getElementById('edicio-varietat');
+    
+    varietatSelect.innerHTML = '<option value="">- Selecciona varietat -</option>';
+    
+    varietats.filter(v => v.fruita_id === fruitaId).forEach(v => {
+        const option = document.createElement('option');
+        option.value = v.id;
+        option.textContent = v.varietat;
+        varietatSelect.appendChild(option);
+    });
+}
+
+function calcularPesNetEdicio() {
+    const pesBrut = parseFloat(document.getElementById('edicio-pes-brut').value) || 0;
+    const taraEnv = parseFloat(document.getElementById('edicio-tara-env').value) || 0;
+    const taraVehicle = parseFloat(document.getElementById('edicio-tara-vehicle').value) || 0;
+    const palots = parseInt(document.getElementById('edicio-palots').value) || 1;
+    
+    const pesNet = pesBrut - taraEnv - taraVehicle;
+    document.getElementById('edicio-pes-net').value = pesNet.toFixed(2);
+    
+    const pesMig = pesNet / palots;
+    document.getElementById('edicio-pes-mig').value = pesMig.toFixed(2);
+}
+
+async function guardarEdicionAlbara(event, id) {
+    event.preventDefault();
+    
+    try {
+        const dades = {
+            data: document.getElementById('edicio-data').value,
+            fruita_varietat_id: document.getElementById('edicio-varietat').value,
+            finca: document.getElementById('edicio-finca').value,
+            qualitat: document.getElementById('edicio-qualitat').value,
+            pes_brut: parseFloat(document.getElementById('edicio-pes-brut').value),
+            tara_envases: parseFloat(document.getElementById('edicio-tara-env').value),
+            tara_vehicle: parseFloat(document.getElementById('edicio-tara-vehicle').value),
+            pes_net: parseFloat(document.getElementById('edicio-pes-net').value),
+            pes_mig: parseFloat(document.getElementById('edicio-pes-mig').value),
+            quantitat_palots_entrada: parseInt(document.getElementById('edicio-palots').value),
+            observacions: document.getElementById('edicio-observacions').value,
+            updated_by: currentUser ? currentUser.id : null
+        };
+        
+        await actualitzarAlbaraEntrada(id, dades);
+        mostrarNotificacio('✅ Albarà actualitzat correctament', 'success');
+        canviarVistaCollita('registres');
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarNotificacio('❌ Error: ' + error.message, 'error');
+    }
+}
+
+function veureAlbaraRegistre(id) {
+    mostrarNotificacio('Detall albarà: ' + id, 'info');
+}
+
+async function eliminarAlbaraRegistreConfirm(id) {
+    if (!confirm('Segur que vols eliminar aquest albarà?')) return;
+    
+    try {
+        await eliminarAlbaraEntrada(id);
+        mostrarNotificacio('✅ Albarà eliminat', 'success');
+        canviarVistaCollita('registres');
+    } catch (error) {
+        mostrarNotificacio('❌ Error: ' + error.message, 'error');
+    }
 }
