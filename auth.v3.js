@@ -213,3 +213,4 @@ function mostrarInfoUsuari() {
 }
 
 console.log('?Auth system v3 carregat');
+});

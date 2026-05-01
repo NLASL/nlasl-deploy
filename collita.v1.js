@@ -6,7 +6,6 @@
 let fruites = [];
 let varietats = [];
 let qualitats = [];
-let finques = [];
 let calibresFruita = {};
 let classificacionsNoCom = [];
 let entradaEnEdicio = null;
