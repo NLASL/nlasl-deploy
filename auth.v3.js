@@ -129,7 +129,7 @@ async function iniciarSessio(user) {
 			carregarVistaTreballadorSimple();
 		} else {
 			console.log('💼 Usuari és admin/editor:', role);
-			carregarDashboard();
+			carregarVistaDashboard();  // O el nombre correcto de la funci�n
 }
         
         activarListeners();
