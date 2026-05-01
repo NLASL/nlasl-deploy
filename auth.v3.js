@@ -210,7 +210,8 @@ function mostrarInfoUsuari() {
     
 	userInfo.innerHTML = '<span class="user-name">' + (currentUserProfile.email || 'Usuari') + '</span>' +
     '<span class="user-badge ' + badgeClass + '">' + rolText + '</span>';
-}
+}}
+}  // ? AÑADE ESTA LÍNEA para cerrar iniciarSessio()
 
 console.log('?Auth system v3 carregat');
 });

@@ -102,21 +102,6 @@ function hasPermission(action) {
     
     return false;
 }
-const nouTractament = {
-    data,
-    data_limit: dataLimitStr,
-    parcella_id: p.id,
-    producte_id: producteId,
-    dosi,
-    unitat,
-    superficie_tractada: superficieParcel,
-    operador,
-    maquinaria,
-    condicions_meteo: meteo,
-    observacions,
-    estat: 'actiu',
-    campanya: obtenirCampanya(data)
-};
 
 // Navegació
 function canviarVista(vista) {
