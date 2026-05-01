@@ -127,17 +127,32 @@ async function iniciarSessio(user) {
 			console.log('üë§ Usuari √©s treballador visor:', treballador.nom);
 			ocultarMenuAdmin();
 			carregarVistaTreballadorSimple();
-		} else {
-			console.log('üíº Usuari √©s admin/editor:', role);
-			carregarDashboard();  // O el nombre correcto de la funciÛn
+} else {
+    console.log('?? Usuari Ès admin/editor:', role);
+    
+    // Esperar a que app_v8.js estÈ completamente cargado
+    setTimeout(() => {
+        if (typeof carregarDashboard === 'function') {
+            carregarDashboard();
+        } else {
+            console.warn('?? carregarDashboard no disponible');
+        }
+    }, 1000);
 }
-        
-        activarListeners();
-        
-    } catch (error) {
-        console.error('Error iniciant sessi√≥:', error);
-        mostrarNotificacio('Error carregant dades: ' + error.message, 'error');
-    }
+
+activarListeners();
+
+} catch (error) {
+    console.error('Error iniciant sessiÛ:', error);
+    
+    // Esperar a que mostrarNotificacio estÈ disponible
+    setTimeout(() => {
+        if (typeof mostrarNotificacio === 'function') {
+            mostrarNotificacio('Error carregant dades: ' + error.message, 'error');
+        } else {
+            console.error('mostrarNotificacio no disponible:', error.message);
+        }
+    }, 500);
 }
 
 // Ocultar men√∫ per treballadors
