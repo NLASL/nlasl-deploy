@@ -230,6 +230,22 @@ async function carregarDashboard() {
     });
 }
 
+// Calcular totalSuperficie
+const totalSuperficie = parcellesFiltrades.reduce(function(sum, p) {
+    return sum + (parseFloat(p.superficie) || 0);
+}, 0);
+
+// Calcular distribució cultius
+const cultius = {};
+parcellesFiltrades.forEach(function(p) {
+    const cultiu = p.cultiu || 'Sense especificar';
+    if (!cultius[cultiu]) {
+        cultius[cultiu] = { count: 0, superficie: 0 };
+    }
+    cultius[cultiu].count++;
+    cultius[cultiu].superficie += parseFloat(p.superficie) || 0;
+});
+
 	// También filtrar les altres taules per campanya 2026
 		tractaments = tractaments.filter(function(t) {
     return t.campanya === '2026' || t.campanya === 2026;
