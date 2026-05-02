@@ -85,6 +85,16 @@ function formatData(data) {
     return d.toLocaleDateString('ca-ES');
 }
 
+function obtenirCampanya(data) {
+    // Data format: "YYYY-MM-DD"
+    const [any, mes, dia] = data.split('-');
+    const anyActual = parseInt(any);
+    
+    // Si la data es 2026 o posterior → campanya 2026
+    // Si la data es 2025 o anterior → campanya 2025
+    return anyActual >= 2026 ? '2026' : '2025';
+}
+
 function mostrarNotificacio(missatge, tipus) {
     tipus = tipus || 'info';
     const container = document.getElementById('notificacions');
