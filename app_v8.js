@@ -54,14 +54,22 @@ function toggleSubmenu(id) {
     submenu.style.display = visible ? 'none' : 'block';
 }
 
-en l'opció 1, ara mateix tinc això function tancarSubmenus() {
+function tancarSubmenus() {
     document.querySelectorAll('.submenu').forEach(function(s) {
-        [s.style](http://s.style).display = 'none';
+        // Solo cerrar submenus que NO están anidados dentro de otro submenu activo
+        const parent = s.parentElement;
+        const parentSubmenu = parent.closest('.submenu');
+        
+        if (!parentSubmenu) {
+            // Es un submenu de primer nivel → cerrarlo
+            s.style.display = 'none';
+        }
     });
 }
+
 // Tancar submenús en clicar fora
 document.addEventListener('click', function(e) {
-    if (![e.target](http://e.target).closest('.nav-group')) {
+    if (!e.target.closest('.nav-group')) {
         tancarSubmenus();
     }
 });
