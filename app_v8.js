@@ -255,16 +255,7 @@ parcellesFiltrades.forEach(function(p) {
     return f.campanya === '2026' || f.campanya === 2026;
 });
     
-    const cultius = {};
-    parcellesFiltrades.forEach(function(p) {
-        const cultiu = p.cultiu || 'Sense especificar';
-        if (!cultius[cultiu]) {
-            cultius[cultiu] = { count: 0, superficie: 0 };
-        }
-        cultius[cultiu].count++;
-        cultius[cultiu].superficie += parseFloat(p.superficie) || 0;
-    });
-    
+     
     let html = '<div class="dashboard">';
     html += '<h2>📊 ' + (fincaSeleccionada ? 'Finca: ' + fincaSeleccionada : 'Resum General') + '</h2>';
     html += '<div style="margin-bottom: 30px;"><label style="font-weight: bold; margin-right: 10px;">🗺️ Seleccionar finca:</label>';
