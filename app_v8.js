@@ -54,15 +54,14 @@ function toggleSubmenu(id) {
     submenu.style.display = visible ? 'none' : 'block';
 }
 
-function tancarSubmenus() {
+en l'opció 1, ara mateix tinc això function tancarSubmenus() {
     document.querySelectorAll('.submenu').forEach(function(s) {
-        s.style.display = 'none';
+        [s.style](http://s.style).display = 'none';
     });
 }
-
 // Tancar submenús en clicar fora
 document.addEventListener('click', function(e) {
-    if (!e.target.closest('.nav-group')) {
+    if (![e.target](http://e.target).closest('.nav-group')) {
         tancarSubmenus();
     }
 });
