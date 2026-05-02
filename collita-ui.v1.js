@@ -75,7 +75,7 @@ async function mostrarTaulaEntrades() {
         html += '<td>' + (e.quantitat_palots_entrada || 0) + '</td>';
         html += '<td>' + (e.pes_mig || 0).toFixed(2) + '</td>';
         html += '<td>';
-        html += '<button class="btn btn-sm btn-primary" onclick="veureAlbaraEntrada(\'' + e.id + '\')">👁️</button> ';
+        html += '<button class="btn btn-sm btn-primary" onclick="veureAlbaraRegistre(\'' + e.id + '\')">👁️</button> ';
         html += '<button class="btn btn-sm btn-secondary" onclick="editarAlbaraEntrada(\'' + e.id + '\')">✏️</button> ';
         html += '<button class="btn btn-sm btn-danger" onclick="eliminarAlbaraEntradaConfirm(\'' + e.id + '\')">🗑️</button>';
         html += '</td>';
