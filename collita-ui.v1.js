@@ -600,8 +600,11 @@ async function mostrarVista_Registres() {
     // Taula
     html += '<div id="collita-content"></div>';
     html += '</div>';
-    
-    container.innerHTML = html;
+    html += '<div style="margin-top: 20px; border-top: 2px solid #ddd; padding-top: 10px;">';
+	html += '<button class="btn btn-info" onclick="canviarVistaCollita(\'registres\')">📋 Ver Registres</button>';
+	html += '</div>';
+
+	container.innerHTML = html;
     await mostrarTaulaRegistres();
 }
 

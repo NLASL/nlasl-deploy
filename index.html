@@ -91,12 +91,8 @@
     <div id="submenu-consums" class="submenu" style="display:none;">
         
         <!-- COLLITA SUBMENU -->
-        <button class="nav-btn submenu-btn" onclick="toggleSubmenu('collita')">🍎 Collita ▾</button>
-        <div id="submenu-collita" class="submenu" style="display:none; margin-left: 20px;">
-            <button class="nav-btn submenu-btn" onclick="canviarVista('collita'); canviarVistaCollita('entrades'); tancarSubmenus();" data-view="collita">➕ Nova Entrada</button>
-            <button class="nav-btn submenu-btn" onclick="canviarVista('collita'); canviarVistaCollita('registres'); tancarSubmenus();" data-view="collita">📋 Registres</button>
-            <button class="nav-btn submenu-btn" onclick="canviarVista('collita'); canviarVistaCollita('escandalls'); tancarSubmenus();" data-view="collita">➕ Nou Escandall</button>
-        </div>
+        <!-- VOLVER A BOTÓN SIMPLE -->
+		<button class="nav-btn submenu-btn" onclick="canviarVista('collita'); tancarSubmenus();" data-view="collita">🍎 Collita</button>
         
         <button class="nav-btn submenu-btn" onclick="canviarVista('reg');tancarSubmenus();" data-view="reg">💧 Reg</button>
         <button class="nav-btn submenu-btn" onclick="canviarVista('gasoil');tancarSubmenus();" data-view="gasoil">⛽ Gasoil</button>
