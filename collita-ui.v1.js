@@ -590,8 +590,8 @@ async function veureEscandall(id) {
     const varietat = varietats.find(v => v.id === entrada?.fruita_varietat_id);
     const fruita = fruites.find(f => f.id === varietat?.fruita_id);
     
-    let html = '<div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999; overflow-y: auto;" onclick="if(event.target === this) this.style.display=\'none\';">';
-    html += '<div style="background: white; padding: 30px; border-radius: 10px; max-width: 900px; box-shadow: 0 5px 20px rgba(0,0,0,0.3); margin: 20px;">';
+    let html += '<div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: flex-start; justify-content: center; z-index: 9999; overflow-y: auto; padding-top: 20px;" onclick="if(event.target === this) this.style.display=\'none\';">';
+	html += '<div style="background: white; padding: 30px; border-radius: 10px; max-width: 900px; max-height: 90vh; overflow-y: auto; box-shadow: 0 5px 20px rgba(0,0,0,0.3); margin: 20px; margin-bottom: 100px;">';
     
     html += '<h2>📊 Detall Escandall: ' + escandall.num_albara_escandall + '</h2>';
     
