@@ -508,3 +508,32 @@ async function actualitzarAlbaraEntrada(id, dades) {
         throw error;
     }
 }
+async function eliminarEscandallConfirm(id) {
+    if (!confirm('Segur que vols eliminar aquest escandall?')) return;
+    
+    try {
+        await eliminarAlbaraEscandall(id);
+        mostrarNotificacio('✅ Escandall eliminat', 'success');
+        canviarVistaCollita('escandalls');
+    } catch (error) {
+        mostrarNotificacio('❌ Error: ' + error.message, 'error');
+    }
+}
+
+async function eliminarAlbaraEscandall(id) {
+    try {
+        const { error } = await supabaseClient
+            .from('collita_escandall')
+            .update({ 
+                estat: 'anulat', 
+                data_anulacio: new Date().toISOString().split('T')[0]
+            })
+            .eq('id', id);
+        
+        if (error) throw error;
+        console.log('✅ Escandall marcat com anulat');
+    } catch (error) {
+        console.error('❌ Error eliminant escandall:', error);
+        throw error;
+    }
+}

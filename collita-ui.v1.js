@@ -317,10 +317,13 @@ async function mostrarTaulaEscandalls() {
         html += '<td>' + (e.pes_net || 0).toFixed(2) + '</td>';
         html += '<td>' + (e.qualitat_original || '-') + ' → ' + (e.qualitat_reclassificada || '-') + '</td>';
         html += '<td>' + alertIcon + '</td>';
-        html += '<td>';
-        html += '<button class="btn btn-sm btn-primary" onclick="veureEscandall(\'' + e.id + '\')">👁️</button> ';
-        html += '<button class="btn btn-sm btn-secondary" onclick="editarEscandall(\'' + e.id + '\')">✏️</button>';
-        html += '</td>';
+		html += '<td>';
+		html += '<button class="btn btn-sm btn-primary" onclick="veureEscandall(\'' + e.id + '\')">👁️</button> ';
+		html += '<button class="btn btn-sm btn-secondary" onclick="editarEscandall(\'' + e.id + '\')">✏️</button> ';
+		if (e.estat === 'actiu') {
+		html += '<button class="btn btn-sm btn-danger" onclick="eliminarEscandallConfirm(\'' + e.id + '\')">🗑️</button>';
+	}
+		html += '</td>';
         html += '</tr>';
     });
     
