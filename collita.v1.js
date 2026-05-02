@@ -537,3 +537,24 @@ async function eliminarAlbaraEscandall(id) {
         throw error;
     }
 }
+
+async function obtenerEscandallPorId(id) {
+    try {
+        const { data, error } = await supabaseClient
+            .from('collita_escandall')
+            .select(`
+                *,
+                collita_escandall_calibres (*),
+                collita_escandall_no_comercial (*),
+                collita_escandall_industria (*)
+            `)
+            .eq('id', id)
+            .single();
+        
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('❌ Error obtenint escandall:', error);
+        throw error;
+    }
+}

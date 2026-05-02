@@ -577,8 +577,108 @@ async function guardarAlbaraEscandall(event) {
     }
 }
 
-function veureEscandall(id) {
-    mostrarNotificacio('Detall escandall: ' + id, 'info');
+async function veureEscandall(id) {
+    await carregarDadesCollita();
+    
+    const escandall = await obtenerEscandallPorId(id);
+    if (!escandall) {
+        mostrarNotificacio('❌ Escandall no trobat', 'error');
+        return;
+    }
+    
+    const entrada = await obtenerAlbaraEntradaPorId(escandall.collita_entrada_id);
+    const varietat = varietats.find(v => v.id === entrada?.fruita_varietat_id);
+    const fruita = fruites.find(f => f.id === varietat?.fruita_id);
+    
+    let html = '<div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999; overflow-y: auto;" onclick="if(event.target === this) this.style.display=\'none\';">';
+    html += '<div style="background: white; padding: 30px; border-radius: 10px; max-width: 900px; box-shadow: 0 5px 20px rgba(0,0,0,0.3); margin: 20px;">';
+    
+    html += '<h2>📊 Detall Escandall: ' + escandall.num_albara_escandall + '</h2>';
+    
+    // Dades bàsiques
+    html += '<div style="margin: 20px 0; border-bottom: 2px solid #ddd; padding-bottom: 20px;">';
+    html += '<h3>📋 Dades Bàsiques</h3>';
+    html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">';
+    html += '<p><strong>Data:</strong> ' + formatData(escandall.data) + '</p>';
+    html += '<p><strong>Num. Entrada:</strong> ' + (entrada?.num_albara || '-') + '</p>';
+    html += '<p><strong>Fruita:</strong> ' + (fruita ? fruita.nom : '-') + '</p>';
+    html += '<p><strong>Varietat:</strong> ' + (varietat ? varietat.varietat : '-') + '</p>';
+    html += '<p><strong>Finca:</strong> ' + (entrada?.finca || '-') + '</p>';
+    html += '<p><strong>Qualitat Original:</strong> ' + (entrada?.qualitat || '-') + '</p>';
+    html += '<p><strong>Qualitat Reclassificada:</strong> ' + (escandall.qualitat_reclassificada || entrada?.qualitat || '-') + '</p>';
+    html += '<p><strong>Pes Net Total:</strong> ' + (escandall.pes_net || 0).toFixed(2) + ' kg</p>';
+    html += '</div>';
+    html += '</div>';
+    
+    // CALIBRES
+    html += '<div style="margin: 20px 0; border-bottom: 2px solid #ddd; padding-bottom: 20px;">';
+    html += '<h3>📏 Calibres (Òptim)</h3>';
+    html += '<table style="width: 100%; border-collapse: collapse;">';
+    html += '<thead style="background: #f0f0f0;"><tr><th style="border: 1px solid #ddd; padding: 10px;">Calibre</th><th style="border: 1px solid #ddd; padding: 10px;">Pes (kg)</th><th style="border: 1px solid #ddd; padding: 10px;">%</th><th style="border: 1px solid #ddd; padding: 10px;">Categoria</th></tr></thead>';
+    html += '<tbody>';
+    
+    if (escandall.collita_escandall_calibres && escandall.collita_escandall_calibres.length > 0) {
+        escandall.collita_escandall_calibres.forEach(c => {
+            html += '<tr style="border-bottom: 1px solid #eee;">';
+            html += '<td style="border: 1px solid #ddd; padding: 10px;"><strong>' + c.calibre + '</strong></td>';
+            html += '<td style="border: 1px solid #ddd; padding: 10px;">' + (c.pes_kg || 0).toFixed(2) + '</td>';
+            html += '<td style="border: 1px solid #ddd; padding: 10px;">' + (c.percentatge || 0).toFixed(1) + '%</td>';
+            html += '<td style="border: 1px solid #ddd; padding: 10px;">' + (c.categoria || '-') + '</td>';
+            html += '</tr>';
+        });
+    } else {
+        html += '<tr><td colspan="4" style="border: 1px solid #ddd; padding: 10px; text-align: center;">-</td></tr>';
+    }
+    
+    html += '</tbody></table>';
+    html += '</div>';
+    
+    // NO COMERCIAL
+    html += '<div style="margin: 20px 0; border-bottom: 2px solid #ddd; padding-bottom: 20px;">';
+    html += '<h3>🚫 No Comercial</h3>';
+    html += '<table style="width: 100%; border-collapse: collapse;">';
+    html += '<thead style="background: #f0f0f0;"><tr><th style="border: 1px solid #ddd; padding: 10px;">Classificació</th><th style="border: 1px solid #ddd; padding: 10px;">Pes (kg)</th><th style="border: 1px solid #ddd; padding: 10px;">%</th></tr></thead>';
+    html += '<tbody>';
+    
+    if (escandall.collita_escandall_no_comercial && escandall.collita_escandall_no_comercial.length > 0) {
+        escandall.collita_escandall_no_comercial.forEach(nc => {
+            html += '<tr style="border-bottom: 1px solid #eee;">';
+            html += '<td style="border: 1px solid #ddd; padding: 10px;"><strong>' + nc.classificacio + '</strong></td>';
+            html += '<td style="border: 1px solid #ddd; padding: 10px;">' + (nc.pes_kg || 0).toFixed(2) + '</td>';
+            html += '<td style="border: 1px solid #ddd; padding: 10px;">' + (nc.percentatge || 0).toFixed(1) + '%</td>';
+            html += '</tr>';
+        });
+    } else {
+        html += '<tr><td colspan="3" style="border: 1px solid #ddd; padding: 10px; text-align: center;">-</td></tr>';
+    }
+    
+    html += '</tbody></table>';
+    html += '</div>';
+    
+    // INDUSTRIA
+    html += '<div style="margin: 20px 0; border-bottom: 2px solid #ddd; padding-bottom: 20px;">';
+    html += '<h3>🏭 Industria</h3>';
+    if (escandall.collita_escandall_industria && escandall.collita_escandall_industria.length > 0) {
+        const ind = escandall.collita_escandall_industria[0];
+        html += '<p><strong>Pes:</strong> ' + (ind.pes_kg || 0).toFixed(2) + ' kg</p>';
+        html += '<p><strong>%:</strong> ' + (ind.percentatge || 0).toFixed(1) + '%</p>';
+    } else {
+        html += '<p>-</p>';
+    }
+    html += '</div>';
+    
+    // BOTÓ TANCAR
+    html += '<div style="text-align: right;">';
+    html += '<button class="btn btn-secondary" onclick="this.closest(\'div\').parentElement.style.display=\'none\'">❌ Tancar</button>';
+    html += '</div>';
+    
+    html += '</div>';
+    html += '</div>';
+    
+    // Crear modal
+    const modal = document.createElement('div');
+    modal.innerHTML = html;
+    document.body.appendChild(modal);
 }
 
 function editarEscandall(id) {
