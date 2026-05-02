@@ -36,9 +36,22 @@ const CULTIUS_VARIETATS = {
 
 function toggleSubmenu(id) {
     const submenu = document.getElementById('submenu-' + id);
+    if (!submenu) {
+        console.warn('Submenu no trobat:', id);
+        return;
+    }
+    
     const visible = submenu.style.display === 'block';
-    tancarSubmenus();
-    if (!visible) submenu.style.display = 'block';
+    
+    // Cerrar todos MENOS el actual
+    document.querySelectorAll('.submenu').forEach(function(s) {
+        if (s.id !== 'submenu-' + id) {
+            s.style.display = 'none';
+        }
+    });
+    
+    // Toggle el actual
+    submenu.style.display = visible ? 'none' : 'block';
 }
 
 function tancarSubmenus() {
