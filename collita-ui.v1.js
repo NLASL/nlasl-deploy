@@ -795,8 +795,48 @@ async function guardarEdicionAlbara(event, id) {
     }
 }
 
-function veureAlbaraRegistre(id) {
-    mostrarNotificacio('Detall albarà: ' + id, 'info');
+async function veureAlbaraRegistre(id) {
+    await carregarDadesCollita();
+    
+    const entrada = await obtenerAlbaraEntradaPorId(id);
+    if (!entrada) {
+        mostrarNotificacio('❌ Albarà no trobat', 'error');
+        return;
+    }
+    
+    const varietat = varietats.find(v => v.id === entrada.fruita_varietat_id);
+    const fruita = fruites.find(f => f.id === varietat?.fruita_id);
+    
+    let html = '<div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999;" onclick="if(event.target === this) this.style.display=\'none\';">';
+    html += '<div style="background: white; padding: 30px; border-radius: 10px; max-width: 600px; box-shadow: 0 5px 20px rgba(0,0,0,0.3);">';
+    
+    html += '<h2>📋 Detall Albarà: ' + entrada.num_albara + '</h2>';
+    html += '<div style="margin: 20px 0; border-bottom: 1px solid #ddd; padding-bottom: 20px;">';
+    
+    html += '<p><strong>Data:</strong> ' + formatData(entrada.data) + '</p>';
+    html += '<p><strong>Fruita:</strong> ' + (fruita ? fruita.nom : '-') + '</p>';
+    html += '<p><strong>Varietat:</strong> ' + (varietat ? varietat.varietat : '-') + '</p>';
+    html += '<p><strong>Finca:</strong> ' + (entrada.finca || '-') + '</p>';
+    html += '<p><strong>Qualitat:</strong> ' + (entrada.qualitat || '-') + '</p>';
+    html += '<p><strong>Pes Net:</strong> ' + (entrada.pes_net || 0).toFixed(2) + ' kg</p>';
+    html += '<p><strong>Palots:</strong> ' + (entrada.quantitat_palots_entrada || 0) + '</p>';
+    html += '<p><strong>Pes Mig:</strong> ' + (entrada.pes_mig || 0).toFixed(2) + ' kg/palot</p>';
+    html += '<p><strong>Observacions:</strong> ' + (entrada.observacions || '-') + '</p>';
+    html += '<p><strong>Estat:</strong> ' + (entrada.estat === 'actiu' ? '✅ Actiu' : '❌ Anulat') + '</p>';
+    
+    html += '</div>';
+    
+    html += '<div style="text-align: right;">';
+    html += '<button class="btn btn-secondary" onclick="this.closest(\'div\').parentElement.style.display=\'none\'">❌ Tancar</button>';
+    html += '</div>';
+    
+    html += '</div>';
+    html += '</div>';
+    
+    // Crear elemento modal
+    const modal = document.createElement('div');
+    modal.innerHTML = html;
+    document.body.appendChild(modal);
 }
 
 async function eliminarAlbaraRegistreConfirm(id) {
