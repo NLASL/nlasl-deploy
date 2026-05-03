@@ -709,7 +709,7 @@ async function mostrarVista_Registres() {
 async function mostrarTaulaRegistres() {
     await carregarDadesCollita();
     const content = document.getElementById('collita-content');
-    const entrades = await obtenirTotesEntrades();
+    const entrades = await obtenirTodasEntradas();  // Con "Todas" no "Totes"
     
     let html = '<div class="taula-registres" style="overflow-x: auto;">';
     html += '<table class="data-table" style="width: 100%;">';
