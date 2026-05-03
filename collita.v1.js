@@ -562,6 +562,7 @@ async function actualitzarAlbaraEscandall(id, dades) {
     try {
         const { error } = await supabaseClient
             .from('collita_escandall')
+			.update(dades)
             .eq('id', id);
         
         if (error) throw error;
