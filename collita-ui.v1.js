@@ -867,19 +867,19 @@ async function guardarEdicionAlbara(event, id) {
     
     try {
         const dades = {
-            data: document.getElementById('edicio-data').value,
-            fruita_varietat_id: document.getElementById('edicio-varietat').value,
-            finca: document.getElementById('edicio-finca').value,
-            qualitat: document.getElementById('edicio-qualitat').value,
-            pes_brut: parseFloat(document.getElementById('edicio-pes-brut').value),
-            tara_envases: parseFloat(document.getElementById('edicio-tara-env').value),
-            tara_vehicle: parseFloat(document.getElementById('edicio-tara-vehicle').value),
-            pes_net: parseFloat(document.getElementById('edicio-pes-net').value),
-            pes_mig: parseFloat(document.getElementById('edicio-pes-mig').value),
-            quantitat_palots_entrada: parseInt(document.getElementById('edicio-palots').value),
-            observacions: document.getElementById('edicio-observacions').value,
-            updated_by: currentUser ? currentUser.id : null
-        };
+		data: document.getElementById('edicio-data').value,
+		fruita_varietat_id: document.getElementById('edicio-varietat').value,
+		finca: document.getElementById('edicio-finca').value,
+		qualitat: document.getElementById('edicio-qualitat').value,
+		pes_brut: parseFloat(document.getElementById('edicio-pes-brut').value),
+		tara_envases: parseFloat(document.getElementById('edicio-tara-env').value),
+		tara_vehicle: parseFloat(document.getElementById('edicio-tara-vehicle').value),
+		pes_net: parseFloat(document.getElementById('edicio-pes-net').value),
+		pes_mig: parseFloat(document.getElementById('edicio-pes-mig').value),
+		quantitat_palots_entrada: parseInt(document.getElementById('edicio-palots').value),
+		observacions: document.getElementById('edicio-observacions').value
+    // SIN updated_by
+};
         
         await actualitzarAlbaraEntrada(id, dades);
         mostrarNotificacio('✅ Albarà actualitzat correctament', 'success');
