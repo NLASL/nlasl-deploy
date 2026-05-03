@@ -309,6 +309,8 @@ async function mostrarTaulaEscandalls() {
         const varietat = varietats.find(v => v.id === entrada?.fruita_varietat_id);
         const fruita = fruites.find(f => f.id === varietat?.fruita_id);
         
+		console.log('Escandall:', e.num_albara_escandall, 'Entrada:', entrada?.num_albara, 'Qualitat:', entrada?.qualitat);
+		
         let alertIcon = '✅';
         if (e.diferencia_pes_net > 0) alertIcon = '⚠️';
         if (e.diferencia_palots > 0) alertIcon = '⚠️';
