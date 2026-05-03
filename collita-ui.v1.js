@@ -415,11 +415,14 @@ async function buscarEntrada() {
     const entrada = await obtenerAlbaraEntradaPorNum(numAlbara);
     
     if (entrada) {
+        // Buscar varietat y fruita correctamente
+        const varietat = varietats.find(v => v.id === entrada.fruita_varietat_id);
+        const fruita = fruites.find(f => f.id === varietat?.fruita_id);
+        
         document.getElementById('entrada-info').style.display = 'block';
         document.getElementById('entrada-info').innerHTML = `
-            <strong>Fruita:</strong> ${fruites.find(f => f.id === entrada.fruita_varietat_id?.fruita_id)?.nom || '-'} / 
-            ${entrada.fruita_varietat_id?.varietat || '-'}<br>
-            <strong>Finca:</strong> ${finques.find(f => f.id === entrada.finca_id)?.nom || '-'}<br>
+            <strong>Fruita:</strong> ${fruita?.nom || '-'} / ${varietat?.varietat || '-'}<br>
+            <strong>Finca:</strong> ${entrada.finca || '-'}<br>
             <strong>Pes Net:</strong> ${(entrada.pes_net || 0).toFixed(2)} kg<br>
             <strong>Palots:</strong> ${entrada.quantitat_palots_entrada || 0}
         `;
