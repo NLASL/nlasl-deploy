@@ -1017,15 +1017,15 @@ async function guardarEdicionEscandall(event, id) {
     
     try {
         const dades = {
-            data: document.getElementById('edicio-esc-data').value,
-            qualitat_reclassificada: document.getElementById('edicio-esc-qualitat-rec').value,
-            motiu_reclassificacio: document.getElementById('edicio-esc-motiu').value,
-            pes_brut: parseFloat(document.getElementById('edicio-esc-pes-brut').value),
-            tara_envases: parseFloat(document.getElementById('edicio-esc-tara-env').value),
-            tara_vehicle: parseFloat(document.getElementById('edicio-esc-tara-vehicle').value),
-            pes_net: parseFloat(document.getElementById('edicio-esc-pes-net').value),
-            updated_by: currentUser ? currentUser.id : null
-        };
+		data: document.getElementById('edicio-esc-data').value,
+		qualitat_reclassificada: document.getElementById('edicio-esc-qualitat-rec').value,
+		motiu_reclassificacio: document.getElementById('edicio-esc-motiu').value,
+		pes_brut: parseFloat(document.getElementById('edicio-esc-pes-brut').value),
+		tara_envases: parseFloat(document.getElementById('edicio-esc-tara-env').value),
+		tara_vehicle: parseFloat(document.getElementById('edicio-esc-tara-vehicle').value),
+		pes_net: parseFloat(document.getElementById('edicio-esc-pes-net').value)
+		// SIN updated_by
+};
         
         await actualitzarAlbaraEscandall(id, dades);
         mostrarNotificacio('✅ Escandall actualitzat correctament', 'success');
