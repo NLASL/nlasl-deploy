@@ -305,7 +305,7 @@ async function mostrarTaulaEscandalls() {
     
     escandalls.forEach(e => {
         // ✅ Buscar entrada relacionada
-        const entrada = todasEntradas.find(ent => ent.id === e.collita_entrada_id);
+        const entrada = e.collita_entrada;  // ← Ahora viene en la relación
         const varietat = varietats.find(v => v.id === entrada?.fruita_varietat_id);
         const fruita = fruites.find(f => f.id === varietat?.fruita_id);
         

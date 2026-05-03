@@ -306,14 +306,14 @@ async function obtenirTodasEscandalls() {
             .from('collita_escandall')
             .select(`
                 *,
-                collita_entrada_id (*),
+                collita_entrada:collita_entrada_id(*),
                 collita_escandall_calibres (*),
                 collita_escandall_no_comercial (*),
                 collita_escandall_industria (*)
             `)
             .eq('estat', 'actiu')
             .order('data', { ascending: false });
-
+        
         if (error) throw error;
         return data || [];
     } catch (error) {
