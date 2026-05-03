@@ -558,3 +558,17 @@ async function obtenerEscandallPorId(id) {
         throw error;
     }
 }
+async function actualitzarAlbaraEscandall(id, dades) {
+    try {
+        const { error } = await supabaseClient
+            .from('collita_escandall')
+            .update(dades)
+            .eq('id', id);
+        
+        if (error) throw error;
+        console.log('✅ Escandall actualitzat');
+    } catch (error) {
+        console.error('❌ Error actualitzant escandall:', error);
+        throw error;
+    }
+}

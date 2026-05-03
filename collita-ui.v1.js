@@ -945,3 +945,93 @@ async function eliminarAlbaraRegistreConfirm(id) {
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
     }
 }
+async function editarEscandallRegistre(id) {
+    await carregarDadesCollita();
+    
+    const escandall = await obtenerEscandallPorId(id);
+    if (!escandall) {
+        mostrarNotificacio('❌ Escandall no trobat', 'error');
+        return;
+    }
+    
+    const entrada = await obtenerAlbaraEntradaPorId(escandall.collita_entrada_id);
+    const varietat = varietats.find(v => v.id === entrada?.fruita_varietat_id);
+    const fruita = fruites.find(f => f.id === varietat?.fruita_id);
+    
+    const container = document.getElementById('view-container');
+    
+    let html = '<div class="formulari-edicio-escandall">';
+    html += '<h2>✏️ Editar Escandall: ' + escandall.num_albara_escandall + '</h2>';
+    html += '<form id="form-edicio-escandall" onsubmit="guardarEdicionEscandall(event, \'' + id + '\')" style="background: #f9f9f9; padding: 20px; border-radius: 8px;">';
+    
+    // Dades bàsiques
+    html += '<h3>📋 Dades Bàsiques</h3>';
+    html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">';
+    html += '<div class="form-group"><label>Data</label><input type="date" id="edicio-esc-data" value="' + escandall.data + '" required></div>';
+    html += '<div class="form-group"><label>Num. Escandall</label><input type="text" id="edicio-esc-num" value="' + escandall.num_albara_escandall + '" readonly style="background: #f0f0f0;"></div>';
+    html += '<div class="form-group"><label>Qualitat Original</label><input type="text" value="' + (entrada?.qualitat || '-') + '" readonly style="background: #f0f0f0;"></div>';
+    html += '</div>';
+    
+    html += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">';
+    html += '<div class="form-group"><label>Qualitat Reclassificada</label><select id="edicio-esc-qualitat-rec">';
+    qualitats.forEach(q => {
+        const selected = q.nom === escandall.qualitat_reclassificada ? 'selected' : '';
+        html += '<option value="' + q.nom + '" ' + selected + '>' + q.nom + '</option>';
+    });
+    html += '</select></div>';
+    html += '<div class="form-group"><label>Motiu Reclassificació</label><textarea id="edicio-esc-motiu" rows="2">' + (escandall.motiu_reclassificacio || '') + '</textarea></div>';
+    html += '</div>';
+    
+    // Pesos
+    html += '<h3 style="margin-top: 20px;">⚖️ Pesos</h3>';
+    html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">';
+    html += '<div class="form-group"><label>Pes Brut (kg)</label><input type="number" id="edicio-esc-pes-brut" value="' + (escandall.pes_brut || '') + '" step="0.01" required onchange="calcularPesEscandall()"></div>';
+    html += '<div class="form-group"><label>Tara Envases (kg)</label><input type="number" id="edicio-esc-tara-env" value="' + (escandall.tara_envases || '') + '" step="0.01" required onchange="calcularPesEscandall()"></div>';
+    html += '<div class="form-group"><label>Tara Vehicle (kg)</label><input type="number" id="edicio-esc-tara-vehicle" value="' + (escandall.tara_vehicle || '') + '" step="0.01" required onchange="calcularPesEscandall()"></div>';
+    html += '</div>';
+    
+    html += '<div class="form-group"><label>Pes Net (kg)</label><input type="number" id="edicio-esc-pes-net" value="' + (escandall.pes_net || '') + '" readonly style="background: #e8f5e9;"></div>';
+    
+    // Botons
+    html += '<div style="margin-top: 20px;">';
+    html += '<button type="submit" class="btn btn-success">💾 Guardar Canvis</button>';
+    html += '<button type="button" class="btn btn-secondary" onclick="canviarVistaCollita(\'escandalls\')" style="margin-left: 10px;">❌ Cancelar</button>';
+    html += '</div>';
+    
+    html += '</form></div>';
+    
+    container.innerHTML = html;
+}
+
+function calcularPesEscandall() {
+    const pesBrut = parseFloat(document.getElementById('edicio-esc-pes-brut').value) || 0;
+    const taraEnv = parseFloat(document.getElementById('edicio-esc-tara-env').value) || 0;
+    const taraVehicle = parseFloat(document.getElementById('edicio-esc-tara-vehicle').value) || 0;
+    
+    const pesNet = pesBrut - taraEnv - taraVehicle;
+    document.getElementById('edicio-esc-pes-net').value = pesNet.toFixed(2);
+}
+
+async function guardarEdicionEscandall(event, id) {
+    event.preventDefault();
+    
+    try {
+        const dades = {
+            data: document.getElementById('edicio-esc-data').value,
+            qualitat_reclassificada: document.getElementById('edicio-esc-qualitat-rec').value,
+            motiu_reclassificacio: document.getElementById('edicio-esc-motiu').value,
+            pes_brut: parseFloat(document.getElementById('edicio-esc-pes-brut').value),
+            tara_envases: parseFloat(document.getElementById('edicio-esc-tara-env').value),
+            tara_vehicle: parseFloat(document.getElementById('edicio-esc-tara-vehicle').value),
+            pes_net: parseFloat(document.getElementById('edicio-esc-pes-net').value),
+            updated_by: currentUser ? currentUser.id : null
+        };
+        
+        await actualitzarAlbaraEscandall(id, dades);
+        mostrarNotificacio('✅ Escandall actualitzat correctament', 'success');
+        canviarVistaCollita('escandalls');
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarNotificacio('❌ Error: ' + error.message, 'error');
+    }
+}
