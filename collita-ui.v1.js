@@ -292,6 +292,9 @@ async function mostrarTaulaEscandalls() {
     const content = document.getElementById('collita-content');
     const escandalls = await obtenirTodasEscandalls();
     
+    // ✅ Cargar todas las entradas
+    const todasEntradas = await obtenirTodasEntradas();
+    
     let html = '<div class="taula-escandalls">';
     html += '<table class="data-table" style="width: 100%;">';
     html += '<thead><tr>';
@@ -301,8 +304,10 @@ async function mostrarTaulaEscandalls() {
     html += '<tbody>';
     
     escandalls.forEach(e => {
-        const fruita = fruites.find(f => f.id === (e.fruita_varietat_id?.fruita_id || null));
-        const varietat = e.fruita_varietat_id?.varietat || '-';
+        // ✅ Buscar entrada relacionada
+        const entrada = todasEntradas.find(ent => ent.id === e.collita_entrada_id);
+        const varietat = varietats.find(v => v.id === entrada?.fruita_varietat_id);
+        const fruita = fruites.find(f => f.id === varietat?.fruita_id);
         
         let alertIcon = '✅';
         if (e.diferencia_pes_net > 0) alertIcon = '⚠️';
@@ -311,24 +316,23 @@ async function mostrarTaulaEscandalls() {
         html += '<tr>';
         html += '<td>' + formatData(e.data) + '</td>';
         html += '<td><strong>' + e.num_albara_escandall + '</strong></td>';
-        html += '<td>' + (fruita ? fruita.nom : '-') + ' / ' + varietat + '</td>';
+        html += '<td>' + (fruita ? fruita.nom : '-') + ' / ' + (varietat ? varietat.varietat : '-') + '</td>';
         html += '<td>' + (e.pes_net || 0).toFixed(2) + '</td>';
-        html += '<td>' + (e.qualitat_original || '-') + ' → ' + (e.qualitat_reclassificada || '-') + '</td>';
+        html += '<td>' + (entrada?.qualitat || '-') + ' → ' + (e.qualitat_reclassificada || '-') + '</td>';
         html += '<td>' + alertIcon + '</td>';
-		html += '<td>';
-		html += '<button class="btn btn-sm btn-primary" onclick="veureEscandall(\'' + e.id + '\')">👁️</button> ';
-		html += '<button class="btn btn-sm btn-secondary" onclick="editarEscandallRegistre(\'' + e.id + '\')">✏️</button> ';
-		if (e.estat === 'actiu') {
-		html += '<button class="btn btn-sm btn-danger" onclick="eliminarEscandallConfirm(\'' + e.id + '\')">🗑️</button>';
-	}
-		html += '</td>';
+        html += '<td>';
+        html += '<button class="btn btn-sm btn-primary" onclick="veureEscandall(\'' + e.id + '\')">👁️</button> ';
+        html += '<button class="btn btn-sm btn-secondary" onclick="editarEscandallRegistre(\'' + e.id + '\')">✏️</button> ';
+        if (e.estat === 'actiu') {
+            html += '<button class="btn btn-sm btn-danger" onclick="eliminarEscandallConfirm(\'' + e.id + '\')">🗑️</button>';
+        }
+        html += '</td>';
         html += '</tr>';
     });
     
     html += '</tbody></table></div>';
     content.innerHTML = html;
 }
-
 // ============================================================
 // 4. FORMULARI ALBARÀ ESCANDALL
 // ============================================================
