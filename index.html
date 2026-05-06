@@ -101,15 +101,24 @@
     </div>
 </div>
 
-    <div class="nav-group">
-        <button class="nav-btn nav-group-btn" onclick="toggleSubmenu('gestio')">⚙️ Gestió ▾</button>
-        <div id="submenu-gestio" class="submenu" style="display:none;">
-            <button class="nav-btn submenu-btn" onclick="canviarVista('treballadors');tancarSubmenus();" data-view="treballadors">👥 Treballadors</button>
-            <button class="nav-btn submenu-btn" onclick="canviarVista('productes');tancarSubmenus();" data-view="productes">📦 Productes</button>
-            <button class="nav-btn submenu-btn" onclick="canviarVista('parcelles');tancarSubmenus();" data-view="parcelles">🗺️ Parcel·les</button>
-			<button class="nav-btn submenu-btn" onclick="canviarVista('informes');tancarSubmenus();" data-view="informes">📊 Informes</button>
+   <div class="nav-group">
+    <button class="nav-btn nav-group-btn" onclick="toggleSubmenu('gestio')">⚙️ Gestió ▾</button>
+    <div id="submenu-gestio" class="submenu" style="display:none;">
+        <button class="nav-btn submenu-btn" onclick="canviarVista('treballadors');tancarSubmenus();" data-view="treballadors">👥 Treballadors</button>
+        <button class="nav-btn submenu-btn" onclick="canviarVista('productes');tancarSubmenus();" data-view="productes">📦 Productes</button>
+        <button class="nav-btn submenu-btn" onclick="canviarVista('parcelles');tancarSubmenus();" data-view="parcelles">🗺️ Parcel·les</button>
+        <button class="nav-btn submenu-btn" onclick="canviarVista('informes');tancarSubmenus();" data-view="informes">📊 Informes</button>
+        
+        <!-- ✅ SUBMENU ADMIN -->
+        <div class="nav-group" style="border-top: 1px solid #ddd; padding-top: 10px; margin-top: 10px;">
+            <button class="nav-btn nav-group-btn submenu-btn" style="font-size: 12px;" onclick="toggleSubmenu('admin')">🔧 Admin ▾</button>
+            <div id="submenu-admin" class="submenu" style="display:none; margin-left: 10px;">
+                <button class="nav-btn submenu-btn" onclick="mostrarVistaBestreta();tancarSubmenus();" data-view="bestreta">💰 Gestió Bestretes</button>
+                <button class="nav-btn submenu-btn" onclick="obrirModalGestioAccessos();tancarSubmenus();" data-view="accessos">🔐 Gestió d'Accessos</button>
+            </div>
         </div>
     </div>
+</div>
 </nav>
         
         <main class="main-content">
@@ -135,6 +144,8 @@
 		<script src="/collita-ui.v1.js"></script>
 		<script src="/horari-extensions.v1.js"></script>
 		<script src="/admin-panel.v1.js"></script>
+		<script src="admin-panel-bestreta-extension.js"></script>
+		<script src="preus.v1.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 		<script src="/veu.v1.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.0.0/fuse.min.js"></script>
