@@ -43,11 +43,19 @@ function toggleSubmenu(id) {
     
     const visible = submenu.style.display === 'block';
     
-    // Cerrar todos MENOS el actual
+    // Cerrar todos EXCEPTO:
+    // 1. El actual
+    // 2. Los submenús PADRES del actual
     document.querySelectorAll('.submenu').forEach(function(s) {
-        if (s.id !== 'submenu-' + id) {
-            s.style.display = 'none';
-        }
+        // Si es el que quiero toggle, no hacer nada aquí
+        if (s.id === 'submenu-' + id) return;
+        
+        // Si el submenu actual está dentro de otro submenu (anidado)
+        // NO cerrar el submenu padre
+        if (submenu.closest('#' + s.id)) return;
+        
+        // Cerrar todos los demás
+        s.style.display = 'none';
     });
     
     // Toggle el actual
