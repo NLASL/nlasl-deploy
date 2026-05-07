@@ -35,10 +35,7 @@ async function obtenirPreusAnuals(campanya = 2026) {
     try {
         const { data, error } = await supabaseClient
             .from('collita_preus_anuals')
-            .select(`
-                *,
-                fruita_varietat:fruita_varietat_id(*)
-            `)
+            .select('*')
             .eq('campanya', campanya)
             .order('created_at', { ascending: false });
         

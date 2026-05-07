@@ -36,12 +36,11 @@ async function mostrarVistaBestreta() {
         html += '<tr><td colspan="6" style="text-align: center; padding: 20px;">No hi ha bestretes creades</td></tr>';
     } else {
         preusAnuals.forEach(bestreta => {
-            const varietat = varietats.find(v => v.id === bestreta.fruita_varietat_id);
-            const fruita = fruites.find(f => f.id === varietat?.fruita_id);
+            const fruita = fruites.find(f => f.id === bestreta.fruita_id);
             
             html += '<tr>';
             html += '<td>' + (fruita ? fruita.nom : '-') + '</td>';
-            html += '<td>' + (varietat ? varietat.varietat : '-') + '</td>';
+            html += '<td>-</td>';
             html += '<td>' + arrodonarPreu(bestreta.bestreta_preu_unitari) + '</td>';
             html += '<td>' + formatData(bestreta.bestreta_data_inici) + '</td>';
             html += '<td>' + formatData(bestreta.bestreta_data_final) + '</td>';
@@ -80,9 +79,9 @@ function obrirModalNovabestreta() {
             
             <form id="form-nova-bestreta" onsubmit="guardarNovabestreta(event)">
                 <div class="form-group">
-                    <label>Fruita-Varietat <span style="color: red;">*</span></label>
-                    <select id="bestreta-fruita-varietat" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                        <option value="">Selecciona una varietat</option>
+                    <label>Fruita <span style="color: red;">*</span></label>
+                    <select id="bestreta-fruita" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Selecciona una fruita</option>
                     </select>
                 </div>
                 
@@ -111,13 +110,12 @@ function obrirModalNovabestreta() {
     
     document.body.appendChild(modal);
     
-    // Omplir select de fruita-varietat
-    const select = document.getElementById('bestreta-fruita-varietat');
-    varietats.forEach(v => {
-        const fruita = fruites.find(f => f.id === v.fruita_id);
+    // Omplir select de fruita
+    const select = document.getElementById('bestreta-fruita');
+    fruites.forEach(f => {
         const option = document.createElement('option');
-        option.value = v.id;
-        option.textContent = (fruita ? fruita.nom : '-') + ' / ' + v.varietat;
+        option.value = f.id;
+        option.textContent = f.nom;
         select.appendChild(option);
     });
 }
@@ -126,19 +124,19 @@ async function guardarNovabestreta(event) {
     event.preventDefault();
     
     try {
-        const fruitaVarietatId = document.getElementById('bestreta-fruita-varietat').value;
+        const fruitaId = document.getElementById('bestreta-fruita').value;
         const preu = parseFloat(document.getElementById('bestreta-preu').value);
         const dataInici = document.getElementById('bestreta-data-inici').value;
         const dataFinal = document.getElementById('bestreta-data-final').value;
         
-        if (!fruitaVarietatId || !preu || !dataInici || !dataFinal) {
+        if (!fruitaId || !preu || !dataInici || !dataFinal) {
             mostrarNotificacio('Completa tots els camps', 'error');
             return;
         }
         
         const bestreta = await crearPreuBestreta({
             campanya: 2026,
-            fruita_varietat_id: fruitaVarietatId,
+            fruita_id: fruitaId,
             bestreta_preu_unitari: preu,
             bestreta_data_inici: dataInici,
             bestreta_data_final: dataFinal,
@@ -182,8 +180,8 @@ async function obrirModalEditarBestreta(id) {
             
             <form id="form-editar-bestreta" onsubmit="guardarEdicionBestreta(event, '${id}')">
                 <div class="form-group">
-                    <label>Fruita-Varietat</label>
-                    <select id="edit-bestreta-fruita-varietat" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <label>Fruita</label>
+                    <select id="edit-bestreta-fruita" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                     </select>
                 </div>
                 
@@ -212,14 +210,13 @@ async function obrirModalEditarBestreta(id) {
     
     document.body.appendChild(modal);
     
-    // Omplir selects
-    const select = document.getElementById('edit-bestreta-fruita-varietat');
-    varietats.forEach(v => {
-        const fruita = fruites.find(f => f.id === v.fruita_id);
+    // Omplir select de fruita
+    const select = document.getElementById('edit-bestreta-fruita');
+    fruites.forEach(f => {
         const option = document.createElement('option');
-        option.value = v.id;
-        option.textContent = (fruita ? fruita.nom : '-') + ' / ' + v.varietat;
-        if (v.id === bestreta.fruita_varietat_id) option.selected = true;
+        option.value = f.id;
+        option.textContent = f.nom;
+        if (f.id === bestreta.fruita_id) option.selected = true;
         select.appendChild(option);
     });
     
