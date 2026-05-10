@@ -48,15 +48,15 @@ function obtenirCampanyaPerDates(dataInici) {
 
 async function carregarDadesPreus() {
     try {
-        const campanyaActual = obtenirCampanyaActual();
-        console.log('🔄 Carregant dades Preus campanya ' + campanyaActual + '...');
+        console.log('🔄 Carregant totes les dades Preus...');
         
-        preusAnuals = await obtenirPreusAnuals(campanyaActual);
+        // CARREGAR TOTES LES CAMPANYES (no només actual)
+        preusAnuals = await obtenirPreusAnuals(null); // null = totes
         preusCalibres = await obtenirPreusCalibres();
         preusNoComercios = await obtenirPreusNoComercios();
         preusIndustria = await obtenirPreusIndustria();
         
-        console.log('✅ Preus carregats correctament');
+        console.log('✅ Preus carregats correctament - ' + preusAnuals.length + ' bestretes');
     } catch (error) {
         console.error('❌ Error carregant preus:', error);
     }
@@ -66,13 +66,19 @@ async function carregarDadesPreus() {
 // 2. BESTRETA - CRUD
 // ============================================================
 
-async function obtenirPreusAnuals(campanya = 2026) {
+async function obtenirPreusAnuals(campanya = null) {
     try {
-        const { data, error } = await supabaseClient
+        let query = supabaseClient
             .from('collita_preus_anuals')
             .select('*')
-            .eq('campanya', campanya)
+            .order('campanya', { ascending: false })
             .order('created_at', { ascending: false });
+        
+        if (campanya !== null) {
+            query = query.eq('campanya', campanya);
+        }
+        
+        const { data, error } = await query;
         
         if (error) throw error;
         return data || [];

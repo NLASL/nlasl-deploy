@@ -10,50 +10,69 @@
 async function mostrarVistaBestreta() {
     await carregarDadesPreus();
     
-    const campanyaActual = obtenirCampanyaActual();
     const container = document.getElementById('view-container');
     
+    // AGRUPAR per campanya
+    const bestretesPorCampanya = {};
+    preusAnuals.forEach(b => {
+        if (!bestretesPorCampanya[b.campanya]) {
+            bestretesPorCampanya[b.campanya] = [];
+        }
+        bestretesPorCampanya[b.campanya].push(b);
+    });
+    
+    const campanyes = Object.keys(bestretesPorCampanya).sort().reverse();
+    const campanyaActual = obtenirCampanyaActual();
+    
     let html = '<div class="vista-bestreta">';
-    html += '<h2>💰 Gestió de Bestretes ' + campanyaActual + '</h2>';
+    html += '<h2>💰 Gestió de Bestretes</h2>';
     
     // Botó nova bestreta
     html += '<div style="margin-bottom: 20px;">';
     html += '<button class="btn btn-success" onclick="obrirModalNovabestreta()">➕ Nova Bestreta</button>';
     html += '</div>';
     
-    // Taula bestretes
-    html += '<table class="data-table" style="width: 100%;">';
-    html += '<thead><tr>';
-    html += '<th>Fruita</th>';
-    html += '<th>Varietat</th>';
-    html += '<th>Preu Unitari (€/kg)</th>';
-    html += '<th>Data Inici</th>';
-    html += '<th>Data Final</th>';
-    html += '<th>Accions</th>';
-    html += '</tr></thead>';
-    html += '<tbody>';
-    
-    if (preusAnuals.length === 0) {
-        html += '<tr><td colspan="6" style="text-align: center; padding: 20px;">No hi ha bestretes creades per aquesta campanya</td></tr>';
+    if (campanyes.length === 0) {
+        html += '<p style="text-align: center; color: #999;">No hi ha bestretes creades</p>';
     } else {
-        preusAnuals.forEach(bestreta => {
-            const fruita = fruites.find(f => f.id === bestreta.fruita_id);
+        // Mostrar per campanya
+        campanyes.forEach(campanya => {
+            const bestretes = bestretesPorCampanya[campanya];
+            const esActual = parseInt(campanya) === campanyaActual ? ' (Actual)' : '';
             
-            html += '<tr>';
-            html += '<td>' + (fruita ? fruita.nom : '-') + '</td>';
-            html += '<td>-</td>';
-            html += '<td>' + arrodonarPreu(bestreta.bestreta_preu_unitari) + '</td>';
-            html += '<td>' + formatData(bestreta.bestreta_data_inici) + '</td>';
-            html += '<td>' + formatData(bestreta.bestreta_data_final) + '</td>';
-            html += '<td>';
-            html += '<button class="btn btn-sm btn-primary" onclick="obrirModalEditarBestreta(\'' + bestreta.id + '\')">✏️ Editar</button> ';
-            html += '<button class="btn btn-sm btn-danger" onclick="eliminarBestreraConfirm(\'' + bestreta.id + '\')">🗑️ Eliminar</button>';
-            html += '</td>';
-            html += '</tr>';
+            html += '<h3 style="margin-top: 30px; border-bottom: 2px solid #ddd; padding-bottom: 10px;">Campanya ' + campanya + esActual + '</h3>';
+            
+            html += '<table class="data-table" style="width: 100%; margin-bottom: 20px;">';
+            html += '<thead><tr>';
+            html += '<th>Fruita</th>';
+            html += '<th>Campanya</th>';
+            html += '<th>Preu Unitari (€/kg)</th>';
+            html += '<th>Data Inici</th>';
+            html += '<th>Data Final</th>';
+            html += '<th>Accions</th>';
+            html += '</tr></thead>';
+            html += '<tbody>';
+            
+            bestretes.forEach(bestreta => {
+                const fruita = fruites.find(f => f.id === bestreta.fruita_id);
+                
+                html += '<tr>';
+                html += '<td>' + (fruita ? fruita.nom : '-') + '</td>';
+                html += '<td>' + bestreta.campanya + '</td>';
+                html += '<td>' + arrodonarPreu(bestreta.bestreta_preu_unitari) + '</td>';
+                html += '<td>' + formatData(bestreta.bestreta_data_inici) + '</td>';
+                html += '<td>' + formatData(bestreta.bestreta_data_final) + '</td>';
+                html += '<td>';
+                html += '<button class="btn btn-sm btn-primary" onclick="obrirModalEditarBestreta(\'' + bestreta.id + '\')">✏️ Editar</button> ';
+                html += '<button class="btn btn-sm btn-danger" onclick="eliminarBestreraConfirm(\'' + bestreta.id + '\')">🗑️ Eliminar</button>';
+                html += '</td>';
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
         });
     }
     
-    html += '</tbody></table>';
     html += '</div>';
     
     container.innerHTML = html;
