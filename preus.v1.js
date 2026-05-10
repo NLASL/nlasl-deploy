@@ -9,14 +9,34 @@ let preusNoComercios = [];
 let preusIndustria = [];
 
 // ============================================================
+// DETECTAR CAMPANYA ACTUAL (DINÀMIC)
+// ============================================================
+
+function obtenirCampanyaActual() {
+    const avui = new Date();
+    const mes = avui.getMonth() + 1; // 1-12
+    const any = avui.getFullYear();
+    
+    // Collita: Maig (5) a Octubre (10) = campanya actual
+    if (mes >= 5 && mes <= 10) {
+        return any; // 2026, 2027, 2028, etc.
+    } else {
+        // Gener-Abril (1-4) = campanya anterior
+        // Novembre-Desembre (11-12) = campanya actual (finals)
+        return mes >= 11 ? any : any - 1;
+    }
+}
+
+// ============================================================
 // 1. CARGAR TODOS LOS PREUS
 // ============================================================
 
 async function carregarDadesPreus() {
     try {
-        console.log('🔄 Carregant dades Preus...');
+        const campanyaActual = obtenirCampanyaActual();
+        console.log('🔄 Carregant dades Preus campanya ' + campanyaActual + '...');
         
-        preusAnuals = await obtenirPreusAnuals();
+        preusAnuals = await obtenirPreusAnuals(campanyaActual);
         preusCalibres = await obtenirPreusCalibres();
         preusNoComercios = await obtenirPreusNoComercios();
         preusIndustria = await obtenirPreusIndustria();

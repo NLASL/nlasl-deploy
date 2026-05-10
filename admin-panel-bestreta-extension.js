@@ -10,10 +10,11 @@
 async function mostrarVistaBestreta() {
     await carregarDadesPreus();
     
+    const campanyaActual = obtenirCampanyaActual();
     const container = document.getElementById('view-container');
     
     let html = '<div class="vista-bestreta">';
-    html += '<h2>💰 Gestió de Bestretes 2026</h2>';
+    html += '<h2>💰 Gestió de Bestretes ' + campanyaActual + '</h2>';
     
     // Botó nova bestreta
     html += '<div style="margin-bottom: 20px;">';
@@ -33,7 +34,7 @@ async function mostrarVistaBestreta() {
     html += '<tbody>';
     
     if (preusAnuals.length === 0) {
-        html += '<tr><td colspan="6" style="text-align: center; padding: 20px;">No hi ha bestretes creades</td></tr>';
+        html += '<tr><td colspan="6" style="text-align: center; padding: 20px;">No hi ha bestretes creades per aquesta campanya</td></tr>';
     } else {
         preusAnuals.forEach(bestreta => {
             const fruita = fruites.find(f => f.id === bestreta.fruita_id);
@@ -68,6 +69,8 @@ function obrirModalNovabestreta() {
         return;
     }
     
+    const campanyaActual = obtenirCampanyaActual();
+    
     const modal = document.createElement('div');
     modal.id = 'modal-nova-bestreta';
     modal.className = 'modal';
@@ -75,9 +78,13 @@ function obrirModalNovabestreta() {
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 500px;">
             <span class="close" onclick="tancarModal('modal-nova-bestreta')">&times;</span>
-            <h2>➕ Nova Bestreta 2026</h2>
+            <h2>➕ Nova Bestreta ${campanyaActual}</h2>
             
             <form id="form-nova-bestreta" onsubmit="guardarNovabestreta(event)">
+                <div style="background: #e8f5e9; padding: 10px; border-radius: 4px; margin-bottom: 15px;">
+                    <strong>Campanya:</strong> ${campanyaActual}
+                </div>
+                
                 <div class="form-group">
                     <label>Fruita <span style="color: red;">*</span></label>
                     <select id="bestreta-fruita" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
@@ -134,8 +141,11 @@ async function guardarNovabestreta(event) {
             return;
         }
         
+        // DETECTAR CAMPANYA DINÀMICAMENT
+        const campanyaActual = obtenirCampanyaActual();
+        
         const bestreta = await crearPreuBestreta({
-            campanya: 2026,
+            campanya: campanyaActual,
             fruita_id: fruitaId,
             bestreta_preu_unitari: preu,
             bestreta_data_inici: dataInici,
@@ -143,7 +153,7 @@ async function guardarNovabestreta(event) {
             created_by: currentUser ? currentUser.id : null
         });
         
-        mostrarNotificacio('✅ Bestreta creada correctament', 'success');
+        mostrarNotificacio('✅ Bestreta ' + campanyaActual + ' creada correctament', 'success');
         tancarModal('modal-nova-bestreta');
         mostrarVistaBestreta();
     } catch (error) {
