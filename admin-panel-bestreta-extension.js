@@ -69,20 +69,31 @@ function obrirModalNovabestreta() {
         return;
     }
     
-    const campanyaActual = obtenirCampanyaActual();
+    // NETEJAR MODAL ANTERIOR SI EXISTEIX
+    const modalAnterior = document.getElementById('modal-nova-bestreta');
+    if (modalAnterior) {
+        modalAnterior.remove();
+    }
     
     const modal = document.createElement('div');
     modal.id = 'modal-nova-bestreta';
     modal.className = 'modal';
     modal.style.display = 'block';
+    modal.style.zIndex = '1000';
+    
+    const closeModal = function() {
+        modal.style.display = 'none';
+        modal.remove();
+    };
+    
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 500px;">
-            <span class="close" onclick="tancarModal('modal-nova-bestreta')">&times;</span>
-            <h2>➕ Nova Bestreta ${campanyaActual}</h2>
+            <span class="close" style="cursor: pointer;">&times;</span>
+            <h2>➕ Nova Bestreta</h2>
             
-            <form id="form-nova-bestreta" onsubmit="guardarNovabestreta(event)">
-                <div style="background: #e8f5e9; padding: 10px; border-radius: 4px; margin-bottom: 15px;">
-                    <strong>Campanya:</strong> ${campanyaActual}
+            <form id="form-nova-bestreta">
+                <div style="background: #fff3cd; padding: 10px; border-radius: 4px; margin-bottom: 15px;">
+                    <strong>ℹ️ Campanya:</strong> S'assignarà automàticament segons la data d'inici
                 </div>
                 
                 <div class="form-group">
@@ -100,6 +111,7 @@ function obrirModalNovabestreta() {
                 <div class="form-group">
                     <label>Data Inici <span style="color: red;">*</span></label>
                     <input type="date" id="bestreta-data-inici" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <small style="color: #666;">La campanya es detectarà automàticament</small>
                 </div>
                 
                 <div class="form-group">
@@ -108,8 +120,8 @@ function obrirModalNovabestreta() {
                 </div>
                 
                 <div style="margin-top: 20px;">
-                    <button type="submit" class="btn btn-success">💾 Guardar Bestreta</button>
-                    <button type="button" class="btn btn-secondary" onclick="tancarModal('modal-nova-bestreta')" style="margin-left: 10px;">Cancelar</button>
+                    <button type="submit" class="btn btn-success" style="cursor: pointer;">💾 Guardar Bestreta</button>
+                    <button type="button" class="btn btn-secondary" style="margin-left: 10px; cursor: pointer;">Cancelar</button>
                 </div>
             </form>
         </div>
@@ -117,14 +129,37 @@ function obrirModalNovabestreta() {
     
     document.body.appendChild(modal);
     
-    // Omplir select de fruita
+    // EVENT CLOSE X
+    modal.querySelector('.close').onclick = closeModal;
+    
+    // EVENT BOTÓ CANCELAR
+    modal.querySelector('button[type="button"]').onclick = closeModal;
+    
+    // EVENT FORM SUBMIT
+    modal.querySelector('#form-nova-bestreta').onsubmit = function(event) {
+        event.preventDefault();
+        guardarNovabestreta(event);
+    };
+    
+    // EVENT CLICK FORA DEL MODAL
+    modal.onclick = function(event) {
+        if (event.target === modal) {
+            closeModal();
+        }
+    };
+    
+    // OMPLIR SELECT DE FRUITA
     const select = document.getElementById('bestreta-fruita');
-    fruites.forEach(f => {
-        const option = document.createElement('option');
-        option.value = f.id;
-        option.textContent = f.nom;
-        select.appendChild(option);
-    });
+    if (select && fruites && fruites.length > 0) {
+        fruites.forEach(f => {
+            const option = document.createElement('option');
+            option.value = f.id;
+            option.textContent = f.nom;
+            select.appendChild(option);
+        });
+    } else {
+        console.warn('⚠️ Error: fruites no carregades o select no existent');
+    }
 }
 
 async function guardarNovabestreta(event) {
@@ -141,11 +176,12 @@ async function guardarNovabestreta(event) {
             return;
         }
         
-        // DETECTAR CAMPANYA DINÀMICAMENT
-        const campanyaActual = obtenirCampanyaActual();
+        // DETECTAR CAMPANYA PER DATA INICI (NO PER DATA ACTUAL)
+        const campanya = obtenirCampanyaPerDates(dataInici);
+        console.log('📅 Data inici: ' + dataInici + ' → Campanya detectada: ' + campanya);
         
         const bestreta = await crearPreuBestreta({
-            campanya: campanyaActual,
+            campanya: campanya,
             fruita_id: fruitaId,
             bestreta_preu_unitari: preu,
             bestreta_data_inici: dataInici,
@@ -153,7 +189,7 @@ async function guardarNovabestreta(event) {
             created_by: currentUser ? currentUser.id : null
         });
         
-        mostrarNotificacio('✅ Bestreta ' + campanyaActual + ' creada correctament', 'success');
+        mostrarNotificacio('✅ Bestreta ' + campanya + ' creada correctament', 'success');
         tancarModal('modal-nova-bestreta');
         mostrarVistaBestreta();
     } catch (error) {

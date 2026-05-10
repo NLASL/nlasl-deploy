@@ -27,6 +27,21 @@ function obtenirCampanyaActual() {
     }
 }
 
+function obtenirCampanyaPerDates(dataInici) {
+    const data = new Date(dataInici);
+    const mes = data.getMonth() + 1; // 1-12
+    const any = data.getFullYear();
+    
+    // Si data és maig-octubre = any de la data
+    if (mes >= 5 && mes <= 10) {
+        return any;
+    } else {
+        // Si data és gener-abril = any anterior
+        // Si data és novembre-desembre = any de la data
+        return mes >= 11 ? any : any - 1;
+    }
+}
+
 // ============================================================
 // 1. CARGAR TODOS LOS PREUS
 // ============================================================
