@@ -173,7 +173,10 @@ async function obtenirPreusCalibres(preuAnnualId = null) {
         
         const { data, error } = await query;
         
-        if (error) throw error;
+        if (error) {
+            console.warn('⚠️ Taula liquidació_calibres no té dades o error:', error.message);
+            return [];
+        }
         return data || [];
     } catch (error) {
         console.error('❌ Error obtenint calibres:', error);
@@ -264,7 +267,10 @@ async function obtenirPreusNoComercios(preuAnnualId = null) {
         
         const { data, error } = await query;
         
-        if (error) throw error;
+        if (error) {
+            console.warn('⚠️ Taula liquidació_no_comercial no té dades o error:', error.message);
+            return [];
+        }
         return data || [];
     } catch (error) {
         console.error('❌ Error obtenint no comercials:', error);
@@ -355,7 +361,10 @@ async function obtenirPreusIndustria(preuAnnualId = null) {
         
         const { data, error } = await query;
         
-        if (error) throw error;
+        if (error) {
+            console.warn('⚠️ Taula liquidació_industria no té dades o error:', error.message);
+            return [];
+        }
         return data || [];
     } catch (error) {
         console.error('❌ Error obtenint industria:', error);
