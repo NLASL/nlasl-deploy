@@ -8,6 +8,11 @@
 // ============================================================
 
 async function mostrarVistaBestreta() {
+    // ⭐ CARREGAR BESTRETES INICIALS
+    if (!preusAnuals || preusAnuals.length === 0) {
+        preusAnuals = await obtenirPreusAnuals(null);
+    }
+    
     const container = document.getElementById('view-container');
     
     // AGRUPAR per campanya
