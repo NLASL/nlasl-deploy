@@ -210,7 +210,9 @@ async function guardarNovabestreta(event) {
         
         mostrarNotificacio('✅ Bestreta ' + campanya + ' creada correctament', 'success');
         tancarModal('modal-nova-bestreta');
-        mostrarVistaBestreta();
+        
+        // ⭐ RECARREGAR LA VISTA (ja ho fa crearPreuBestreta, però per seguretat)
+        await mostrarVistaBestreta();
     } catch (error) {
         console.error('Error:', error);
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
@@ -306,7 +308,9 @@ async function guardarEdicionBestreta(event, id) {
         
         mostrarNotificacio('✅ Bestreta actualitzada correctament', 'success');
         tancarModal('modal-editar-bestreta');
-        mostrarVistaBestreta();
+        
+        // ⭐ RECARREGAR LA VISTA (ja ho fa actualitzarPreuBestreta, però per seguretat)
+        await mostrarVistaBestreta();
     } catch (error) {
         console.error('Error:', error);
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
@@ -319,15 +323,17 @@ async function guardarEdicionBestreta(event, id) {
 
 function eliminarBestreraConfirm(id) {
     if (confirm('¿Estàs segur que vols eliminar aquesta bestreta?')) {
-        eliminarBesstreta(id);
+        eliminarBestreta(id);
     }
 }
 
-async function eliminarBesstreta(id) {
+async function eliminarBestreta(id) {
     try {
         await eliminarPreuBestreta(id);
         mostrarNotificacio('✅ Bestreta eliminada correctament', 'success');
-        mostrarVistaBestreta();
+        
+        // ⭐ RECARREGAR LA VISTA (ja ho fa eliminarPreuBestreta, però per seguretat)
+        await mostrarVistaBestreta();
     } catch (error) {
         console.error('Error:', error);
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
