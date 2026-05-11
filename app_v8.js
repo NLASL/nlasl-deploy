@@ -653,8 +653,8 @@ function crearModalTractament() {
     html += '<div id="info-fitosanitari" style="display:none; background: #e8f5e9; padding: 12px; border-radius: 6px; margin-bottom: 15px;"></div>';
     
 	html += '<div class="form-group"><label>Dosi *</label><div style="display: flex; gap: 10px;">';
-	html += '<input type="number" id="tractament-dosi" required min="0" step="0.01" style="flex: 2;" onchange="calcularQuantitatTotal()">';
-	html += '<select id="tractament-unitat" style="flex: 1;" onchange="calcularQuantitatTotal()"><option value="L/Ha">L/Ha</option><option value="kg/Ha">kg/Ha</option><option value="g/Ha">g/Ha</option></select>';
+	html += '<input type="number" id="tractament-dosi" required min="0" step="0.001" style="flex: 2;" onchange="calcularQuantitatTotal()">';
+	html += '<select id="tractament-unitat" style="flex: 1;" onchange="calcularQuantitatTotal()"><option value="L/Ha">L/Ha</option><option value="kg/Ha">kg/Ha</option></select>';
 	html += '</div></div>';
 
 	html += '<div class="form-group"><label>Quantitat Total: <span id="quantitat-total">0</span> <span id="unitat-total">L</span></label></div>';
@@ -754,7 +754,7 @@ function calcularQuantitatTotal() {
     const unitat = document.getElementById('tractament-unitat').value;
     
     const quantitat = superficie * dosi;
-    document.getElementById('quantitat-total').textContent = quantitat.toFixed(2);
+    document.getElementById('quantitat-total').textContent = quantitat.toFixed(3);
     
     const unitatBase = unitat.split('/')[0];
     document.getElementById('unitat-total').textContent = unitatBase;
@@ -1033,7 +1033,7 @@ async function veureTractamentGrup(clau) {
                 <div><strong>🌱 Varietat:</strong> ${varietat}</div>
                 <div><strong>💧 Dosi:</strong> ${primer.dosi} ${primer.unitat}</div>
                 <div><strong>📏 Superfície total:</strong> ${superficieTotal.toFixed(2)} Ha</div>
-                <div><strong>📦 Quantitat total:</strong> ${quantitatTotal.toFixed(2)} ${unitatBase}</div>
+                <div><strong>📦 Quantitat total:</strong> ${quantitatTotal.toFixed(3)} ${unitatBase}</div>
                 ${primer.data_limit ? `<div><strong>⏰ Data límit:</strong> ${formatData(primer.data_limit)}</div>` : ''}
             </div>
 
