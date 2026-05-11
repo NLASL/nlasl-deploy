@@ -105,9 +105,6 @@ async function crearPreuBestreta(dades) {
         if (error) throw error;
         console.log('✅ Bestreta creada');
         
-        // ⭐ RECARREGAR DADES
-        await carregarDadesPreus();
-        
         return data[0];
     } catch (error) {
         console.error('❌ Error creant bestreta:', error);
@@ -129,9 +126,6 @@ async function actualitzarPreuBestreta(id, dades) {
         
         if (error) throw error;
         console.log('✅ Bestreta actualitzada');
-        
-        // ⭐ RECARREGAR DADES
-        await carregarDadesPreus();
     } catch (error) {
         console.error('❌ Error actualitzant bestreta:', error);
         throw error;
@@ -147,9 +141,6 @@ async function eliminarPreuBestreta(id) {
         
         if (error) throw error;
         console.log('✅ Bestreta eliminada');
-        
-        // ⭐ RECARREGAR DADES
-        await carregarDadesPreus();
     } catch (error) {
         console.error('❌ Error eliminant bestreta:', error);
         throw error;

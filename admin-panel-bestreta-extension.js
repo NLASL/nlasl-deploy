@@ -8,8 +8,6 @@
 // ============================================================
 
 async function mostrarVistaBestreta() {
-    await carregarDadesPreus();
-    
     const container = document.getElementById('view-container');
     
     // AGRUPAR per campanya
@@ -211,8 +209,9 @@ async function guardarNovabestreta(event) {
         mostrarNotificacio('✅ Bestreta ' + campanya + ' creada correctament', 'success');
         tancarModal('modal-nova-bestreta');
         
-        // ⭐ RECARREGAR LA VISTA (ja ho fa crearPreuBestreta, però per seguretat)
-        await mostrarVistaBestreta();
+        // ⭐ RECARREGAR NOMÉS LES BESTRETES
+        preusAnuals = await obtenirPreusAnuals(null);
+        mostrarVistaBestreta();
     } catch (error) {
         console.error('Error:', error);
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
@@ -229,7 +228,6 @@ async function obrirModalEditarBestreta(id) {
         return;
     }
     
-    await carregarDadesPreus();
     const bestreta = preusAnuals.find(b => b.id === id);
     if (!bestreta) {
         mostrarNotificacio('Bestreta no trobada', 'error');
@@ -309,8 +307,9 @@ async function guardarEdicionBestreta(event, id) {
         mostrarNotificacio('✅ Bestreta actualitzada correctament', 'success');
         tancarModal('modal-editar-bestreta');
         
-        // ⭐ RECARREGAR LA VISTA (ja ho fa actualitzarPreuBestreta, però per seguretat)
-        await mostrarVistaBestreta();
+        // ⭐ RECARREGAR NOMÉS LES BESTRETES
+        preusAnuals = await obtenirPreusAnuals(null);
+        mostrarVistaBestreta();
     } catch (error) {
         console.error('Error:', error);
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
@@ -332,8 +331,9 @@ async function eliminarBestreta(id) {
         await eliminarPreuBestreta(id);
         mostrarNotificacio('✅ Bestreta eliminada correctament', 'success');
         
-        // ⭐ RECARREGAR LA VISTA (ja ho fa eliminarPreuBestreta, però per seguretat)
-        await mostrarVistaBestreta();
+        // ⭐ RECARREGAR NOMÉS LES BESTRETES
+        preusAnuals = await obtenirPreusAnuals(null);
+        mostrarVistaBestreta();
     } catch (error) {
         console.error('Error:', error);
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
