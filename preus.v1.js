@@ -104,6 +104,10 @@ async function crearPreuBestreta(dades) {
         
         if (error) throw error;
         console.log('✅ Bestreta creada');
+        
+        // ⭐ RECARREGAR DADES
+        await carregarDadesPreus();
+        
         return data[0];
     } catch (error) {
         console.error('❌ Error creant bestreta:', error);
@@ -125,6 +129,9 @@ async function actualitzarPreuBestreta(id, dades) {
         
         if (error) throw error;
         console.log('✅ Bestreta actualitzada');
+        
+        // ⭐ RECARREGAR DADES
+        await carregarDadesPreus();
     } catch (error) {
         console.error('❌ Error actualitzant bestreta:', error);
         throw error;
@@ -140,6 +147,9 @@ async function eliminarPreuBestreta(id) {
         
         if (error) throw error;
         console.log('✅ Bestreta eliminada');
+        
+        // ⭐ RECARREGAR DADES
+        await carregarDadesPreus();
     } catch (error) {
         console.error('❌ Error eliminant bestreta:', error);
         throw error;
@@ -154,10 +164,7 @@ async function obtenirPreusCalibres(preuAnnualId = null) {
     try {
         let query = supabaseClient
             .from('collita_preus_liquidacio_calibres')
-            .select(`
-                *,
-                fruita_varietat:fruita_varietat_id(*)
-            `)
+            .select('*')
             .order('created_at', { ascending: false });
         
         if (preuAnnualId) {
@@ -166,7 +173,10 @@ async function obtenirPreusCalibres(preuAnnualId = null) {
         
         const { data, error } = await query;
         
-        if (error) throw error;
+        if (error) {
+            console.warn('⚠️ Taula liquidació_calibres no té dades o error:', error.message);
+            return [];
+        }
         return data || [];
     } catch (error) {
         console.error('❌ Error obtenint calibres:', error);
@@ -188,6 +198,10 @@ async function crearPreuCallibre(dades) {
         
         if (error) throw error;
         console.log('✅ Calibre creat');
+        
+        // ⭐ RECARREGAR DADES
+        await carregarDadesPreus();
+        
         return data[0];
     } catch (error) {
         console.error('❌ Error creant calibre:', error);
@@ -209,6 +223,9 @@ async function actualitzarPreuCallibre(id, dades) {
         
         if (error) throw error;
         console.log('✅ Calibre actualitzat');
+        
+        // ⭐ RECARREGAR DADES
+        await carregarDadesPreus();
     } catch (error) {
         console.error('❌ Error actualitzant calibre:', error);
         throw error;
@@ -224,6 +241,9 @@ async function eliminarPreuCallibre(id) {
         
         if (error) throw error;
         console.log('✅ Calibre eliminat');
+        
+        // ⭐ RECARREGAR DADES
+        await carregarDadesPreus();
     } catch (error) {
         console.error('❌ Error eliminant calibre:', error);
         throw error;
@@ -238,10 +258,7 @@ async function obtenirPreusNoComercios(preuAnnualId = null) {
     try {
         let query = supabaseClient
             .from('collita_preus_liquidacio_no_comercial')
-            .select(`
-                *,
-                fruita_varietat:fruita_varietat_id(*)
-            `)
+            .select('*')
             .order('created_at', { ascending: false });
         
         if (preuAnnualId) {
@@ -250,7 +267,10 @@ async function obtenirPreusNoComercios(preuAnnualId = null) {
         
         const { data, error } = await query;
         
-        if (error) throw error;
+        if (error) {
+            console.warn('⚠️ Taula liquidació_no_comercial no té dades o error:', error.message);
+            return [];
+        }
         return data || [];
     } catch (error) {
         console.error('❌ Error obtenint no comercials:', error);
@@ -272,6 +292,10 @@ async function crearPreuNoComerci(dades) {
         
         if (error) throw error;
         console.log('✅ No comercial creat');
+        
+        // ⭐ RECARREGAR DADES
+        await carregarDadesPreus();
+        
         return data[0];
     } catch (error) {
         console.error('❌ Error creant no comercial:', error);
@@ -293,6 +317,9 @@ async function actualitzarPreuNoComerci(id, dades) {
         
         if (error) throw error;
         console.log('✅ No comercial actualitzat');
+        
+        // ⭐ RECARREGAR DADES
+        await carregarDadesPreus();
     } catch (error) {
         console.error('❌ Error actualitzant no comercial:', error);
         throw error;
@@ -308,6 +335,9 @@ async function eliminarPreuNoComerci(id) {
         
         if (error) throw error;
         console.log('✅ No comercial eliminat');
+        
+        // ⭐ RECARREGAR DADES
+        await carregarDadesPreus();
     } catch (error) {
         console.error('❌ Error eliminant no comercial:', error);
         throw error;
@@ -322,10 +352,7 @@ async function obtenirPreusIndustria(preuAnnualId = null) {
     try {
         let query = supabaseClient
             .from('collita_preus_liquidacio_industria')
-            .select(`
-                *,
-                fruita_varietat:fruita_varietat_id(*)
-            `)
+            .select('*')
             .order('created_at', { ascending: false });
         
         if (preuAnnualId) {
@@ -334,7 +361,10 @@ async function obtenirPreusIndustria(preuAnnualId = null) {
         
         const { data, error } = await query;
         
-        if (error) throw error;
+        if (error) {
+            console.warn('⚠️ Taula liquidació_industria no té dades o error:', error.message);
+            return [];
+        }
         return data || [];
     } catch (error) {
         console.error('❌ Error obtenint industria:', error);
@@ -356,6 +386,10 @@ async function crearPreuIndustria(dades) {
         
         if (error) throw error;
         console.log('✅ Industria creat');
+        
+        // ⭐ RECARREGAR DADES
+        await carregarDadesPreus();
+        
         return data[0];
     } catch (error) {
         console.error('❌ Error creant industria:', error);
@@ -377,6 +411,9 @@ async function actualitzarPreuIndustria(id, dades) {
         
         if (error) throw error;
         console.log('✅ Industria actualitzat');
+        
+        // ⭐ RECARREGAR DADES
+        await carregarDadesPreus();
     } catch (error) {
         console.error('❌ Error actualitzant industria:', error);
         throw error;
@@ -392,6 +429,9 @@ async function eliminarPreuIndustria(id) {
         
         if (error) throw error;
         console.log('✅ Industria eliminat');
+        
+        // ⭐ RECARREGAR DADES
+        await carregarDadesPreus();
     } catch (error) {
         console.error('❌ Error eliminant industria:', error);
         throw error;
