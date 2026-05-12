@@ -93,15 +93,13 @@ async function mostrarTaulaEntrades() {
 async function mostrarFormulariAlbaraEntrada() {
     const container = document.getElementById('view-container');
     
-    // ✅ AFEGIR AL PRINCIPI: Carregar finques dinàmicament
+    // ✅ CARREGHAR FINQUES PRIMER (SÍNCRONA)
     let fincesDisponibles = [];
     try {
-        fincesDisponibles = await getFinques(); // Usa la funció de supabase-client_v5.js
+        fincesDisponibles = await getFinques();
         console.log('✅ Finques carregades:', fincesDisponibles);
     } catch (error) {
         console.warn('⚠️ Error carregant finques:', error);
-        // Si falleix, intentar accés a la variable global
-        fincesDisponibles = (typeof finques !== 'undefined' && Array.isArray(finques)) ? finques : [];
     }
     
     // Obté varietats per fruita
@@ -132,7 +130,7 @@ async function mostrarFormulariAlbaraEntrada() {
     html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">';
     html += '<div class="form-group"><label>Varietat *</label><select id="entrada-varietat" required><option value="">- Selecciona fruita -</option></select></div>';
     
-    // ✅ FINQUES: Carregar dynamicament
+    // ✅ FINQUES: AQUÍ ES POPULA AMB LES DADES JA CARREGADES
     html += '<div class="form-group"><label>Finca *</label><select id="entrada-finca" required><option value="">- Selecciona -</option>';
     
     if (fincesDisponibles && fincesDisponibles.length > 0) {
@@ -200,7 +198,7 @@ async function mostrarFormulariAlbaraEntrada() {
     
     container.innerHTML = html;
     
-    // ✅ Script dinàmic per actualitzar varietats
+    // ✅ FUNCIONS DINÀMIQUES
     window.actualitzarVarietats = function() {
         const fruitaId = document.getElementById('entrada-fruita').value;
         const varietatSelect = document.getElementById('entrada-varietat');
@@ -214,7 +212,6 @@ async function mostrarFormulariAlbaraEntrada() {
         }
     };
     
-    // ✅ Script dinàmic per calcular pes net
     window.calcularPesNet = function() {
         const pesBrut = parseFloat(document.getElementById('entrada-pes-brut').value) || 0;
         const taraEnv = parseFloat(document.getElementById('entrada-tara-env').value) || 0;
@@ -223,7 +220,6 @@ async function mostrarFormulariAlbaraEntrada() {
         const pesNet = pesBrut - taraEnv - taraVehicle;
         document.getElementById('entrada-pes-net').value = pesNet.toFixed(2);
         
-        // Calcular pes mig si hi ha palots
         const numPalots = parseFloat(document.getElementById('entrada-quantitat-palots').value) || 0;
         if (numPalots > 0) {
             const pesMig = pesNet / numPalots;
@@ -233,18 +229,24 @@ async function mostrarFormulariAlbaraEntrada() {
 }
  
 // ============================================================
-// GUARDAR ENTRADA - SENSE CANVIS
+// GUARDAR ENTRADA - USAR CAMP finca (TEXT)
 // ============================================================
  
 async function guardarAlbaraEntrada() {
     try {
+        // Validacions
+        const fincaValue = document.getElementById('entrada-finca').value;
+        if (!fincaValue) {
+            throw new Error('Finca és obligatòria - Selecciona una opció del dropdown');
+        }
+        
         const dades = {
             data: document.getElementById('entrada-data').value,
             num_albara: document.getElementById('entrada-num-albara').value,
             fruita_varietat_id: document.getElementById('entrada-varietat').value,
             
-            // ✅ AQUÍ: finca_id es pren del select (que és TEXT, no UUID)
-            finca_id: document.getElementById('entrada-finca').value,
+            // ✅ USAR finca (TEXT), no finca_id (UUID)
+            finca: fincaValue,
             
             qualitat: document.getElementById('entrada-qualitat').value,
             
@@ -268,15 +270,16 @@ async function guardarAlbaraEntrada() {
             created_by: currentUser ? currentUser.id : null
         };
         
+        console.log('📤 Dades a guardar:', dades);
+        
         await crearAlbaraEntrada(dades);
-        mostrarNotificacio('✅ Entrada d\'albarà guardada', 'success');
+        mostrarNotificacio('✅ Entrada d\'albarà guardada correctament', 'success');
         canviarVistaCollita('entrades');
     } catch (error) {
-        console.error('Error:', error);
+        console.error('❌ Error guardant entrada:', error);
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
     }
 }
- 
 
 function veureAlbaraEntrada(id) {
     mostrarNotificacio('Detall entrada: ' + id, 'info');
