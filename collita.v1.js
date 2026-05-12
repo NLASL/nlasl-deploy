@@ -91,7 +91,7 @@ async function crearAlbaraEntrada(dades) {
         // Validacions
         if (!dades.num_albara) throw new Error('Num. Albarà és obligatori');
         if (!dades.fruita_varietat_id) throw new Error('Fruita-Varietat és obligatoria');
-        if (!dades.finca_id) throw new Error('Finca és obligatòria');
+        if (!dades.finca) throw new Error('Finca és obligatòria');
 
         // Càlcul automàtic pes_net
         dades.pes_net = (dades.pes_brut || 0) - (dades.tara_envases || 0) - (dades.tara_vehicle || 0);
