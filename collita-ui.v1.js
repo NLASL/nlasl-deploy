@@ -63,7 +63,7 @@ async function mostrarTaulaEntrades() {
     entrades.forEach(e => {
         const fruita = fruites.find(f => f.id === (e.fruita_varietat_id?.fruita_id || null));
         const varietat = e.fruita_varietat_id?.varietat || '-';
-        const finca = finques.find(f => f.id === e.finca_id);
+        const finca = finques.find(f => f.id === e.finca);
         
         html += '<tr>';
         html += '<td>' + formatData(e.data) + '</td>';
@@ -589,7 +589,7 @@ async function guardarAlbaraEscandall(event) {
             data: document.getElementById('escandall-data').value,
             num_albara_escandall: document.getElementById('escandall-num-albara').value,
             fruita_varietat_id: entrada.fruita_varietat_id,
-            finca_id: entrada.finca_id,
+            finca: entrada.finca,
             qualitat_original: document.getElementById('escandall-qualitat-original').value,
             qualitat_reclassificada: document.getElementById('escandall-qualitat-reclassificada').value,
             motiu_reclassificacio: document.getElementById('escandall-motiu').value,
