@@ -93,6 +93,17 @@ async function mostrarTaulaEntrades() {
 async function mostrarFormulariAlbaraEntrada() {
     const container = document.getElementById('view-container');
     
+    // ✅ AFEGIR AL PRINCIPI: Carregar finques dinàmicament
+    let fincesDisponibles = [];
+    try {
+        fincesDisponibles = await getFinques(); // Usa la funció de supabase-client_v5.js
+        console.log('✅ Finques carregades:', fincesDisponibles);
+    } catch (error) {
+        console.warn('⚠️ Error carregant finques:', error);
+        // Si falleix, intentar accés a la variable global
+        fincesDisponibles = (typeof finques !== 'undefined' && Array.isArray(finques)) ? finques : [];
+    }
+    
     // Obté varietats per fruita
     const varietatsPorFruita = {};
     varietats.forEach(v => {
@@ -101,16 +112,16 @@ async function mostrarFormulariAlbaraEntrada() {
         }
         varietatsPorFruita[v.fruita_id].push(v);
     });
-    
-    let html = '<div class="formulari-entrada">';
-    html += '<h2>🍎 Collita - Nova Entrada</h2>';
-    html += '<form id="form-entrada" onsubmit="guardarAlbaraEntrada(event)" style="background: #f9f9f9; padding: 20px; border-radius: 8px;">';
+ 
+    let html = '<div class="modal-nova-entrada">';
+    html += '<h3>🍎 Collita - Nova Entrada</h3>';
     
     // Row 1
     html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">';
-    html += '<div class="form-group"><label>Data *</label><input type="date" id="entrada-data" required></div>';
-    html += '<div class="form-group"><label>Num. Albarà *</label><input type="text" id="entrada-num-albara" required placeholder="ex: 11072025"></div>';
+    html += '<div class="form-group"><label>Data *</label><input type="date" id="entrada-data" required value="' + new Date().toISOString().split('T')[0] + '"></div>';
+    html += '<div class="form-group"><label>Num. Albarà *</label><input type="text" id="entrada-num-albara" required placeholder="ex: 68641"></div>';
     html += '<div class="form-group"><label>Fruita *</label><select id="entrada-fruita" required onchange="actualitzarVarietats()"><option value="">- Selecciona -</option>';
+    
     fruites.forEach(f => {
         html += '<option value="' + f.id + '">' + f.nom + '</option>';
     });
@@ -120,11 +131,21 @@ async function mostrarFormulariAlbaraEntrada() {
     // Row 2
     html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">';
     html += '<div class="form-group"><label>Varietat *</label><select id="entrada-varietat" required><option value="">- Selecciona fruita -</option></select></div>';
+    
+    // ✅ FINQUES: Carregar dynamicament
     html += '<div class="form-group"><label>Finca *</label><select id="entrada-finca" required><option value="">- Selecciona -</option>';
-    finques.forEach(f => {
-        html += '<option value="' + f.id + '">' + f.nom + '</option>';
-    });
+    
+    if (fincesDisponibles && fincesDisponibles.length > 0) {
+        fincesDisponibles.forEach(finca => {
+            html += '<option value="' + finca + '">' + finca + '</option>';
+        });
+    } else {
+        html += '<option value="" disabled>⚠️ Cap finca disponible</option>';
+    }
+    
     html += '</select></div>';
+    
+    // QUALITAT
     html += '<div class="form-group"><label>Qualitat *</label><select id="entrada-qualitat" required><option value="">- Selecciona -</option>';
     qualitats.forEach(q => {
         html += '<option value="' + q.nom + '">' + q.nom + '</option>';
@@ -135,7 +156,7 @@ async function mostrarFormulariAlbaraEntrada() {
     // Envasos Entrada
     html += '<h4 style="margin-top: 20px;">📦 Envasos Entrada</h4>';
     html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px;">';
-    html += '<div class="form-group"><label>Tipus Envàs</label><input type="text" id="entrada-tipus-envases" placeholder="ex: PALOT PLASTICO 207V"></div>';
+    html += '<div class="form-group"><label>Tipus Envàs</label><input type="text" id="entrada-tipus-envases" placeholder="ex: PALOT PLASTICO 212 L"></div>';
     html += '<div class="form-group"><label>Quantitat Palots</label><input type="number" id="entrada-quantitat-palots" min="0" step="1"></div>';
     html += '<div class="form-group"><label>Pes Brut (kg)</label><input type="number" id="entrada-pes-brut-env" min="0" step="0.01"></div>';
     html += '<div class="form-group"><label>Tara Envàs (kg)</label><input type="number" id="entrada-tara-envases" min="0" step="0.01"></div>';
@@ -153,71 +174,81 @@ async function mostrarFormulariAlbaraEntrada() {
     // Pesos
     html += '<h4 style="margin-top: 20px;">⚖️ Pesos</h4>';
     html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px;">';
-    html += '<div class="form-group"><label>Pes Brut (kg) *</label><input type="number" id="entrada-pes-brut" min="0" step="0.01" required onchange="calcularPesNet()"></div>';
-    html += '<div class="form-group"><label>Tara Envases (kg) *</label><input type="number" id="entrada-tara-env" min="0" step="0.01" required onchange="calcularPesNet()"></div>';
-    html += '<div class="form-group"><label>Tara Vehicle (kg) *</label><input type="number" id="entrada-tara-vehicle" min="0" step="0.01" required onchange="calcularPesNet()"></div>';
-    html += '<div class="form-group"><label>Pes Net (kg)</label><input type="number" id="entrada-pes-net" readonly style="background: #e8f5e9;"></div>';
+    html += '<div class="form-group"><label>Pes Brut (kg) *</label><input type="number" id="entrada-pes-brut" required min="0" step="0.01" onchange="calcularPesNet()"></div>';
+    html += '<div class="form-group"><label>Tara Envases (kg) *</label><input type="number" id="entrada-tara-env" required min="0" step="0.01" onchange="calcularPesNet()"></div>';
+    html += '<div class="form-group"><label>Tara Vehicle (kg) *</label><input type="number" id="entrada-tara-vehicle" required min="0" step="0.01" onchange="calcularPesNet()"></div>';
+    html += '<div class="form-group"><label>Pes Net (kg)</label><input type="number" id="entrada-pes-net" readonly style="background-color: #e8f5e9;"></div>';
     html += '</div>';
     
-    html += '<div class="form-group"><label>Pes Mig (kg/palot)</label><input type="number" id="entrada-pes-mig" readonly style="background: #e8f5e9;"></div>';
+    // Pes mig
+    html += '<div style="margin-top: 15px;">';
+    html += '<div class="form-group"><label>Pes Mig (kg/palot)</label><input type="number" id="entrada-pes-mig" readonly style="background-color: #e8f5e9;"></div>';
+    html += '</div>';
     
     // Observacions
-    html += '<div class="form-group"><label>Observacions</label><textarea id="entrada-observacions" rows="3" placeholder="Anotacions addicionals..."></textarea></div>';
-    
-    // Botons
-    html += '<div style="margin-top: 20px;">';
-    html += '<button type="submit" class="btn btn-success">💾 Guardar Entrada</button>';
-    html += '<button type="button" class="btn btn-secondary" onclick="canviarVistaCollita(\'entrades\')" style="margin-left: 10px;">❌ Cancelar</button>';
+    html += '<div style="margin-top: 15px;">';
+    html += '<div class="form-group"><label>Observacions</label><textarea id="entrada-observacions" rows="3" placeholder="Anotacions adicionals..."></textarea></div>';
     html += '</div>';
     
-    html += '</form></div>';
+    // Botons
+    html += '<div style="margin-top: 20px; display: flex; gap: 10px;">';
+    html += '<button class="btn btn-success" onclick="guardarAlbaraEntrada()">💾 Guardar Entrada</button>';
+    html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'entrades\')">✕ Cancelar</button>';
+    html += '</div>';
+    
+    html += '</div>';
     
     container.innerHTML = html;
     
-    // Inicialitzar data actual
-    document.getElementById('entrada-data').valueAsDate = new Date();
+    // ✅ Script dinàmic per actualitzar varietats
+    window.actualitzarVarietats = function() {
+        const fruitaId = document.getElementById('entrada-fruita').value;
+        const varietatSelect = document.getElementById('entrada-varietat');
+        
+        varietatSelect.innerHTML = '<option value="">- Selecciona varietat -</option>';
+        
+        if (fruitaId && varietatsPorFruita[fruitaId]) {
+            varietatsPorFruita[fruitaId].forEach(v => {
+                varietatSelect.innerHTML += '<option value="' + v.id + '">' + v.varietat + '</option>';
+            });
+        }
+    };
+    
+    // ✅ Script dinàmic per calcular pes net
+    window.calcularPesNet = function() {
+        const pesBrut = parseFloat(document.getElementById('entrada-pes-brut').value) || 0;
+        const taraEnv = parseFloat(document.getElementById('entrada-tara-env').value) || 0;
+        const taraVehicle = parseFloat(document.getElementById('entrada-tara-vehicle').value) || 0;
+        
+        const pesNet = pesBrut - taraEnv - taraVehicle;
+        document.getElementById('entrada-pes-net').value = pesNet.toFixed(2);
+        
+        // Calcular pes mig si hi ha palots
+        const numPalots = parseFloat(document.getElementById('entrada-quantitat-palots').value) || 0;
+        if (numPalots > 0) {
+            const pesMig = pesNet / numPalots;
+            document.getElementById('entrada-pes-mig').value = pesMig.toFixed(3);
+        }
+    };
 }
-
-function actualitzarVarietats() {
-    const fruitaId = document.getElementById('entrada-fruita').value;
-    const varietatSelect = document.getElementById('entrada-varietat');
-    
-    varietatSelect.innerHTML = '<option value="">- Selecciona varietat -</option>';
-    
-    varietats.filter(v => v.fruita_id === fruitaId).forEach(v => {
-        const option = document.createElement('option');
-        option.value = v.id;
-        option.textContent = v.varietat;
-        varietatSelect.appendChild(option);
-    });
-}
-
-function calcularPesNet() {
-    const pesBrut = parseFloat(document.getElementById('entrada-pes-brut').value) || 0;
-    const taraEnv = parseFloat(document.getElementById('entrada-tara-env').value) || 0;
-    const taraVehicle = parseFloat(document.getElementById('entrada-tara-vehicle').value) || 0;
-    
-    const pesNet = pesBrut - taraEnv - taraVehicle;
-    document.getElementById('entrada-pes-net').value = pesNet.toFixed(2);
-    
-    // Calcular pes mig
-    const quantitatPalots = parseInt(document.getElementById('entrada-quantitat-palots').value) || 1;
-    const pesMig = pesNet / quantitatPalots;
-    document.getElementById('entrada-pes-mig').value = pesMig.toFixed(2);
-}
-
-async function guardarAlbaraEntrada(event) {
-    event.preventDefault();
-    
+ 
+// ============================================================
+// GUARDAR ENTRADA - SENSE CANVIS
+// ============================================================
+ 
+async function guardarAlbaraEntrada() {
     try {
         const dades = {
             data: document.getElementById('entrada-data').value,
             num_albara: document.getElementById('entrada-num-albara').value,
             fruita_varietat_id: document.getElementById('entrada-varietat').value,
+            
+            // ✅ AQUÍ: finca_id es pren del select (que és TEXT, no UUID)
             finca_id: document.getElementById('entrada-finca').value,
+            
             qualitat: document.getElementById('entrada-qualitat').value,
             
-            tipus_envases_entrada: document.getElementById('entrada-tipus-envases').value,
+            tipus_envases_entrada: document.getElementById('entrada-tipus-envases').value || null,
             quantitat_palots_entrada: parseInt(document.getElementById('entrada-quantitat-palots').value) || 0,
             pes_brut_entrada: parseFloat(document.getElementById('entrada-pes-brut-env').value) || 0,
             tara_envases_entrada: parseFloat(document.getElementById('entrada-tara-envases').value) || 0,
@@ -245,6 +276,7 @@ async function guardarAlbaraEntrada(event) {
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
     }
 }
+ 
 
 function veureAlbaraEntrada(id) {
     mostrarNotificacio('Detall entrada: ' + id, 'info');
