@@ -232,25 +232,24 @@ async function mostrarFormulariAlbaraEntrada() {
 // GUARDAR ENTRADA - USAR CAMP finca (TEXT)
 // ============================================================
  
-async function guardarAlbaraEntrada() {
-    try {
-        // Validacions
-        const fincaValue = document.getElementById('entrada-finca').value;
-        if (!fincaValue) {
-            throw new Error('Finca és obligatòria - Selecciona una opció del dropdown');
-        }
-        
-        const dades = {
-            data: document.getElementById('entrada-data').value,
-            num_albara: document.getElementById('entrada-num-albara').value,
-            fruita_varietat_id: document.getElementById('entrada-varietat').value,
+async function guardarAlbaraEntrada(event) {
+    event.preventDefault();
+    
+   try {
+    // Obtener el ID de parcella que tiene esa finca
+    const fincaNombre = document.getElementById('entrada-finca').value;
+    const parcellaAmbFinca = parcelles.find(p => p.finca === fincaNombre);
+    const fincaId = parcellaAmbFinca ? parcellaAmbFinca.id : null;
+    
+		const dades = {
+			data: document.getElementById('entrada-data').value,
+			num_albara: document.getElementById('entrada-num-albara').value,
+			fruita_varietat_id: document.getElementById('entrada-varietat').value,
+			finca_id: fincaId,  // ← AQUÍ: usar fincaId (UUID)
+			finca: fincaNombre,     // ← String (para mostrar)
+			qualitat: document.getElementById('entrada-qualitat').value,
             
-            // ✅ USAR finca (TEXT), no finca_id (UUID)
-            finca: fincaValue,
-            
-            qualitat: document.getElementById('entrada-qualitat').value,
-            
-            tipus_envases_entrada: document.getElementById('entrada-tipus-envases').value || null,
+            tipus_envases_entrada: document.getElementById('entrada-tipus-envases').value,
             quantitat_palots_entrada: parseInt(document.getElementById('entrada-quantitat-palots').value) || 0,
             pes_brut_entrada: parseFloat(document.getElementById('entrada-pes-brut-env').value) || 0,
             tara_envases_entrada: parseFloat(document.getElementById('entrada-tara-envases').value) || 0,
@@ -270,13 +269,11 @@ async function guardarAlbaraEntrada() {
             created_by: currentUser ? currentUser.id : null
         };
         
-        console.log('📤 Dades a guardar:', dades);
-        
         await crearAlbaraEntrada(dades);
-        mostrarNotificacio('✅ Entrada d\'albarà guardada correctament', 'success');
+        mostrarNotificacio('✅ Entrada d\'albarà guardada', 'success');
         canviarVistaCollita('entrades');
     } catch (error) {
-        console.error('❌ Error guardant entrada:', error);
+        console.error('Error:', error);
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
     }
 }
