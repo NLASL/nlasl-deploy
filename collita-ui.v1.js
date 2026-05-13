@@ -235,19 +235,15 @@ async function mostrarFormulariAlbaraEntrada() {
 async function guardarAlbaraEntrada(event) {
     event.preventDefault();
     
-   try {
-    // Obtener el ID de parcella que tiene esa finca
-    const fincaNombre = document.getElementById('entrada-finca').value;
-    const parcellaAmbFinca = parcelles.find(p => p.finca === fincaNombre);
-    const fincaId = parcellaAmbFinca ? parcellaAmbFinca.id : null;
-    
-		const dades = {
-			data: document.getElementById('entrada-data').value,
-			num_albara: document.getElementById('entrada-num-albara').value,
-			fruita_varietat_id: document.getElementById('entrada-varietat').value,
-			finca_id: fincaId,  // ← AQUÍ: usar fincaId (UUID)
-			finca: fincaNombre,     // ← String (para mostrar)
-			qualitat: document.getElementById('entrada-qualitat').value,
+    try {
+        const fincaNom = document.getElementById('entrada-finca').value;
+        const dades = {
+            data: document.getElementById('entrada-data').value,
+            num_albara: document.getElementById('entrada-num-albara').value,
+            fruita_varietat_id: document.getElementById('entrada-varietat').value,
+            finca_id: (parcelles.find(p => p.finca === fincaNom) || {}).id || null,
+            finca: fincaNom,
+            qualitat: document.getElementById('entrada-qualitat').value,
             
             tipus_envases_entrada: document.getElementById('entrada-tipus-envases').value,
             quantitat_palots_entrada: parseInt(document.getElementById('entrada-quantitat-palots').value) || 0,
