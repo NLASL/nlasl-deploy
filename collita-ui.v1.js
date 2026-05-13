@@ -233,7 +233,7 @@ async function mostrarFormulariAlbaraEntrada() {
 // ============================================================
  
 async function guardarAlbaraEntrada(event) {
-    event.preventDefault();
+    
     
     try {
         const fincaNom = document.getElementById('entrada-finca').value;
