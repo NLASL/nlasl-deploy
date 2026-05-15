@@ -38,6 +38,7 @@ async function mostrarVista_Entrades() {
     html += '<div style="margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px;">';
     html += '<button class="btn btn-primary" onclick="mostrarFormulariAlbaraEntrada()" style="margin-right: 10px;">➕ Nova Entrada</button>';
    	html += '<button class="btn btn-info" onclick="mostrarResumEntrades()" style="margin-right: 10px;">📊 Resum</button>';
+	html += '<button class="btn btn-info" onclick="mostrarResumEscandalls()" style="margin-right:10px;">📊 Resum</button>';
 	html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'escandalls\')" style="margin-right: 10px;">→ Escandalls</button>';
     html += '</div>';
     
@@ -531,6 +532,263 @@ async function mostrarTaulaEscandalls() {
     html += '</tbody></table></div>';
     content.innerHTML = html;
 }
+
+// ============================================================
+// CANVI 2: Afegir funció mostrarResumEscandalls()
+// ============================================================
+ 
+async function mostrarResumEscandalls(campanya) {
+    // Detectar campanya actual si no s'especifica
+    if (!campanya) {
+        var ara = new Date();
+        campanya = ara.getMonth() >= 9 ? ara.getFullYear() + 1 : ara.getFullYear();
+    }
+    campanya = parseInt(campanya);
+ 
+    var content = document.getElementById('collita-content');
+    content.innerHTML = '<p>⏳ Carregant resum escandalls...</p>';
+ 
+    // Dates campanya: 1 octubre (any-1) → 30 setembre (any)
+    var dataInici = (campanya - 1) + '-10-01';
+    var dataFinal = campanya + '-09-30';
+ 
+    // Carregar escandalls amb totes les taules filles
+    var escandalls = [];
+    try {
+        var resp = await supabaseClient
+            .from('collita_escandall')
+            .select('*, collita_escandall_calibres(*), collita_escandall_no_comercial(*), collita_escandall_industria(*)')
+            .eq('estat', 'actiu')
+            .gte('data', dataInici)
+            .lte('data', dataFinal)
+            .order('data', { ascending: false });
+ 
+        if (resp.error) throw resp.error;
+        escandalls = resp.data || [];
+    } catch (error) {
+        content.innerHTML = '<p>❌ Error carregant escandalls: ' + error.message + '</p>';
+        return;
+    }
+ 
+    // ============================================================
+    // AGRUPAR DADES
+    // ============================================================
+ 
+    // Estructura: resum[fruitaNom][varietatNom][qualitatFinal]
+    var resum = {};
+    var totalsFruita = {};
+ 
+    escandalls.forEach(function(e) {
+        // Resolució fruita/varietat
+        var varietatObj = varietats.find(function(v) { return v.id === e.fruita_varietat_id; });
+        var fruitaObj = varietatObj ? fruites.find(function(f) { return f.id === varietatObj.fruita_id; }) : null;
+        var fruitaNom = fruitaObj ? fruitaObj.nom : 'Desconeguda';
+        var varietatNom = varietatObj ? varietatObj.varietat : 'Desconeguda';
+        var qualitatFinal = e.qualitat_reclassificada || e.qualitat_original || 'Sense qualitat';
+ 
+        // Kg per categoria
+        var kgComericial = (e.collita_escandall_calibres || []).reduce(function(s, c) { return s + (parseFloat(c.pes_kg) || 0); }, 0);
+        var kgNoComercial = (e.collita_escandall_no_comercial || []).reduce(function(s, c) { return s + (parseFloat(c.pes_kg) || 0); }, 0);
+        var kgIndustria = (e.collita_escandall_industria || []).reduce(function(s, c) { return s + (parseFloat(c.pes_kg) || 0); }, 0);
+        var kgTotal = kgComericial + kgNoComercial + kgIndustria;
+ 
+        // Inicialitzar estructura
+        if (!resum[fruitaNom]) resum[fruitaNom] = {};
+        if (!resum[fruitaNom][varietatNom]) resum[fruitaNom][varietatNom] = {};
+        if (!resum[fruitaNom][varietatNom][qualitatFinal]) {
+            resum[fruitaNom][varietatNom][qualitatFinal] = {
+                numEscandalls: 0,
+                kgComercial: 0,
+                kgNoComercial: 0,
+                kgIndustria: 0,
+                kgTotal: 0,
+                calibres: {},
+                noComercials: {}
+            };
+        }
+ 
+        var r = resum[fruitaNom][varietatNom][qualitatFinal];
+        r.numEscandalls++;
+        r.kgComercial += kgComericial;
+        r.kgNoComercial += kgNoComercial;
+        r.kgIndustria += kgIndustria;
+        r.kgTotal += kgTotal;
+ 
+        // Acumular calibres
+        (e.collita_escandall_calibres || []).forEach(function(c) {
+            if (!r.calibres[c.calibre]) r.calibres[c.calibre] = 0;
+            r.calibres[c.calibre] += parseFloat(c.pes_kg) || 0;
+        });
+ 
+        // Acumular no comercials
+        (e.collita_escandall_no_comercial || []).forEach(function(nc) {
+            if (!r.noComercials[nc.classificacio]) r.noComercials[nc.classificacio] = 0;
+            r.noComercials[nc.classificacio] += parseFloat(nc.pes_kg) || 0;
+        });
+ 
+        // Totals per fruita
+        if (!totalsFruita[fruitaNom]) {
+            totalsFruita[fruitaNom] = { kgComercial: 0, kgNoComercial: 0, kgIndustria: 0, kgTotal: 0, numEscandalls: 0 };
+        }
+        totalsFruita[fruitaNom].kgComercial += kgComericial;
+        totalsFruita[fruitaNom].kgNoComercial += kgNoComercial;
+        totalsFruita[fruitaNom].kgIndustria += kgIndustria;
+        totalsFruita[fruitaNom].kgTotal += kgTotal;
+        totalsFruita[fruitaNom].numEscandalls++;
+    });
+ 
+    // ============================================================
+    // RENDERITZAR
+    // ============================================================
+ 
+    var campanyes = [2024, 2025, 2026];
+    var html = '<div class="resum-escandalls">';
+ 
+    // Capçalera
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">';
+    html += '<h3 style="margin:0;">📊 Resum Escandalls · Campanya ' + campanya + '</h3>';
+    html += '<div style="display:flex; gap:10px; align-items:center;">';
+    html += '<label><strong>Campanya:</strong></label>';
+    html += '<select onchange="mostrarResumEscandalls(this.value)" style="padding:5px 10px; border-radius:5px;">';
+    campanyes.forEach(function(c) {
+        html += '<option value="' + c + '"' + (c === campanya ? ' selected' : '') + '>' + c + '</option>';
+    });
+    html += '</select>';
+    html += '<button class="btn btn-secondary" onclick="mostrarTaulaEscandalls()">← Tornar</button>';
+    html += '</div></div>';
+ 
+    // Si no hi ha dades
+    if (escandalls.length === 0) {
+        html += '<div style="text-align:center; padding:40px; color:#999;">No hi ha escandalls per la campanya ' + campanya + '</div>';
+        html += '</div>';
+        content.innerHTML = html;
+        return;
+    }
+ 
+    // Cards totals per fruita
+    html += '<div style="display:flex; gap:15px; margin-bottom:25px; flex-wrap:wrap;">';
+    Object.keys(totalsFruita).forEach(function(fruitaNom) {
+        var t = totalsFruita[fruitaNom];
+        var color = fruitaNom === 'Albercoc' ? '#f39c12' :
+                    fruitaNom === 'Nectarina' ? '#e74c3c' :
+                    fruitaNom === 'Préssec Pla' ? '#e91e8c' : '#27ae60';
+        var pctNC = t.kgTotal > 0 ? (t.kgNoComercial / t.kgTotal * 100) : 0;
+        var pctInd = t.kgTotal > 0 ? (t.kgIndustria / t.kgTotal * 100) : 0;
+ 
+        html += '<div style="background:' + color + '15; border:2px solid ' + color + '; border-radius:10px; padding:15px; min-width:220px; flex:1;">';
+        html += '<h4 style="margin:0 0 10px 0; color:' + color + ';">' + fruitaNom + '</h4>';
+        html += '<div style="font-size:1.4em; font-weight:bold;">' + t.kgTotal.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg</div>';
+        html += '<div style="margin-top:8px; font-size:0.85em; color:#555;">';
+        html += '✅ Comercial: <strong>' + t.kgComercial.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg</strong><br>';
+        html += '⚠️ NC: <strong>' + t.kgNoComercial.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg</strong> (' + pctNC.toFixed(1) + '%)<br>';
+        if (t.kgIndustria > 0) {
+            html += '🏭 Indústria: <strong>' + t.kgIndustria.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg</strong> (' + pctInd.toFixed(1) + '%)<br>';
+        }
+        html += t.numEscandalls + ' escandalls';
+        html += '</div></div>';
+    });
+    html += '</div>';
+ 
+    // Taula desglosada per fruita → varietat → qualitat
+    Object.keys(resum).sort().forEach(function(fruitaNom) {
+        var color = fruitaNom === 'Albercoc' ? '#f39c12' :
+                    fruitaNom === 'Nectarina' ? '#e74c3c' :
+                    fruitaNom === 'Préssec Pla' ? '#e91e8c' : '#27ae60';
+ 
+        html += '<div style="margin-bottom:25px;">';
+        html += '<h4 style="color:' + color + '; border-bottom:2px solid ' + color + '; padding-bottom:5px;">' + fruitaNom + '</h4>';
+ 
+        html += '<table class="data-table" style="width:100%;">';
+        html += '<thead><tr>';
+        html += '<th>Varietat</th><th>Qualitat</th>';
+        html += '<th style="text-align:right;">Escandalls</th>';
+        html += '<th style="text-align:right;">Kg Comercial</th>';
+        html += '<th style="text-align:right;">Kg NC</th>';
+        html += '<th style="text-align:right;">Kg Indústria</th>';
+        html += '<th style="text-align:right;">Kg Total</th>';
+        html += '<th style="text-align:right;">% NC</th>';
+        html += '<th>Detall calibres</th>';
+        html += '</tr></thead><tbody>';
+ 
+        Object.keys(resum[fruitaNom]).sort().forEach(function(varietatNom) {
+            Object.keys(resum[fruitaNom][varietatNom]).sort().forEach(function(qualitat) {
+                var r = resum[fruitaNom][varietatNom][qualitat];
+                var pctNC = r.kgTotal > 0 ? (r.kgNoComercial / r.kgTotal * 100) : 0;
+                var colorNC = pctNC > 20 ? '#e74c3c' : pctNC > 10 ? '#e67e22' : '#27ae60';
+ 
+                html += '<tr>';
+                html += '<td><strong>' + varietatNom + '</strong></td>';
+                html += '<td><span style="background:#eee; border-radius:4px; padding:2px 6px; font-size:0.85em;">' + qualitat + '</span></td>';
+                html += '<td style="text-align:right;">' + r.numEscandalls + '</td>';
+                html += '<td style="text-align:right;"><strong>' + r.kgComercial.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</strong></td>';
+                html += '<td style="text-align:right; color:' + (r.kgNoComercial < 0 ? '#e74c3c' : '#555') + ';">' + r.kgNoComercial.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</td>';
+                html += '<td style="text-align:right;">' + (r.kgIndustria > 0 ? r.kgIndustria.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) : '-') + '</td>';
+                html += '<td style="text-align:right;"><strong>' + r.kgTotal.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</strong></td>';
+                html += '<td style="text-align:right; color:' + colorNC + '; font-weight:bold;">' + pctNC.toFixed(1) + '%</td>';
+ 
+                // Detall calibres (pills)
+                html += '<td style="font-size:0.8em;">';
+                Object.keys(r.calibres).sort().forEach(function(calibre) {
+                    var kg = r.calibres[calibre];
+                    var pct = r.kgComercial > 0 ? (kg / r.kgComercial * 100) : 0;
+                    html += '<span style="background:#e8f4fd; border:1px solid #3498db; border-radius:3px; padding:1px 5px; margin:1px; white-space:nowrap; display:inline-block;">';
+                    html += calibre + ': ' + kg.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg (' + pct.toFixed(0) + '%)';
+                    html += '</span>';
+                });
+ 
+                // NC detall
+                if (Object.keys(r.noComercials).length > 0) {
+                    html += '<div style="margin-top:4px;">';
+                    Object.keys(r.noComercials).forEach(function(nc) {
+                        var kg = r.noComercials[nc];
+                        html += '<span style="background:#fdf2e9; border:1px solid #e67e22; border-radius:3px; padding:1px 5px; margin:1px; white-space:nowrap; display:inline-block;">';
+                        html += nc + ': ' + kg.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg';
+                        html += '</span>';
+                    });
+                    html += '</div>';
+                }
+                html += '</td>';
+                html += '</tr>';
+            });
+        });
+ 
+        // Subtotal fruita
+        var tf = totalsFruita[fruitaNom];
+        html += '<tr style="border-top:2px solid ' + color + '; background:' + color + '10; font-weight:bold;">';
+        html += '<td colspan="3">Subtotal ' + fruitaNom + '</td>';
+        html += '<td style="text-align:right;">' + tf.kgComercial.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</td>';
+        html += '<td style="text-align:right;">' + tf.kgNoComercial.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</td>';
+        html += '<td style="text-align:right;">' + (tf.kgIndustria > 0 ? tf.kgIndustria.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) : '-') + '</td>';
+        html += '<td style="text-align:right;">' + tf.kgTotal.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</td>';
+        var pctNCTotal = tf.kgTotal > 0 ? (tf.kgNoComercial / tf.kgTotal * 100) : 0;
+        html += '<td style="text-align:right;">' + pctNCTotal.toFixed(1) + '%</td>';
+        html += '<td></td></tr>';
+ 
+        html += '</tbody></table></div>';
+    });
+ 
+    // Total general
+    var totGenKgCom = Object.values(totalsFruita).reduce(function(s, t) { return s + t.kgComercial; }, 0);
+    var totGenKgNC = Object.values(totalsFruita).reduce(function(s, t) { return s + t.kgNoComercial; }, 0);
+    var totGenKgInd = Object.values(totalsFruita).reduce(function(s, t) { return s + t.kgIndustria; }, 0);
+    var totGenKgTot = Object.values(totalsFruita).reduce(function(s, t) { return s + t.kgTotal; }, 0);
+    var totGenNC = totGenKgTot > 0 ? (totGenKgNC / totGenKgTot * 100) : 0;
+ 
+    html += '<div style="background:#f5f5f5; border:2px solid #333; border-radius:8px; padding:15px; margin-top:10px;">';
+    html += '<strong>TOTAL CAMPANYA ' + campanya + '</strong><br><br>';
+    html += '<div style="display:flex; gap:30px; flex-wrap:wrap;">';
+    html += '<span>✅ Comercial: <strong>' + totGenKgCom.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' kg</strong></span>';
+    html += '<span>⚠️ NC: <strong>' + totGenKgNC.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' kg</strong> (' + totGenNC.toFixed(1) + '%)</span>';
+    if (totGenKgInd > 0) {
+        html += '<span>🏭 Indústria: <strong>' + totGenKgInd.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' kg</strong></span>';
+    }
+    html += '<span>📦 <strong>TOTAL: ' + totGenKgTot.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' kg</strong></span>';
+    html += '</div></div>';
+ 
+    html += '</div>';
+    content.innerHTML = html;
+}
+
 // ============================================================
 // 4. FORMULARI ALBARÀ ESCANDALL
 // ============================================================
