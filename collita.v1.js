@@ -206,6 +206,10 @@ async function obtenerAlbaraEntradaPorNum(numAlbara) {
 
 async function obtenirTodasEntradas(campanya = 2025) {
     try {
+        // Detectar dates de campanya: 1 octubre (any-1) → 30 setembre (any)
+        const dataInici = (campanya - 1) + '-10-01';
+        const dataFinal = campanya + '-09-30';
+
         const { data, error } = await supabaseClient
             .from('collita_entrada')
             .select(`
@@ -213,6 +217,8 @@ async function obtenirTodasEntradas(campanya = 2025) {
                 fruita_varietat_id (fruita_id, varietat)
             `)
             .eq('estat', 'actiu')
+            .gte('data', dataInici)
+            .lte('data', dataFinal)
             .order('data', { ascending: false });
 
         if (error) throw error;
