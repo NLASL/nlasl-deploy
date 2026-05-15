@@ -38,7 +38,7 @@ async function mostrarVista_Entrades() {
     html += '<div style="margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px;">';
     html += '<button class="btn btn-primary" onclick="mostrarFormulariAlbaraEntrada()" style="margin-right: 10px;">➕ Nova Entrada</button>';
    	html += '<button class="btn btn-info" onclick="mostrarResumEntrades()" style="margin-right: 10px;">📊 Resum</button>';
-	html += '<button class="btn btn-info" onclick="mostrarResumEscandalls()" style="margin-right:10px;">📊 Resum</button>';
+	
 	html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'escandalls\')" style="margin-right: 10px;">→ Escandalls</button>';
     html += '</div>';
     
@@ -474,7 +474,8 @@ async function mostrarVista_Escandalls() {
     // Navegació
     html += '<div style="margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px;">';
     html += '<button class="btn btn-primary" onclick="mostrarFormulariAlbaraEscandall()" style="margin-right: 10px;">➕ Nou Escandall</button>';
-    html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'entrades\')">← Entrades</button>';
+    html += '<button class="btn btn-info" onclick="mostrarResumEscandalls()" style="margin-right:10px;">📊 Resum</button>';
+	html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'entrades\')">← Entrades</button>';
     html += '</div>';
     
     // Taula
