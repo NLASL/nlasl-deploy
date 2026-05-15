@@ -105,37 +105,11 @@ async function mostrarTaulaEntrades() {
 // Afegir just DESPRÉS de mostrarTaulaEntrades()
 // ============================================================
 
-async function mostrarResumEntrades(campanya = null) {
-    // Detectar campanya actual si no s'especifica
-    if (!campanya) {
-        const ara = new Date();
-        campanya = ara.getMonth() >= 9 ? ara.getFullYear() + 1 : ara.getFullYear();
-    }
-
+async function mostrarResumEntrades() {
     const content = document.getElementById('collita-content');
     content.innerHTML = '<p>⏳ Carregant resum...</p>';
 
-    const entrades = await obtenirTodasEntradas(campanya);
-
-    let html = '<div class="resum-entrades">';
-    html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">';
-    html += '<h3 style="margin: 0;">📊 Resum Entrades per Fruita / Varietat</h3>';
-    
-    // ✅ Selector campanya
-    html += '<div style="display: flex; gap: 10px; align-items: center;">';
-    html += '<label><strong>Campanya:</strong></label>';
-    html += '<select onchange="mostrarResumEntrades(parseInt(this.value))" style="padding: 5px 10px; border-radius: 5px;">';
-    [2024, 2025, 2026].forEach(any => {
-        html += '<option value="' + any + '"' + (any === campanya ? ' selected' : '') + '>' + any + '</option>';
-    });
-    html += '</select>';
-    html += '<button class="btn btn-secondary" onclick="mostrarTaulaEntrades()">← Tornar</button>';
-    html += '</div>';
-    
-    html += '</div>';
-    
-    // ... resta del codi igual ...
-}
+    const entrades = await obtenirTodasEntradas();
 
     // Agrupar per fruita_varietat_id
     const resum = {};
