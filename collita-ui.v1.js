@@ -114,11 +114,10 @@ async function mostrarResumEntrades() {
     // Agrupar per fruita_varietat_id
     const resum = {};
     entrades.forEach(e => {
-        const varietat = varietats.find(v => v.id === e.fruita_varietat_id);
-        const fruita = varietat ? fruites.find(f => f.id === varietat.fruita_id) : null;
-
-        const fruitaNom = fruita ? fruita.nom : 'Desconeguda';
-        const varietatNom = varietat ? varietat.varietat : 'Desconeguda';
+        const varietatObj = e.fruita_varietat_id; // {fruita_id, varietat}
+		const fruita = varietatObj ? fruites.find(f => f.id === varietatObj.fruita_id) : null;
+		const fruitaNom = fruita ? fruita.nom : 'Desconeguda';
+		const varietatNom = varietatObj ? varietatObj.varietat : 'Desconeguda';
         const clau = fruitaNom + '||' + varietatNom;
 
         if (!resum[clau]) {
