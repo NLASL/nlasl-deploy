@@ -88,38 +88,33 @@ async function mostrarTaulaEntrades() {
 }
 
 // ============================================================
-// RESUM ENTRADES PER FRUITA I VARIETAT
-// Afegir a collita-ui_v1.js
+// RESUM ENTRADES - VERSIÓ CORREGIDA AMB CAMPANYA
+// Substituir la funció mostrarResumEntrades() existent
 // ============================================================
-
-// ============================================================
-// CANVI 1: Afegir botó "Resum" a mostrarVista_Entrades()
-// ============================================================
-// Busca la línia:
-//   html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'escandalls\')"...
-// I AFEGEIX JUST ABANS:
-//   html += '<button class="btn btn-info" onclick="mostrarResumEntrades()" style="margin-right: 10px;">📊 Resum</button>';
-
-// ============================================================
-// CANVI 2: Afegir funció mostrarResumEntrades()
-// Afegir just DESPRÉS de mostrarTaulaEntrades()
-// ============================================================
-
-async function mostrarResumEntrades() {
+ 
+async function mostrarResumEntrades(campanya) {
+    // Detectar campanya actual si no s'especifica
+    if (!campanya) {
+        const ara = new Date();
+        // Octubre-Desembre → campanya de l'any següent
+        campanya = ara.getMonth() >= 9 ? ara.getFullYear() + 1 : ara.getFullYear();
+    }
+    campanya = parseInt(campanya);
+ 
     const content = document.getElementById('collita-content');
     content.innerHTML = '<p>⏳ Carregant resum...</p>';
-
-    const entrades = await obtenirTodasEntradas();
-
-    // Agrupar per fruita_varietat_id
+ 
+    const entrades = await obtenirTodasEntradas(campanya);
+ 
+    // Agrupar per fruita + varietat
     const resum = {};
-    entrades.forEach(e => {
-        const varietatObj = e.fruita_varietat_id; // {fruita_id, varietat}
-		const fruita = varietatObj ? fruites.find(f => f.id === varietatObj.fruita_id) : null;
-		const fruitaNom = fruita ? fruita.nom : 'Desconeguda';
-		const varietatNom = varietatObj ? varietatObj.varietat : 'Desconeguda';
+    entrades.forEach(function(e) {
+        const varietatObj = e.fruita_varietat_id;
+        const fruita = varietatObj ? fruites.find(function(f) { return f.id === varietatObj.fruita_id; }) : null;
+        const fruitaNom = fruita ? fruita.nom : 'Desconeguda';
+        const varietatNom = varietatObj ? varietatObj.varietat : 'Desconeguda';
         const clau = fruitaNom + '||' + varietatNom;
-
+ 
         if (!resum[clau]) {
             resum[clau] = {
                 fruita: fruitaNom,
@@ -130,23 +125,22 @@ async function mostrarResumEntrades() {
                 qualitats: {}
             };
         }
-
+ 
         resum[clau].numAlbarans++;
         resum[clau].totalPesNet += parseFloat(e.pes_net) || 0;
         resum[clau].totalPalots += parseInt(e.quantitat_palots_entrada) || 0;
-
-        // Comptar per qualitat
-        const qual = e.qualitat || 'Sense qualitat';
+ 
+        var qual = e.qualitat || 'Sense qualitat';
         if (!resum[clau].qualitats[qual]) {
             resum[clau].qualitats[qual] = { kg: 0, albarans: 0 };
         }
         resum[clau].qualitats[qual].kg += parseFloat(e.pes_net) || 0;
         resum[clau].qualitats[qual].albarans++;
     });
-
-    // Agrupar per fruita per totals globals
+ 
+    // Totals per fruita
     const totalsFruita = {};
-    Object.values(resum).forEach(r => {
+    Object.values(resum).forEach(function(r) {
         if (!totalsFruita[r.fruita]) {
             totalsFruita[r.fruita] = { totalPesNet: 0, totalPalots: 0, numAlbarans: 0 };
         }
@@ -154,99 +148,109 @@ async function mostrarResumEntrades() {
         totalsFruita[r.fruita].totalPalots += r.totalPalots;
         totalsFruita[r.fruita].numAlbarans += r.numAlbarans;
     });
-
-    // Ordenar: primer per fruita, desprès per varietat
-    const resumOrdenat = Object.values(resum).sort((a, b) => {
+ 
+    // Ordenar per fruita + varietat
+    var resumOrdenat = Object.values(resum).sort(function(a, b) {
         if (a.fruita !== b.fruita) return a.fruita.localeCompare(b.fruita);
         return a.varietat.localeCompare(b.varietat);
     });
-
+ 
+    // Campanyes disponibles al selector
+    var campanyes = [2024, 2025, 2026];
+ 
     // Renderitzar
-    let html = '<div class="resum-entrades">';
-
-    // Capçalera
-    html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">';
-    html += '<h3 style="margin: 0;">📊 Resum Entrades per Fruita / Varietat</h3>';
-    html += '<button class="btn btn-secondary" onclick="mostrarTaulaEntrades()">← Tornar a la llista</button>';
+    var html = '<div class="resum-entrades">';
+ 
+    // Capçalera amb selector campanya
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">';
+    html += '<h3 style="margin:0;">📊 Resum Entrades · Campanya ' + campanya + '</h3>';
+    html += '<div style="display:flex; gap:10px; align-items:center;">';
+    html += '<label><strong>Campanya:</strong></label>';
+    html += '<select onchange="mostrarResumEntrades(this.value)" style="padding:5px 10px; border-radius:5px;">';
+    campanyes.forEach(function(c) {
+        html += '<option value="' + c + '"' + (c === campanya ? ' selected' : '') + '>' + c + '</option>';
+    });
+    html += '</select>';
+    html += '<button class="btn btn-secondary" onclick="mostrarTaulaEntrades()">← Tornar</button>';
     html += '</div>';
-
-    // Cards de totals globals per fruita
-    html += '<div style="display: flex; gap: 15px; margin-bottom: 25px; flex-wrap: wrap;">';
-    Object.entries(totalsFruita).forEach(([fruitaNom, totals]) => {
-        const color = fruitaNom === 'Albercoc' ? '#f39c12' :
-                      fruitaNom === 'Nectarina' ? '#e74c3c' :
-                      fruitaNom === 'Préssec Pla' ? '#e91e8c' : '#27ae60';
-        html += '<div style="background: ' + color + '15; border: 2px solid ' + color + '; border-radius: 10px; padding: 15px; min-width: 200px; flex: 1;">';
-        html += '<h4 style="margin: 0 0 10px 0; color: ' + color + ';">' + fruitaNom + '</h4>';
-        html += '<div style="font-size: 1.4em; font-weight: bold;">' + totals.totalPesNet.toLocaleString('ca-ES', {minimumFractionDigits: 0, maximumFractionDigits: 0}) + ' kg</div>';
-        html += '<div style="color: #666; font-size: 0.9em; margin-top: 5px;">';
-        html += totals.totalPalots + ' palots · ' + totals.numAlbarans + ' albarans';
+    html += '</div>';
+ 
+    // Si no hi ha dades
+    if (resumOrdenat.length === 0) {
+        html += '<div style="text-align:center; padding:40px; color:#999;">No hi ha entrades per la campanya ' + campanya + '</div>';
         html += '</div>';
+        content.innerHTML = html;
+        return;
+    }
+ 
+    // Cards totals per fruita
+    html += '<div style="display:flex; gap:15px; margin-bottom:25px; flex-wrap:wrap;">';
+    Object.keys(totalsFruita).forEach(function(fruitaNom) {
+        var totals = totalsFruita[fruitaNom];
+        var color = fruitaNom === 'Albercoc' ? '#f39c12' :
+                    fruitaNom === 'Nectarina' ? '#e74c3c' :
+                    fruitaNom === 'Préssec Pla' ? '#e91e8c' : '#27ae60';
+        html += '<div style="background:' + color + '15; border:2px solid ' + color + '; border-radius:10px; padding:15px; min-width:200px; flex:1;">';
+        html += '<h4 style="margin:0 0 8px 0; color:' + color + ';">' + fruitaNom + '</h4>';
+        html += '<div style="font-size:1.4em; font-weight:bold;">' + totals.totalPesNet.toLocaleString('ca-ES', {minimumFractionDigits:0, maximumFractionDigits:0}) + ' kg</div>';
+        html += '<div style="color:#666; font-size:0.9em; margin-top:5px;">' + totals.totalPalots.toLocaleString('ca-ES') + ' palots · ' + totals.numAlbarans + ' albarans</div>';
         html += '</div>';
     });
     html += '</div>';
-
-    // Taula detallada per varietat
-    html += '<table class="data-table" style="width: 100%;">';
+ 
+    // Taula detallada
+    html += '<table class="data-table" style="width:100%;">';
     html += '<thead><tr>';
-    html += '<th>Fruita</th>';
-    html += '<th>Varietat</th>';
-    html += '<th style="text-align: right;">Albarans</th>';
-    html += '<th style="text-align: right;">Palots</th>';
-    html += '<th style="text-align: right;">Pes Net (kg)</th>';
-    html += '<th style="text-align: right;">Pes Mig (kg/palot)</th>';
+    html += '<th>Fruita</th><th>Varietat</th>';
+    html += '<th style="text-align:right;">Albarans</th>';
+    html += '<th style="text-align:right;">Palots</th>';
+    html += '<th style="text-align:right;">Pes Net (kg)</th>';
+    html += '<th style="text-align:right;">Pes Mig (kg/palot)</th>';
     html += '<th>Qualitats</th>';
-    html += '</tr></thead>';
-    html += '<tbody>';
-
-    let fruitaAnterior = '';
-    resumOrdenat.forEach(r => {
-        const pesMigPalot = r.totalPalots > 0 ? r.totalPesNet / r.totalPalots : 0;
-
-        // Separador visual entre fruites
-        const estilFila = r.fruita !== fruitaAnterior ?
-            'border-top: 2px solid #aaa;' : '';
+    html += '</tr></thead><tbody>';
+ 
+    var fruitaAnterior = '';
+    resumOrdenat.forEach(function(r) {
+        var pesMig = r.totalPalots > 0 ? r.totalPesNet / r.totalPalots : 0;
+        var estilFila = r.fruita !== fruitaAnterior ? 'border-top:2px solid #aaa;' : '';
         fruitaAnterior = r.fruita;
-
+ 
         html += '<tr style="' + estilFila + '">';
         html += '<td><strong>' + r.fruita + '</strong></td>';
         html += '<td>' + r.varietat + '</td>';
-        html += '<td style="text-align: right;">' + r.numAlbarans + '</td>';
-        html += '<td style="text-align: right;">' + r.totalPalots.toLocaleString('ca-ES') + '</td>';
-        html += '<td style="text-align: right;"><strong>' + r.totalPesNet.toLocaleString('ca-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</strong></td>';
-        html += '<td style="text-align: right;">' + pesMigPalot.toFixed(2) + '</td>';
-
-        // Qualitats (pills)
+        html += '<td style="text-align:right;">' + r.numAlbarans + '</td>';
+        html += '<td style="text-align:right;">' + r.totalPalots.toLocaleString('ca-ES') + '</td>';
+        html += '<td style="text-align:right;"><strong>' + r.totalPesNet.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</strong></td>';
+        html += '<td style="text-align:right;">' + pesMig.toFixed(2) + '</td>';
         html += '<td>';
-        Object.entries(r.qualitats).forEach(([qual, dades]) => {
-            const colorQual = qual === 'PRIMERES' ? '#27ae60' :
-                              qual === 'EXTRA' ? '#2980b9' :
-                              qual === 'INDUSTRIA' ? '#e67e22' :
-                              qual === 'STAR' ? '#8e44ad' : '#7f8c8d';
-            html += '<span style="background:' + colorQual + '20; border: 1px solid ' + colorQual + '; color:' + colorQual + '; border-radius:4px; padding: 2px 6px; font-size:0.8em; margin-right:4px; white-space: nowrap;">';
-            html += qual + ': ' + dades.kg.toLocaleString('ca-ES', {minimumFractionDigits: 0, maximumFractionDigits: 0}) + ' kg';
+        Object.keys(r.qualitats).forEach(function(qual) {
+            var dq = r.qualitats[qual];
+            var colorQ = qual === 'PRIMERES' ? '#27ae60' :
+                         qual === 'EXTRA' ? '#2980b9' :
+                         qual === 'INDUSTRIA' ? '#e67e22' :
+                         qual === 'STAR' ? '#8e44ad' : '#7f8c8d';
+            html += '<span style="background:' + colorQ + '20; border:1px solid ' + colorQ + '; color:' + colorQ + '; border-radius:4px; padding:2px 6px; font-size:0.8em; margin-right:4px; white-space:nowrap;">';
+            html += qual + ': ' + dq.kg.toLocaleString('ca-ES', {minimumFractionDigits:0, maximumFractionDigits:0}) + ' kg';
             html += '</span>';
         });
         html += '</td>';
         html += '</tr>';
     });
-
-    // Fila total general
-    const totalKg = Object.values(totalsFruita).reduce((s, t) => s + t.totalPesNet, 0);
-    const totalPalots = Object.values(totalsFruita).reduce((s, t) => s + t.totalPalots, 0);
-    const totalAlbarans = Object.values(totalsFruita).reduce((s, t) => s + t.numAlbarans, 0);
-
-    html += '<tr style="border-top: 3px solid #333; background: #f5f5f5; font-weight: bold;">';
-    html += '<td colspan="2">TOTAL</td>';
-    html += '<td style="text-align: right;">' + totalAlbarans + '</td>';
-    html += '<td style="text-align: right;">' + totalPalots.toLocaleString('ca-ES') + '</td>';
-    html += '<td style="text-align: right;">' + totalKg.toLocaleString('ca-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' kg</td>';
+ 
+    // Fila total
+    var totalKg = Object.values(totalsFruita).reduce(function(s, t) { return s + t.totalPesNet; }, 0);
+    var totalPalots = Object.values(totalsFruita).reduce(function(s, t) { return s + t.totalPalots; }, 0);
+    var totalAlbarans = Object.values(totalsFruita).reduce(function(s, t) { return s + t.numAlbarans; }, 0);
+ 
+    html += '<tr style="border-top:3px solid #333; background:#f5f5f5; font-weight:bold;">';
+    html += '<td colspan="2">TOTAL CAMPANYA ' + campanya + '</td>';
+    html += '<td style="text-align:right;">' + totalAlbarans + '</td>';
+    html += '<td style="text-align:right;">' + totalPalots.toLocaleString('ca-ES') + '</td>';
+    html += '<td style="text-align:right;">' + totalKg.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' kg</td>';
     html += '<td colspan="2"></td>';
     html += '</tr>';
-
-    html += '</tbody></table>';
-    html += '</div>';
-
+ 
+    html += '</tbody></table></div>';
     content.innerHTML = html;
 }
 
