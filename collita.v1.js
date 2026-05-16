@@ -346,7 +346,7 @@ async function compararEntradaVsEscandall(entradaId, escandallDades) {
         if (percentatgeDif > 5) {
             alerts.push({
                 tipus: 'warning',
-                missatge: `⚠️ Diferència de pes_net: ${diferenciaPes.toFixed(2)} kg (${percentatgeDif.toFixed(1)}%)`
+                missatge: `⚠️ Diferència de pes_net: ${diferenciaPes.toFixed(2)} kg (${percentatgeDif.toFixed(2)}%)`
             });
         }
 
@@ -438,7 +438,7 @@ function validarPercentatges(calibres, noComercios, industria) {
     return {
         valida: valida,
         suma: suma,
-        alert: !valida ? `❌ Suma percentatges: ${suma.toFixed(1)}% (ha de ser 100%)` : null
+        alert: !valida ? `❌ Suma percentatges: ${suma.toFixed(2)}% (ha de ser 100%)` : null
     };
 }
 
@@ -530,14 +530,10 @@ async function eliminarAlbaraEscandall(id) {
     try {
         const { error } = await supabaseClient
             .from('collita_escandall')
-            .update({ 
-                estat: 'anulat', 
-                data_anulacio: new Date().toISOString().split('T')[0]
-            })
+            .delete()
             .eq('id', id);
-        
         if (error) throw error;
-        console.log('✅ Escandall marcat com anulat');
+        console.log('✅ Escandall eliminat');
     } catch (error) {
         console.error('❌ Error eliminant escandall:', error);
         throw error;

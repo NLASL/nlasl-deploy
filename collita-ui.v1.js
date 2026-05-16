@@ -679,9 +679,9 @@ async function mostrarResumEscandalls(campanya) {
         html += '<div style="font-size:1.4em; font-weight:bold;">' + t.kgTotal.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg</div>';
         html += '<div style="margin-top:8px; font-size:0.85em; color:#555;">';
         html += '✅ Comercial: <strong>' + t.kgComercial.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg</strong><br>';
-        html += '⚠️ NC: <strong>' + t.kgNoComercial.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg</strong> (' + pctNC.toFixed(1) + '%)<br>';
+        html += '⚠️ NC: <strong>' + t.kgNoComercial.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg</strong> (' + pctNC.toFixed(2) + '%)<br>';
         if (t.kgIndustria > 0) {
-            html += '🏭 Indústria: <strong>' + t.kgIndustria.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg</strong> (' + pctInd.toFixed(1) + '%)<br>';
+            html += '🏭 Indústria: <strong>' + t.kgIndustria.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg</strong> (' + pctInd.toFixed(2) + '%)<br>';
         }
         html += t.numEscandalls + ' escandalls';
         html += '</div></div>';
@@ -723,7 +723,7 @@ async function mostrarResumEscandalls(campanya) {
                 html += '<td style="text-align:right; color:' + (r.kgNoComercial < 0 ? '#e74c3c' : '#555') + ';">' + r.kgNoComercial.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</td>';
                 html += '<td style="text-align:right;">' + (r.kgIndustria > 0 ? r.kgIndustria.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) : '-') + '</td>';
                 html += '<td style="text-align:right;"><strong>' + r.kgTotal.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</strong></td>';
-                html += '<td style="text-align:right; color:' + colorNC + '; font-weight:bold;">' + pctNC.toFixed(1) + '%</td>';
+                html += '<td style="text-align:right; color:' + colorNC + '; font-weight:bold;">' + pctNC.toFixed(2) + '%</td>';
  
                 // Detall calibres (pills)
                 html += '<td style="font-size:0.8em;">';
@@ -760,7 +760,7 @@ async function mostrarResumEscandalls(campanya) {
         html += '<td style="text-align:right;">' + (tf.kgIndustria > 0 ? tf.kgIndustria.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) : '-') + '</td>';
         html += '<td style="text-align:right;">' + tf.kgTotal.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</td>';
         var pctNCTotal = tf.kgTotal > 0 ? (tf.kgNoComercial / tf.kgTotal * 100) : 0;
-        html += '<td style="text-align:right;">' + pctNCTotal.toFixed(1) + '%</td>';
+        html += '<td style="text-align:right;">' + pctNCTotal.toFixed(2) + '%</td>';
         html += '<td></td></tr>';
  
         html += '</tbody></table></div>';
@@ -1083,7 +1083,7 @@ async function veureEscandall(id) {
             html += '<tr style="border-bottom: 1px solid #eee;">';
             html += '<td style="border: 1px solid #ddd; padding: 10px;"><strong>' + c.calibre + '</strong></td>';
             html += '<td style="border: 1px solid #ddd; padding: 10px;">' + (c.pes_kg || 0).toFixed(2) + '</td>';
-            html += '<td style="border: 1px solid #ddd; padding: 10px;">' + (c.percentatge || 0).toFixed(1) + '%</td>';
+            html += '<td style="border: 1px solid #ddd; padding: 10px;">' + (c.percentatge || 0).toFixed(2) + '%</td>';
             html += '<td style="border: 1px solid #ddd; padding: 10px;">' + (c.categoria || '-') + '</td>';
             html += '</tr>';
         });
@@ -1106,7 +1106,7 @@ async function veureEscandall(id) {
             html += '<tr style="border-bottom: 1px solid #eee;">';
             html += '<td style="border: 1px solid #ddd; padding: 10px;"><strong>' + nc.classificacio + '</strong></td>';
             html += '<td style="border: 1px solid #ddd; padding: 10px;">' + (nc.pes_kg || 0).toFixed(2) + '</td>';
-            html += '<td style="border: 1px solid #ddd; padding: 10px;">' + (nc.percentatge || 0).toFixed(1) + '%</td>';
+            html += '<td style="border: 1px solid #ddd; padding: 10px;">' + (nc.percentatge || 0).toFixed(2) + '%</td>';
             html += '</tr>';
         });
     } else {
@@ -1122,7 +1122,7 @@ async function veureEscandall(id) {
     if (escandall.collita_escandall_industria && escandall.collita_escandall_industria.length > 0) {
         const ind = escandall.collita_escandall_industria[0];
         html += '<p><strong>Pes:</strong> ' + (ind.pes_kg || 0).toFixed(2) + ' kg</p>';
-        html += '<p><strong>%:</strong> ' + (ind.percentatge || 0).toFixed(1) + '%</p>';
+        html += '<p><strong>%:</strong> ' + (ind.percentatge || 0).toFixed(2) + '%</p>';
     } else {
         html += '<p>-</p>';
     }
