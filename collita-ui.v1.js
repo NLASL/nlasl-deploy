@@ -556,16 +556,16 @@ async function mostrarResumEscandalls(campanya) {
     // Carregar escandalls amb totes les taules filles
     var escandalls = await obtenirTodasEscandalls();
 
-escandalls = escandalls.filter(function(e) {
-    var dataEsc = new Date(e.data);
-    var mes = dataEsc.getMonth() + 1;
-    var any = dataEsc.getFullYear();
-    var campanyadEscandall = mes >= 10 ? any + 1 : any;
-    return campanyadEscandall === campanya;
+	escandalls = escandalls.filter(function(e) {
+		var dataEsc = new Date(e.data);
+		var mes = dataEsc.getMonth() + 1;
+		var any = dataEsc.getFullYear();
+		var campanyadEscandall = mes >= 10 ? any + 1 : any;
+		return campanyadEscandall === campanya;
 });
 
-console.log('Total escandalls campanya ' + campanya + ':', escandalls.length);
-if (escandalls.length > 0) {
+	console.log('Total escandalls campanya ' + campanya + ':', escandalls.length);
+	if (escandalls.length > 0) {
     console.log('Calibres primer escandall:', escandalls[0].collita_escandall_calibres);
 }
  
@@ -1008,6 +1008,7 @@ async function guardarAlbaraEscandall(event) {
             num_albara_escandall: document.getElementById('escandall-num-albara').value,
             fruita_varietat_id: entrada.fruita_varietat_id,
             finca: entrada.finca,
+			finca_id: (parcelles.find(function(p) { return p.finca === entrada.finca; }) || {}).id || null,
             qualitat_original: document.getElementById('escandall-qualitat-original').value,
             qualitat_reclassificada: document.getElementById('escandall-qualitat-reclassificada').value,
             motiu_reclassificacio: document.getElementById('escandall-motiu').value,
