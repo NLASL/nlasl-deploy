@@ -554,28 +554,19 @@ async function mostrarResumEscandalls(campanya) {
     var dataFinal = campanya + '-12-31';
  
     // Carregar escandalls amb totes les taules filles
-    var escandalls = [];
-    try {
-        var resp = await supabaseClient
-            .from('collita_escandall')
-            .select('*, collita_escandall_calibres(*), collita_escandall_no_comercial(*), collita_escandall_industria(*)')
-            .eq('estat', 'actiu')
-            .gte('data', dataInici)
-            .lte('data', dataFinal)
-            .order('data', { ascending: false });
- 
-        if (resp.error) throw resp.error;
-        escandalls = resp.data || [];
-		
-		// Afegir:
-		console.log('Total escandalls:', escandalls.length);
-		console.log('Primer escandall calibres:', escandalls[0].collita_escandall_calibres);
-		console.log('Primer escandall NC:', escandalls[0].collita_escandall_no_comercial);
-		console.log('Primer escandall industria:', escandalls[0].collita_escandall_industria);
-		
-    } catch (error) {
-        content.innerHTML = '<p>❌ Error carregant escandalls: ' + error.message + '</p>';
-        return;
+	var escandalls = await obtenirTodasEscandalls();
+
+	// Filtrar per campanya manualment:
+	escandalls = escandalls.filter(function(e) {
+    var dataEsc = new Date(e.data);
+    var any = dataEsc.getFullYear();
+    var mes = dataEsc.getMonth() + 1; // 1-12
+    // Campanya: maig-setembre de l'any (campanya-1) → desembre any campanya
+    var campanyadEscandall = mes >= 10 ? any + 1 : any;
+    return campanyadEscandall === campanya;
+});
+
+console.log('Total escandalls filtrats campanya ' + campanya + ':', escandalls.length);
     }
  
     // ============================================================
