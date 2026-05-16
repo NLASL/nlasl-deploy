@@ -351,17 +351,17 @@ async function compararEntradaVsEscandall(entradaId, escandallDades) {
         }
 
         // Comparar quantitat palots
-        const diferenciaPalots = Math.abs(
-            (escandallDades.quantitat_palots_entrada || 0) - 
-            (entrada.quantitat_palots_entrada || 0)
-        );
+        const diferenciaPalots = (escandallDades.quantitat_palots_entrada !== undefined && 
+                          escandallDades.quantitat_palots_entrada !== null)
+		? Math.abs(escandallDades.quantitat_palots_entrada - (entrada.quantitat_palots_entrada || 0))
+		: 0;
 
-        if (diferenciaPalots > 0) {
-            alerts.push({
-                tipus: 'warning',
-                missatge: `⚠️ Diferència de palots: ${diferenciaPalots} unitats`
-            });
-        }
+		if (diferenciaPalots > 0) {
+		alerts.push({
+        tipus: 'warning',
+        missatge: `⚠️ Diferència de palots: ${diferenciaPalots} unitats`
+    });
+}
 
         // Guardar diferencies a BD
         escandallDades.diferencia_pes_net = diferenciaPes;
