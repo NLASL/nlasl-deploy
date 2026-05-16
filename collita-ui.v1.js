@@ -1550,7 +1550,7 @@ function generarFilaCalibre(calibre, pesKg, percentatge) {
     });
     html += '</select></td>';
     html += '<td style="padding:6px;"><input type="number" value="' + (pesKg || 0) + '" step="0.01" min="0" style="width:100%; text-align:right;"></td>';
-    html += '<td style="padding:6px;"><input type="number" value="' + (percentatge || 0) + '" step="0.01" min="0" style="width:100%; text-align:right;"></td>';
+    html += '<td style="padding:6px;"><input type="number" value="' + ((percentatge || 0).toFixed(2)) + '" step="0.01" min="0" style="width:100%; text-align:right;"></td>';
     html += '<td style="padding:6px; text-align:center;"><button type="button" onclick="this.closest(\'tr\').remove()" style="color:red; background:none; border:none; cursor:pointer;">🗑️</button></td>';
     html += '</tr>';
     return html;
@@ -1566,7 +1566,7 @@ function generarFilaNC(classificacio, pesKg, percentatge) {
     });
     html += '</select></td>';
     html += '<td style="padding:6px;"><input type="number" value="' + (pesKg || 0) + '" step="0.01" style="width:100%; text-align:right;"></td>';
-    html += '<td style="padding:6px;"><input type="number" value="' + (percentatge || 0) + '" step="0.01" min="0" style="width:100%; text-align:right;"></td>';
+    html += '<td style="padding:6px;"><input type="number" value="' + ((percentatge || 0).toFixed(2)) + '" step="0.01" min="0" style="width:100%; text-align:right;"></td>';
     html += '<td style="padding:6px; text-align:center;"><button type="button" onclick="this.closest(\'tr\').remove()" style="color:red; background:none; border:none; cursor:pointer;">🗑️</button></td>';
     html += '</tr>';
     return html;
