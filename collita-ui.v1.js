@@ -942,7 +942,7 @@ function actualitzarPercentatgesCal() {
         const pesKg = parseFloat(tr.querySelectorAll('input')[0].value) || 0;
         pesTotal += pesKg;
         const percentatge = (pesKg / pesTotalEsperat) * 100;
-        tr.querySelectorAll('input')[1].value = percentatge.toFixed(1);
+        tr.querySelectorAll('input')[1].value = percentatge.toFixed(2);
     });
     
     // No Comercial
@@ -950,13 +950,13 @@ function actualitzarPercentatgesCal() {
         const pesKg = parseFloat(tr.querySelectorAll('input')[0].value) || 0;
         pesTotal += pesKg;
         const percentatge = (pesKg / pesTotalEsperat) * 100;
-        tr.querySelectorAll('input')[1].value = percentatge.toFixed(1);
+        tr.querySelectorAll('input')[1].value = percentatge.toFixed(2);
     });
     
     // Industria
     pesTotal += pesIndustria;
     const percIndustria = (pesIndustria / pesTotalEsperat) * 100;
-    document.getElementById('escandall-industria-perc').value = percIndustria.toFixed(1);
+    document.getElementById('escandall-industria-perc').value = percIndustria.toFixed(2);
     
     // Validar suma percentatges
     const sumPercentatges = Array.from(document.querySelectorAll('#taula-calibres input[readonly]')).reduce((s, inp) => s + (parseFloat(inp.value) || 0), 0) +
@@ -966,7 +966,7 @@ function actualitzarPercentatgesCal() {
     const validacio = document.getElementById('validacio-percentatges');
     if (Math.abs(sumPercentatges - 100) > 0.5) {
         validacio.style.display = 'block';
-        validacio.innerHTML = `⚠️ Suma percentatges: ${sumPercentatges.toFixed(1)}% (ha de ser ~100%)`;
+        validacio.innerHTML = `⚠️ Suma percentatges: ${sumPercentatges.toFixed(2)}% (ha de ser ~100%)`;
     } else {
         validacio.style.display = 'none';
     }
