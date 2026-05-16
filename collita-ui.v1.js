@@ -1580,9 +1580,7 @@ function afegirFilaNC() {
     document.getElementById('nocom-tbody').innerHTML += generarFilaNC('FNC_PETIT', 0, 0);
 }
 
-console.log('Dades a actualitzar:', JSON.stringify(dades));
-await actualitzarAlbaraEscandall(id, dades);
-}
+
 
 // ============================================================
 // GUARDAR EDICIÓ ESCANDALL - Amb calibres, NC i indústria
