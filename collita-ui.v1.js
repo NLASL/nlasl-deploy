@@ -566,6 +566,13 @@ async function mostrarResumEscandalls(campanya) {
  
         if (resp.error) throw resp.error;
         escandalls = resp.data || [];
+		
+		/ Afegir:
+		console.log('Total escandalls:', escandalls.length);
+		console.log('Primer escandall calibres:', escandalls[0].collita_escandall_calibres);
+		console.log('Primer escandall NC:', escandalls[0].collita_escandall_no_comercial);
+		console.log('Primer escandall industria:', escandalls[0].collita_escandall_industria);
+		
     } catch (error) {
         content.innerHTML = '<p>❌ Error carregant escandalls: ' + error.message + '</p>';
         return;
