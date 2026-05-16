@@ -1440,11 +1440,11 @@ async function editarEscandallRegistre(id) {
         ncExistents = respNC.data || [];
         
         var respInd = await supabaseClient
-            .from('collita_escandall_industria')
-            .select('*')
-            .eq('escandall_id', id)
-            .single();
-        if (respInd.data) industriaExistent = respInd.data;
+			.from('collita_escandall_industria')
+			.select('*')
+			.eq('escandall_id', id);
+		if (respInd.data && respInd.data.length > 0) industriaExistent = respInd.data[0];
+		
     } catch(e) {
         console.warn('Error carregant detalls:', e);
     }
@@ -1580,6 +1580,9 @@ function afegirFilaNC() {
     document.getElementById('nocom-tbody').innerHTML += generarFilaNC('FNC_PETIT', 0, 0);
 }
 
+console.log('Dades a actualitzar:', JSON.stringify(dades));
+await actualitzarAlbaraEscandall(id, dades);
+
 // ============================================================
 // GUARDAR EDICIÓ ESCANDALL - Amb calibres, NC i indústria
 // ============================================================
@@ -1597,7 +1600,7 @@ async function guardarEdicionEscandall(event, id) {
             tara_envases: parseFloat(document.getElementById('edicio-esc-tara-env').value),
             tara_vehicle: parseFloat(document.getElementById('edicio-esc-tara-vehicle').value),
             pes_net: parseFloat(document.getElementById('edicio-esc-pes-net').value),
-            updated_by: currentUser ? currentUser.id : null
+            
         };
         
         // Calibres
