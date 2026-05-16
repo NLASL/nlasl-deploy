@@ -550,8 +550,8 @@ async function mostrarResumEscandalls(campanya) {
     content.innerHTML = '<p>⏳ Carregant resum escandalls...</p>';
  
     // Dates campanya: 1 octubre (any-1) → 30 setembre (any)
-    var dataInici = (campanya - 1) + '-10-01';
-    var dataFinal = campanya + '-09-30';
+    var dataInici = (campanya - 1) + '-05-01';
+    var dataFinal = campanya + '-12-31';
  
     // Carregar escandalls amb totes les taules filles
     var escandalls = [];
