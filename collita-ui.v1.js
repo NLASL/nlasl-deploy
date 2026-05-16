@@ -1582,6 +1582,7 @@ function afegirFilaNC() {
 
 console.log('Dades a actualitzar:', JSON.stringify(dades));
 await actualitzarAlbaraEscandall(id, dades);
+}
 
 // ============================================================
 // GUARDAR EDICIÓ ESCANDALL - Amb calibres, NC i indústria
