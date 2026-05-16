@@ -1599,6 +1599,10 @@ async function guardarEdicionEscandall(event, id) {
             tara_envases: parseFloat(document.getElementById('edicio-esc-tara-env').value),
             tara_vehicle: parseFloat(document.getElementById('edicio-esc-tara-vehicle').value),
             pes_net: parseFloat(document.getElementById('edicio-esc-pes-net').value),
+			
+			// ✅ AFEGIR: Resetar alertes
+			diferencia_palots: 0,
+			diferencia_pes_net: 0
             
         };
         
