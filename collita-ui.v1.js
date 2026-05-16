@@ -1408,6 +1408,10 @@ async function eliminarAlbaraRegistreConfirm(id) {
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
     }
 }
+// ============================================================
+// SUBSTITUIR COMPLETAMENT editarEscandallRegistre() i guardarEdicionEscandall()
+// ============================================================
+
 async function editarEscandallRegistre(id) {
     await carregarDadesCollita();
     
@@ -1417,10 +1421,35 @@ async function editarEscandallRegistre(id) {
         return;
     }
     
-    const entrada = await obtenerAlbaraEntradaPorId(escandall.collita_entrada_id);
-    const varietat = varietats.find(v => v.id === entrada?.fruita_varietat_id);
-    const fruita = fruites.find(f => f.id === varietat?.fruita_id);
+    // ✅ Carregar calibres, NC i indústria existents
+    var calibresExistents = [];
+    var ncExistents = [];
+    var industriaExistent = { pes_kg: 0, percentatge: 0 };
     
+    try {
+        var respCal = await supabaseClient
+            .from('collita_escandall_calibres')
+            .select('*')
+            .eq('escandall_id', id);
+        calibresExistents = respCal.data || [];
+        
+        var respNC = await supabaseClient
+            .from('collita_escandall_no_comercial')
+            .select('*')
+            .eq('escandall_id', id);
+        ncExistents = respNC.data || [];
+        
+        var respInd = await supabaseClient
+            .from('collita_escandall_industria')
+            .select('*')
+            .eq('escandall_id', id)
+            .single();
+        if (respInd.data) industriaExistent = respInd.data;
+    } catch(e) {
+        console.warn('Error carregant detalls:', e);
+    }
+    
+    const entrada = await obtenerAlbaraEntradaPorId(escandall.collita_entrada_id);
     const container = document.getElementById('view-container');
     
     let html = '<div class="formulari-edicio-escandall">';
@@ -1432,13 +1461,13 @@ async function editarEscandallRegistre(id) {
     html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">';
     html += '<div class="form-group"><label>Data</label><input type="date" id="edicio-esc-data" value="' + escandall.data + '" required></div>';
     html += '<div class="form-group"><label>Num. Escandall</label><input type="text" id="edicio-esc-num" value="' + escandall.num_albara_escandall + '" readonly style="background: #f0f0f0;"></div>';
-    html += '<div class="form-group"><label>Qualitat Original</label><input type="text" value="' + (entrada?.qualitat || '-') + '" readonly style="background: #f0f0f0;"></div>';
+    html += '<div class="form-group"><label>Qualitat Original</label><input type="text" value="' + (entrada?.qualitat || escandall.qualitat_original || '-') + '" readonly style="background: #f0f0f0;"></div>';
     html += '</div>';
     
-    html += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">';
+    html += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">';
     html += '<div class="form-group"><label>Qualitat Reclassificada</label><select id="edicio-esc-qualitat-rec">';
-    qualitats.forEach(q => {
-        const selected = q.nom === escandall.qualitat_reclassificada ? 'selected' : '';
+    qualitats.forEach(function(q) {
+        var selected = q.nom === escandall.qualitat_reclassificada ? 'selected' : '';
         html += '<option value="' + q.nom + '" ' + selected + '>' + q.nom + '</option>';
     });
     html += '</select></div>';
@@ -1447,56 +1476,183 @@ async function editarEscandallRegistre(id) {
     
     // Pesos
     html += '<h3 style="margin-top: 20px;">⚖️ Pesos</h3>';
-    html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">';
+    html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px;">';
     html += '<div class="form-group"><label>Pes Brut (kg)</label><input type="number" id="edicio-esc-pes-brut" value="' + (escandall.pes_brut || '') + '" step="0.01" required onchange="calcularPesEscandall()"></div>';
     html += '<div class="form-group"><label>Tara Envases (kg)</label><input type="number" id="edicio-esc-tara-env" value="' + (escandall.tara_envases || '') + '" step="0.01" required onchange="calcularPesEscandall()"></div>';
     html += '<div class="form-group"><label>Tara Vehicle (kg)</label><input type="number" id="edicio-esc-tara-vehicle" value="' + (escandall.tara_vehicle || '') + '" step="0.01" required onchange="calcularPesEscandall()"></div>';
+    html += '<div class="form-group"><label>Pes Net (kg)</label><input type="number" id="edicio-esc-pes-net" value="' + (escandall.pes_net || '') + '" readonly style="background: #e8f5e9;"></div>';
     html += '</div>';
     
-    html += '<div class="form-group"><label>Pes Net (kg)</label><input type="number" id="edicio-esc-pes-net" value="' + (escandall.pes_net || '') + '" readonly style="background: #e8f5e9;"></div>';
+    // ✅ CALIBRES
+    html += '<h3 style="margin-top: 20px;">📊 Calibres Comercials</h3>';
+    html += '<table id="taula-calibres" style="width:100%; border-collapse:collapse;">';
+    html += '<thead><tr style="background:#f0f0f0;">';
+    html += '<th style="padding:8px; text-align:left;">Calibre</th>';
+    html += '<th style="padding:8px; text-align:right;">Pes (kg)</th>';
+    html += '<th style="padding:8px; text-align:right;">% </th>';
+    html += '<th style="padding:8px; text-align:center;">Acció</th>';
+    html += '</tr></thead>';
+    html += '<tbody id="calibres-tbody">';
+    
+    calibresExistents.forEach(function(c) {
+        html += generarFilaCalibre(c.calibre, c.pes_kg, c.percentatge);
+    });
+    
+    html += '</tbody></table>';
+    html += '<button type="button" class="btn btn-sm btn-secondary" onclick="afegirFilaCalibre()" style="margin-top:8px;">+ Afegir calibre</button>';
+    
+    // ✅ NO COMERCIAL
+    html += '<h3 style="margin-top: 20px;">⚠️ No Comercial</h3>';
+    html += '<table id="taula-noCom" style="width:100%; border-collapse:collapse;">';
+    html += '<thead><tr style="background:#f0f0f0;">';
+    html += '<th style="padding:8px; text-align:left;">Classificació</th>';
+    html += '<th style="padding:8px; text-align:right;">Pes (kg)</th>';
+    html += '<th style="padding:8px; text-align:right;">%</th>';
+    html += '<th style="padding:8px; text-align:center;">Acció</th>';
+    html += '</tr></thead>';
+    html += '<tbody id="nocom-tbody">';
+    
+    ncExistents.forEach(function(nc) {
+        html += generarFilaNC(nc.classificacio, nc.pes_kg, nc.percentatge);
+    });
+    
+    html += '</tbody></table>';
+    html += '<button type="button" class="btn btn-sm btn-secondary" onclick="afegirFilaNC()" style="margin-top:8px;">+ Afegir NC</button>';
+    
+    // ✅ INDÚSTRIA
+    html += '<h3 style="margin-top: 20px;">🏭 Indústria</h3>';
+    html += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">';
+    html += '<div class="form-group"><label>Pes (kg)</label><input type="number" id="edicio-esc-industria-pes" value="' + (industriaExistent.pes_kg || 0) + '" step="0.01" min="0"></div>';
+    html += '<div class="form-group"><label>%</label><input type="number" id="edicio-esc-industria-perc" value="' + (industriaExistent.percentatge || 0) + '" step="0.01" min="0"></div>';
+    html += '</div>';
     
     // Botons
-    html += '<div style="margin-top: 20px;">';
+    html += '<div style="margin-top: 20px; display:flex; gap:10px;">';
     html += '<button type="submit" class="btn btn-success">💾 Guardar Canvis</button>';
-    html += '<button type="button" class="btn btn-secondary" onclick="canviarVistaCollita(\'escandalls\')" style="margin-left: 10px;">❌ Cancelar</button>';
+    html += '<button type="button" class="btn btn-secondary" onclick="canviarVistaCollita(\'escandalls\')">❌ Cancelar</button>';
     html += '</div>';
     
     html += '</form></div>';
-    
     container.innerHTML = html;
 }
 
-function calcularPesEscandall() {
-    const pesBrut = parseFloat(document.getElementById('edicio-esc-pes-brut').value) || 0;
-    const taraEnv = parseFloat(document.getElementById('edicio-esc-tara-env').value) || 0;
-    const taraVehicle = parseFloat(document.getElementById('edicio-esc-tara-vehicle').value) || 0;
-    
-    const pesNet = pesBrut - taraEnv - taraVehicle;
-    document.getElementById('edicio-esc-pes-net').value = pesNet.toFixed(2);
+// ============================================================
+// HELPERS - Generar files de calibres i NC
+// ============================================================
+
+function generarFilaCalibre(calibre, pesKg, percentatge) {
+    var opcions = ['- Selecciona -', '85+', '80-85', '73-80', '67-73', '61-67', '56-61', '60+', '55-60', '50-55', '45-50', '40-45'];
+    var html = '<tr style="border-bottom:1px solid #eee;">';
+    html += '<td style="padding:6px;"><select style="width:100%;">';
+    opcions.forEach(function(o) {
+        var sel = o === calibre ? 'selected' : '';
+        html += '<option value="' + o + '" ' + sel + '>' + o + '</option>';
+    });
+    html += '</select></td>';
+    html += '<td style="padding:6px;"><input type="number" value="' + (pesKg || 0) + '" step="0.01" min="0" style="width:100%; text-align:right;"></td>';
+    html += '<td style="padding:6px;"><input type="number" value="' + (percentatge || 0) + '" step="0.01" min="0" style="width:100%; text-align:right;"></td>';
+    html += '<td style="padding:6px; text-align:center;"><button type="button" onclick="this.closest(\'tr\').remove()" style="color:red; background:none; border:none; cursor:pointer;">🗑️</button></td>';
+    html += '</tr>';
+    return html;
 }
+
+function generarFilaNC(classificacio, pesKg, percentatge) {
+    var opcions = ['FNC_PETIT', 'FNC_MADUR', 'FNC_DEFECTES', 'Pedra', 'Penal', 'DefecX', 'Defec', 'Decolorat'];
+    var html = '<tr style="border-bottom:1px solid #eee;">';
+    html += '<td style="padding:6px;"><select style="width:100%;">';
+    opcions.forEach(function(o) {
+        var sel = o === classificacio ? 'selected' : '';
+        html += '<option value="' + o + '" ' + sel + '>' + o + '</option>';
+    });
+    html += '</select></td>';
+    html += '<td style="padding:6px;"><input type="number" value="' + (pesKg || 0) + '" step="0.01" style="width:100%; text-align:right;"></td>';
+    html += '<td style="padding:6px;"><input type="number" value="' + (percentatge || 0) + '" step="0.01" min="0" style="width:100%; text-align:right;"></td>';
+    html += '<td style="padding:6px; text-align:center;"><button type="button" onclick="this.closest(\'tr\').remove()" style="color:red; background:none; border:none; cursor:pointer;">🗑️</button></td>';
+    html += '</tr>';
+    return html;
+}
+
+function afegirFilaCalibre() {
+    document.getElementById('calibres-tbody').innerHTML += generarFilaCalibre('- Selecciona -', 0, 0);
+}
+
+function afegirFilaNC() {
+    document.getElementById('nocom-tbody').innerHTML += generarFilaNC('FNC_PETIT', 0, 0);
+}
+
+// ============================================================
+// GUARDAR EDICIÓ ESCANDALL - Amb calibres, NC i indústria
+// ============================================================
 
 async function guardarEdicionEscandall(event, id) {
     event.preventDefault();
     
     try {
+        // Dades bàsiques
         const dades = {
-		data: document.getElementById('edicio-esc-data').value,
-		qualitat_reclassificada: document.getElementById('edicio-esc-qualitat-rec').value,
-		motiu_reclassificacio: document.getElementById('edicio-esc-motiu').value,
-		pes_brut: parseFloat(document.getElementById('edicio-esc-pes-brut').value),
-		tara_envases: parseFloat(document.getElementById('edicio-esc-tara-env').value),
-		tara_vehicle: parseFloat(document.getElementById('edicio-esc-tara-vehicle').value),
-		pes_net: parseFloat(document.getElementById('edicio-esc-pes-net').value)
-		// SIN updated_by
-};
+            data: document.getElementById('edicio-esc-data').value,
+            qualitat_reclassificada: document.getElementById('edicio-esc-qualitat-rec').value,
+            motiu_reclassificacio: document.getElementById('edicio-esc-motiu').value,
+            pes_brut: parseFloat(document.getElementById('edicio-esc-pes-brut').value),
+            tara_envases: parseFloat(document.getElementById('edicio-esc-tara-env').value),
+            tara_vehicle: parseFloat(document.getElementById('edicio-esc-tara-vehicle').value),
+            pes_net: parseFloat(document.getElementById('edicio-esc-pes-net').value),
+            updated_by: currentUser ? currentUser.id : null
+        };
         
+        // Calibres
+        const calibres = [];
+        document.querySelectorAll('#calibres-tbody tr').forEach(function(tr) {
+            var calibre = tr.querySelectorAll('select')[0].value;
+            var pesKg = parseFloat(tr.querySelectorAll('input')[0].value) || 0;
+            var perc = parseFloat(tr.querySelectorAll('input')[1].value) || 0;
+            if (calibre && calibre !== '- Selecciona -' && pesKg > 0) {
+                calibres.push({ calibre: calibre, pes_kg: pesKg, percentatge: perc });
+            }
+        });
+        
+        // NC
+        const noComercials = [];
+        document.querySelectorAll('#nocom-tbody tr').forEach(function(tr) {
+            var clas = tr.querySelectorAll('select')[0].value;
+            var pesKg = parseFloat(tr.querySelectorAll('input')[0].value) || 0;
+            var perc = parseFloat(tr.querySelectorAll('input')[1].value) || 0;
+            if (clas && pesKg !== 0) {
+                noComercials.push({ classificacio: clas, pes_kg: pesKg, percentatge: perc });
+            }
+        });
+        
+        // Indústria
+        const industriaPes = parseFloat(document.getElementById('edicio-esc-industria-pes').value) || 0;
+        const industriaPerc = parseFloat(document.getElementById('edicio-esc-industria-perc').value) || 0;
+        
+        // Actualitzar dades bàsiques
         await actualitzarAlbaraEscandall(id, dades);
+        
+        // Esborrar i reinserir calibres
+        await supabaseClient.from('collita_escandall_calibres').delete().eq('escandall_id', id);
+        if (calibres.length > 0) {
+            const calibresAmbId = calibres.map(function(c) { return { ...c, escandall_id: id }; });
+            await supabaseClient.from('collita_escandall_calibres').insert(calibresAmbId);
+        }
+        
+        // Esborrar i reinserir NC
+        await supabaseClient.from('collita_escandall_no_comercial').delete().eq('escandall_id', id);
+        if (noComercials.length > 0) {
+            const ncAmbId = noComercials.map(function(nc) { return { ...nc, escandall_id: id }; });
+            await supabaseClient.from('collita_escandall_no_comercial').insert(ncAmbId);
+        }
+        
+        // Esborrar i reinserir indústria
+        await supabaseClient.from('collita_escandall_industria').delete().eq('escandall_id', id);
+        if (industriaPes > 0) {
+            await supabaseClient.from('collita_escandall_industria').insert([{ escandall_id: id, pes_kg: industriaPes, percentatge: industriaPerc }]);
+        }
+        
         mostrarNotificacio('✅ Escandall actualitzat correctament', 'success');
         canviarVistaCollita('escandalls');
     } catch (error) {
         console.error('Error:', error);
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
     }
-
-
 }
