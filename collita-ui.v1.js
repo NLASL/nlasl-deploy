@@ -2118,4 +2118,24 @@ function imprimirAnalisi() {
         if (el) el.remove();
     }, 1000);
 }
+// Afegir al final de collita-ui_v1.js (fora de qualsevol altra funció)
+window.imprimirAnalisi = function() {
+    var style = document.createElement('style');
+    style.id = 'print-style';
+    style.innerHTML = `
+        @media print {
+            .sidebar, .navbar, .btn, select, label, 
+            button, h2 + div { display: none !important; }
+            canvas { max-width: 100% !important; }
+            table { page-break-inside: avoid; }
+            @page { margin: 15mm; }
+        }
+    `;
+    document.head.appendChild(style);
+    window.print();
+    setTimeout(function() {
+        var el = document.getElementById('print-style');
+        if (el) el.remove();
+    }, 1000);
+};
 }
