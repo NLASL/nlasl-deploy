@@ -2118,17 +2118,44 @@ function imprimirAnalisi() {
         if (el) el.remove();
     }, 1000);
 }
-// Afegir al final de collita-ui_v1.js (fora de qualsevol altra funció)
 window.imprimirAnalisi = function() {
     var style = document.createElement('style');
     style.id = 'print-style';
     style.innerHTML = `
         @media print {
-            .sidebar, .navbar, .btn, select, label, 
-            button, h2 + div { display: none !important; }
-            canvas { max-width: 100% !important; }
+            /* Amagar sidebar, navbar i botons */
+            .sidebar, .navbar, nav, header,
+            button, input, select, label,
+            /* Amagar controls de filtre (primera fila de l'anàlisi) */
+            #analisi-content > div:first-child,
+            .vista-analisi > div:first-child,
+            /* Amagar botó imprimir */
+            .btn { display: none !important; }
+            
+            /* Mostrar només el contingut */
+            body { margin: 0; padding: 0; }
+            #analisi-content { display: block !important; }
+            
+            /* Gràfiques */
+            canvas { 
+                max-width: 100% !important; 
+                page-break-inside: avoid;
+            }
+            
+            /* Evitar talls de pàgina */
             table { page-break-inside: avoid; }
-            @page { margin: 15mm; }
+            
+            /* Mantenir gràfica amb la seva taula */
+            #analisi-content > div { 
+                page-break-inside: avoid;
+                margin-bottom: 10px;
+            }
+            
+            /* Marges pàgina */
+            @page { 
+                margin: 15mm;
+                size: A4 landscape;
+            }
         }
     `;
     document.head.appendChild(style);
@@ -2136,6 +2163,6 @@ window.imprimirAnalisi = function() {
     setTimeout(function() {
         var el = document.getElementById('print-style');
         if (el) el.remove();
-    }, 1000);
+    }, 1500);
 };
 }
