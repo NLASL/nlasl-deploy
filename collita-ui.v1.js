@@ -19,7 +19,7 @@ async function carregarVistaCollita() {
     
 	} else if (vistaColltitaActual === 'analisi') {
 		await mostrarVista_Analisi();
-	
+	}
 }
 
 function canviarVistaCollita(vista) {
