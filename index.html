@@ -135,23 +135,29 @@
     <!-- SCRIPTS -->
     <!-- ============================================ -->
     <!-- Supabase JS v2 -->
-		<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-	<!-- Els teus scripts -->
-		<script src="/supabase-client.v5.js"></script>
-		<script src="/app_v8.js"></script>
-		<script src="/collita.v1.js"></script>
-		<script src="/collita-ui.v1.js"></script>
-		<script src="/horari-extensions.v1.js"></script>
-		<script src="/admin-panel.v1.js"></script>
-		<script src="admin-panel-bestreta-extension.js"></script>
-		<script src="preus.v1.js"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-		<script src="/veu.v1.js"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.0.0/fuse.min.js"></script>
+	<!-- Llibreries externes -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.0.0/fuse.min.js"></script>
 
-	<!-- AUTH AL FINAL -->
-		<script src="/auth.v3.js"></script>
+	<!-- Client Supabase -->
+	<script src="/supabase-client.v5.js"></script>
+
+	<!-- Mòduls (independents entre ells) -->
+	<script src="/collita.v1.js"></script>
+	<script src="/collita-ui.v1.js"></script>
+	<script src="/horari-extensions.v1.js"></script>
+	<script src="/admin-panel.v1.js"></script>
+	<script src="admin-panel-bestreta-extension.js"></script>
+	<script src="preus.v1.js"></script>
+	<script src="/veu.v1.js"></script>
+
+	<!-- App principal AL FINAL (depèn de tots els anteriors) -->
+	<script src="/app_v8.js"></script>
+
+	<!-- Auth sempre al final -->
+	<script src="/auth.v3.js"></script>
 		
     <!-- Service Worker -->
     <script>
