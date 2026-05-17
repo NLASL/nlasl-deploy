@@ -1706,6 +1706,7 @@ async function guardarEdicionEscandall(event, id) {
         console.error('Error:', error);
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
     }
+	}
 async function mostrarVista_Analisi() {
     const container = document.getElementById('view-container');
  
