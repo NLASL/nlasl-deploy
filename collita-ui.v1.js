@@ -16,8 +16,7 @@ async function carregarVistaCollita() {
         await mostrarVista_Escandalls();
     } else if (vistaColltitaActual === 'registres') {
         await mostrarVista_Registres();
-    
-	} else if (vistaColltitaActual === 'analisi') {
+    	} else if (vistaColltitaActual === 'analisi') {
 		await mostrarVista_Analisi();
 	}
 }
