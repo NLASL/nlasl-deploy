@@ -2079,3 +2079,4 @@ function generarGraficaVarietat(canvasId, fruitaNom, dadesVarietat) {
         }
     });
 }
+}
