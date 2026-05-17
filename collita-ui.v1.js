@@ -17,6 +17,9 @@ async function carregarVistaCollita() {
     } else if (vistaColltitaActual === 'registres') {
         await mostrarVista_Registres();
     }
+	} else if (vistaColltitaActual === 'analisi') {
+		await mostrarVista_Analisi();
+	}
 }
 
 function canviarVistaCollita(vista) {
@@ -38,6 +41,7 @@ async function mostrarVista_Entrades() {
     html += '<div style="margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px;">';
     html += '<button class="btn btn-primary" onclick="mostrarFormulariAlbaraEntrada()" style="margin-right: 10px;">➕ Nova Entrada</button>';
    	html += '<button class="btn btn-info" onclick="mostrarResumEntrades()" style="margin-right: 10px;">📊 Resum</button>';
+	html += '<button class="btn btn-info" onclick="canviarVistaCollita(\'analisi\')" style="margin-right:10px;">📊 Anàlisi</button>';
 	
 	html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'escandalls\')" style="margin-right: 10px;">→ Escandalls</button>';
     html += '</div>';
@@ -475,6 +479,7 @@ async function mostrarVista_Escandalls() {
     html += '<div style="margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px;">';
     html += '<button class="btn btn-primary" onclick="mostrarFormulariAlbaraEscandall()" style="margin-right: 10px;">➕ Nou Escandall</button>';
     html += '<button class="btn btn-info" onclick="mostrarResumEscandalls()" style="margin-right:10px;">📊 Resum</button>';
+	html += '<button class="btn btn-info" onclick="canviarVistaCollita(\'analisi\')" style="margin-right:10px;">📊 Anàlisi</button>';
 	html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'entrades\')">← Entrades</button>';
     html += '</div>';
     
@@ -1701,4 +1706,376 @@ async function guardarEdicionEscandall(event, id) {
         console.error('Error:', error);
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
     }
+async function mostrarVista_Analisi() {
+    const container = document.getElementById('view-container');
+ 
+    let html = '<div class="vista-analisi">';
+    html += '<h2>📊 Anàlisi Collita</h2>';
+ 
+    // Navegació
+    html += '<div style="margin-bottom:20px; border-bottom:2px solid #ddd; padding-bottom:10px;">';
+    html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'entrades\')" style="margin-right:10px;">← Entrades</button>';
+    html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'escandalls\')" style="margin-right:10px;">← Escandalls</button>';
+    html += '</div>';
+ 
+    html += '<div id="analisi-content">⏳ Carregant...</div>';
+    html += '</div>';
+ 
+    container.innerHTML = html;
+    await mostrarAnalisiCollita();
+}
+ 
+// ============================================================
+// FUNCIÓ PRINCIPAL ANÀLISI
+// ============================================================
+ 
+async function mostrarAnalisiCollita(campanya, fruitaFiltreId) {
+    // Detectar campanya
+    if (!campanya) {
+        var ara = new Date();
+        campanya = ara.getMonth() >= 9 ? ara.getFullYear() + 1 : ara.getFullYear();
+    }
+    campanya = parseInt(campanya);
+ 
+    const content = document.getElementById('analisi-content');
+    content.innerHTML = '<p>⏳ Carregant dades...</p>';
+ 
+    // Carregar escandalls
+    var escandalls = await obtenirTodasEscandalls();
+ 
+    // Filtrar per campanya
+    escandalls = escandalls.filter(function(e) {
+        var dataEsc = new Date(e.data);
+        var mes = dataEsc.getMonth() + 1;
+        var any = dataEsc.getFullYear();
+        var campanyaEsc = mes >= 10 ? any + 1 : any;
+        return campanyaEsc === campanya;
+    });
+ 
+    // ============================================================
+    // CALCUL DE DADES PER FRUITA I VARIETAT
+    // ============================================================
+    var dadesVarietat = {}; // { fruitaNom: { varietatNom: { optim, mitja, nc, industria, total } } }
+    var dadesFruita = {};   // { fruitaNom: { optim, mitja, nc, industria, total } }
+    var dadesTotal = { optim: 0, mitja: 0, nc: 0, industria: 0, total: 0 };
+    var alertes = [];
+ 
+    escandalls.forEach(function(e) {
+        var fvId = (typeof e.fruita_varietat_id === 'object' && e.fruita_varietat_id !== null)
+            ? e.fruita_varietat_id.id : e.fruita_varietat_id;
+ 
+        var varietatObj = varietats.find(function(v) { return v.id === fvId; });
+        var fruitaObj = varietatObj ? fruites.find(function(f) { return f.id === varietatObj.fruita_id; }) : null;
+        var fruitaNom = fruitaObj ? fruitaObj.nom : 'Desconeguda';
+        var varietatNom = varietatObj ? varietatObj.varietat : 'Desconeguda';
+ 
+        // Filtrar per fruita si s'ha seleccionat
+        if (fruitaFiltreId && fruitaObj && fruitaObj.id !== fruitaFiltreId) return;
+ 
+        // Calcular kg per categoria
+        var kgOptim = 0, kgMitja = 0;
+        (e.collita_escandall_calibres || []).forEach(function(c) {
+            var kg = parseFloat(c.pes_kg) || 0;
+            if (c.categoria === 'Òptim') kgOptim += kg;
+            else kgMitja += kg;
+        });
+ 
+        var kgNC = (e.collita_escandall_no_comercial || []).reduce(function(s, nc) {
+            return s + (parseFloat(nc.pes_kg) || 0);
+        }, 0);
+ 
+        var kgInd = (e.collita_escandall_industria || []).reduce(function(s, i) {
+            return s + (parseFloat(i.pes_kg) || 0);
+        }, 0);
+ 
+        var kgTotal = kgOptim + kgMitja + Math.abs(kgNC) + kgInd;
+ 
+        // Acumular per varietat
+        if (!dadesVarietat[fruitaNom]) dadesVarietat[fruitaNom] = {};
+        if (!dadesVarietat[fruitaNom][varietatNom]) {
+            dadesVarietat[fruitaNom][varietatNom] = { optim: 0, mitja: 0, nc: 0, industria: 0, total: 0 };
+        }
+        var dv = dadesVarietat[fruitaNom][varietatNom];
+        dv.optim += kgOptim;
+        dv.mitja += kgMitja;
+        dv.nc += Math.abs(kgNC);
+        dv.industria += kgInd;
+        dv.total += kgTotal;
+ 
+        // Acumular per fruita
+        if (!dadesFruita[fruitaNom]) {
+            dadesFruita[fruitaNom] = { optim: 0, mitja: 0, nc: 0, industria: 0, total: 0 };
+        }
+        var df = dadesFruita[fruitaNom];
+        df.optim += kgOptim;
+        df.mitja += kgMitja;
+        df.nc += Math.abs(kgNC);
+        df.industria += kgInd;
+        df.total += kgTotal;
+ 
+        // Acumular total
+        dadesTotal.optim += kgOptim;
+        dadesTotal.mitja += kgMitja;
+        dadesTotal.nc += Math.abs(kgNC);
+        dadesTotal.industria += kgInd;
+        dadesTotal.total += kgTotal;
+    });
+ 
+    // Generar alertes
+    Object.keys(dadesVarietat).forEach(function(fruitaNom) {
+        Object.keys(dadesVarietat[fruitaNom]).forEach(function(varietatNom) {
+            var d = dadesVarietat[fruitaNom][varietatNom];
+            if (d.total === 0) return;
+            var pctNC = d.nc / d.total * 100;
+            var pctOptim = d.total > 0 ? d.optim / (d.optim + d.mitja) * 100 : 0;
+            if (pctNC > 15) alertes.push({ tipus: 'error', msg: '🔴 ' + fruitaNom + ' / ' + varietatNom + ': %NC = ' + pctNC.toFixed(1) + '% (> 15%)' });
+            else if (pctNC > 10) alertes.push({ tipus: 'warning', msg: '🟠 ' + fruitaNom + ' / ' + varietatNom + ': %NC = ' + pctNC.toFixed(1) + '% (> 10%)' });
+            if (pctOptim < 20) alertes.push({ tipus: 'error', msg: '🔴 ' + fruitaNom + ' / ' + varietatNom + ': %Òptim = ' + pctOptim.toFixed(1) + '% (< 20%) — Accelerar collita!' });
+            else if (pctOptim < 40) alertes.push({ tipus: 'warning', msg: '🟠 ' + fruitaNom + ' / ' + varietatNom + ': %Òptim = ' + pctOptim.toFixed(1) + '% (< 40%) — Atenció!' });
+        });
+    });
+ 
+    // ============================================================
+    // RENDERITZAR
+    // ============================================================
+    var campanyes = [2024, 2025, 2026];
+    var html = '';
+ 
+    // Controls
+    html += '<div style="display:flex; gap:15px; align-items:center; margin-bottom:20px; flex-wrap:wrap;">';
+    html += '<div><label><strong>Campanya:</strong></label> ';
+    html += '<select onchange="mostrarAnalisiCollita(this.value, document.getElementById(\'filtre-fruita\').value || null)" style="padding:5px 10px; border-radius:5px;">';
+    campanyes.forEach(function(c) {
+        html += '<option value="' + c + '"' + (c === campanya ? ' selected' : '') + '>' + c + '</option>';
+    });
+    html += '</select></div>';
+    html += '<div><label><strong>Fruita:</strong></label> ';
+    html += '<select id="filtre-fruita" onchange="mostrarAnalisiCollita(' + campanya + ', this.value || null)" style="padding:5px 10px; border-radius:5px;">';
+    html += '<option value="">Totes</option>';
+    fruites.forEach(function(f) {
+        html += '<option value="' + f.id + '"' + (fruitaFiltreId === f.id ? ' selected' : '') + '>' + f.nom + '</option>';
+    });
+    html += '</select></div>';
+    html += '</div>';
+ 
+    // Alertes
+    if (alertes.length > 0) {
+        html += '<div style="margin-bottom:20px;">';
+        alertes.forEach(function(a) {
+            var bg = a.tipus === 'error' ? '#fde8e8' : '#fef3cd';
+            var border = a.tipus === 'error' ? '#e74c3c' : '#f39c12';
+            html += '<div style="background:' + bg + '; border-left:4px solid ' + border + '; padding:8px 12px; margin-bottom:5px; border-radius:4px;">' + a.msg + '</div>';
+        });
+        html += '</div>';
+    }
+ 
+    // Cards KPIs globals
+    if (dadesTotal.total > 0) {
+        html += '<div style="display:flex; gap:15px; margin-bottom:25px; flex-wrap:wrap;">';
+ 
+        var kpis = [
+            { label: 'Òptims', kg: dadesTotal.optim, base: dadesTotal.optim + dadesTotal.mitja, color: '#27ae60', emoji: '🟢' },
+            { label: 'Mitjans', kg: dadesTotal.mitja, base: dadesTotal.optim + dadesTotal.mitja, color: '#f39c12', emoji: '🟡' },
+            { label: 'No Comercial', kg: dadesTotal.nc, base: dadesTotal.total, color: '#e74c3c', emoji: '🔴' },
+            { label: 'Indústria', kg: dadesTotal.industria, base: dadesTotal.total, color: '#3498db', emoji: '🔵' }
+        ];
+ 
+        kpis.forEach(function(k) {
+            var pct = k.base > 0 ? (k.kg / k.base * 100) : 0;
+            html += '<div style="background:' + k.color + '15; border:2px solid ' + k.color + '; border-radius:10px; padding:15px; flex:1; min-width:150px; text-align:center;">';
+            html += '<div style="font-size:1.5em;">' + k.emoji + '</div>';
+            html += '<div style="font-weight:bold; color:' + k.color + ';">' + k.label + '</div>';
+            html += '<div style="font-size:1.3em; font-weight:bold;">' + pct.toFixed(1) + '%</div>';
+            html += '<div style="color:#666; font-size:0.85em;">' + k.kg.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg</div>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+ 
+    // Gràfiques per fruita
+    Object.keys(dadesVarietat).sort().forEach(function(fruitaNom) {
+        var color = fruitaNom === 'Albercoc' ? '#f39c12' :
+                    fruitaNom === 'Nectarina' ? '#e74c3c' :
+                    fruitaNom === 'Préssec Pla' ? '#e91e8c' : '#27ae60';
+ 
+        var varietats_fruita = Object.keys(dadesVarietat[fruitaNom]).sort();
+        var canvasId = 'chart-' + fruitaNom.replace(/\s/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
+ 
+        html += '<div style="margin-bottom:30px; background:white; border:1px solid #ddd; border-radius:10px; padding:20px;">';
+        html += '<h4 style="color:' + color + '; border-bottom:2px solid ' + color + '; padding-bottom:8px; margin-top:0;">' + fruitaNom + '</h4>';
+ 
+        // Taula de dades
+        html += '<table class="data-table" style="width:100%; margin-bottom:20px;">';
+        html += '<thead><tr>';
+        html += '<th>Varietat</th>';
+        html += '<th style="text-align:right; color:#27ae60;">🟢 Òptims</th>';
+        html += '<th style="text-align:right; color:#f39c12;">🟡 Mitjans</th>';
+        html += '<th style="text-align:right; color:#e74c3c;">🔴 NC</th>';
+        html += '<th style="text-align:right; color:#3498db;">🔵 Indústria</th>';
+        html += '<th style="text-align:right;">Kg Total</th>';
+        html += '</tr></thead><tbody>';
+ 
+        varietats_fruita.forEach(function(varietatNom) {
+            var d = dadesVarietat[fruitaNom][varietatNom];
+            var kgCom = d.optim + d.mitja;
+            var pctOpt = kgCom > 0 ? (d.optim / kgCom * 100) : 0;
+            var pctMit = kgCom > 0 ? (d.mitja / kgCom * 100) : 0;
+            var pctNC = d.total > 0 ? (d.nc / d.total * 100) : 0;
+            var pctInd = d.total > 0 ? (d.industria / d.total * 100) : 0;
+ 
+            var colorNC = pctNC > 15 ? '#e74c3c' : pctNC > 10 ? '#e67e22' : '#27ae60';
+            var colorOpt = pctOpt < 20 ? '#e74c3c' : pctOpt < 40 ? '#e67e22' : '#27ae60';
+ 
+            html += '<tr>';
+            html += '<td><strong>' + varietatNom + '</strong></td>';
+            html += '<td style="text-align:right; color:' + colorOpt + '; font-weight:bold;">' + pctOpt.toFixed(1) + '%<br><small style="color:#999;">' + d.optim.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg</small></td>';
+            html += '<td style="text-align:right;">' + pctMit.toFixed(1) + '%<br><small style="color:#999;">' + d.mitja.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg</small></td>';
+            html += '<td style="text-align:right; color:' + colorNC + '; font-weight:bold;">' + pctNC.toFixed(1) + '%<br><small style="color:#999;">' + d.nc.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg</small></td>';
+            html += '<td style="text-align:right;">' + (pctInd > 0 ? pctInd.toFixed(1) + '%' : '-') + '<br><small style="color:#999;">' + (d.industria > 0 ? d.industria.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg' : '') + '</small></td>';
+            html += '<td style="text-align:right;"><strong>' + d.total.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg</strong></td>';
+            html += '</tr>';
+        });
+ 
+        // Subtotal fruita
+        var df = dadesFruita[fruitaNom];
+        var kgComFruita = df.optim + df.mitja;
+        html += '<tr style="border-top:2px solid ' + color + '; background:' + color + '10; font-weight:bold;">';
+        html += '<td>Subtotal ' + fruitaNom + '</td>';
+        html += '<td style="text-align:right; color:#27ae60;">' + (kgComFruita > 0 ? (df.optim/kgComFruita*100).toFixed(1) : 0) + '%</td>';
+        html += '<td style="text-align:right; color:#f39c12;">' + (kgComFruita > 0 ? (df.mitja/kgComFruita*100).toFixed(1) : 0) + '%</td>';
+        html += '<td style="text-align:right; color:#e74c3c;">' + (df.total > 0 ? (df.nc/df.total*100).toFixed(1) : 0) + '%</td>';
+        html += '<td style="text-align:right; color:#3498db;">' + (df.total > 0 && df.industria > 0 ? (df.industria/df.total*100).toFixed(1) : '-') + '%</td>';
+        html += '<td style="text-align:right;">' + df.total.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg</td>';
+        html += '</tr>';
+ 
+        html += '</tbody></table>';
+ 
+        // Gràfica de barres
+        html += '<canvas id="' + canvasId + '" style="max-height:300px;"></canvas>';
+        html += '</div>';
+ 
+        // Generar gràfica després del render
+        setTimeout(function() {
+            generarGraficaVarietat(canvasId, fruitaNom, dadesVarietat[fruitaNom]);
+        }, 100);
+    });
+ 
+    content.innerHTML = html;
+ 
+    // Carregar Chart.js si no està carregat
+    if (typeof Chart === 'undefined') {
+        var script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+        script.onload = function() {
+            Object.keys(dadesVarietat).forEach(function(fruitaNom) {
+                var canvasId = 'chart-' + fruitaNom.replace(/\s/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
+                generarGraficaVarietat(canvasId, fruitaNom, dadesVarietat[fruitaNom]);
+            });
+        };
+        document.head.appendChild(script);
+    } else {
+        Object.keys(dadesVarietat).forEach(function(fruitaNom) {
+            var canvasId = 'chart-' + fruitaNom.replace(/\s/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
+            generarGraficaVarietat(canvasId, fruitaNom, dadesVarietat[fruitaNom]);
+        });
+    }
+}
+ 
+// ============================================================
+// GRÀFICA DE BARRES AGRUPADES PER VARIETAT
+// ============================================================
+ 
+function generarGraficaVarietat(canvasId, fruitaNom, dadesVarietat) {
+    var canvas = document.getElementById(canvasId);
+    if (!canvas || typeof Chart === 'undefined') return;
+ 
+    var labels = Object.keys(dadesVarietat).sort();
+ 
+    var dataOptim = [], dataMitja = [], dataNC = [], dataInd = [];
+ 
+    labels.forEach(function(varietatNom) {
+        var d = dadesVarietat[varietatNom];
+        var kgCom = d.optim + d.mitja;
+        var pctOpt = kgCom > 0 ? (d.optim / kgCom * 100) : 0;
+        var pctMit = kgCom > 0 ? (d.mitja / kgCom * 100) : 0;
+        var pctNC = d.total > 0 ? (d.nc / d.total * 100) : 0;
+        var pctInd = d.total > 0 ? (d.industria / d.total * 100) : 0;
+ 
+        dataOptim.push(parseFloat(pctOpt.toFixed(2)));
+        dataMitja.push(parseFloat(pctMit.toFixed(2)));
+        dataNC.push(parseFloat(pctNC.toFixed(2)));
+        dataInd.push(parseFloat(pctInd.toFixed(2)));
+    });
+ 
+    // Destruir chart anterior si existeix
+    if (window['chart_' + canvasId]) {
+        window['chart_' + canvasId].destroy();
+    }
+ 
+    window['chart_' + canvasId] = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: '🟢 Òptims',
+                    data: dataOptim,
+                    backgroundColor: 'rgba(39, 174, 96, 0.8)',
+                    borderColor: '#27ae60',
+                    borderWidth: 1
+                },
+                {
+                    label: '🟡 Mitjans',
+                    data: dataMitja,
+                    backgroundColor: 'rgba(243, 156, 18, 0.8)',
+                    borderColor: '#f39c12',
+                    borderWidth: 1
+                },
+                {
+                    label: '🔴 NC',
+                    data: dataNC,
+                    backgroundColor: 'rgba(231, 76, 60, 0.8)',
+                    borderColor: '#e74c3c',
+                    borderWidth: 1
+                },
+                {
+                    label: '🔵 Indústria',
+                    data: dataInd,
+                    backgroundColor: 'rgba(52, 152, 219, 0.8)',
+                    borderColor: '#3498db',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'top' },
+                title: {
+                    display: true,
+                    text: 'Comparativa Calibres i Qualitats - ' + fruitaNom
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + '%';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) { return value + '%'; }
+                    },
+                    // Línia de referència al 50%
+                    grid: { color: function(context) {
+                        return context.tick.value === 50 ? '#e74c3c' : '#e0e0e0';
+                    }}
+                }
+            }
+        }
+    });
 }
