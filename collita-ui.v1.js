@@ -898,6 +898,9 @@ async function buscarEntrada() {
         window._fruitaNomEscandallActual = fruita ? fruita.nom : null;
         
         console.log('✅ Entrada carregada, fruita:', fruita?.nom);
+		console.log('fruita trobada:', fruita);
+		console.log('fruita.id:', fruita?.id);
+		console.log('calibresFruita keys:', Object.keys(calibresFruita));
         
     } else {
         document.getElementById('entrada-info').style.display = 'none';
@@ -928,6 +931,11 @@ function afegirFilaCalibres() {
         // Usar calibres específics de la fruita
         calibresDisponibles = calibresFruita[window._fruitaIdEscandallActual];
         console.log('Calibres de ' + window._fruitaNomEscandallActual + ':', calibresDisponibles);
+		console.log('_fruitaId:', window._fruitaIdEscandallActual);
+		console.log('calibresFruita keys:', Object.keys(calibresFruita));
+		console.log('coincideix?', !!calibresFruita[window._fruitaIdEscandallActual]);
+		
+		
     } else {
         // Fallback: tots els calibres si no hi ha fruita seleccionada
         calibresDisponibles = Object.values(calibresFruita).flat();
