@@ -1716,6 +1716,8 @@ async function mostrarVista_Analisi() {
     html += '<div style="margin-bottom:20px; border-bottom:2px solid #ddd; padding-bottom:10px;">';
     html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'entrades\')" style="margin-right:10px;">← Entrades</button>';
     html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'escandalls\')" style="margin-right:10px;">← Escandalls</button>';
+	// Afegir botó a la capçalera de mostrarVista_Analisi():
+	html += '<button class="btn btn-secondary" onclick="imprimirAnalisi()" style="margin-right:10px;">🖨️ Imprimir PDF</button>';
     html += '</div>';
  
     html += '<div id="analisi-content">⏳ Carregant...</div>';
@@ -2078,4 +2080,42 @@ function generarGraficaVarietat(canvasId, fruitaNom, dadesVarietat) {
             }
         }
     });
+function imprimirAnalisi() {
+    // Afegir estils d'impressió temporalment
+    var style = document.createElement('style');
+    style.id = 'print-style';
+    style.innerHTML = `
+        @media print {
+            /* Amagar tot excepte l'anàlisi */
+            body > *:not(#app-container) { display: none !important; }
+            .sidebar, .navbar, .btn, select, label { display: none !important; }
+            
+            /* Mostrar contingut */
+            .vista-analisi { display: block !important; }
+            #analisi-content { display: block !important; }
+            
+            /* Evitar talls de pàgina a les taules */
+            table { page-break-inside: avoid; }
+            .data-table tr { page-break-inside: avoid; }
+            
+            /* Capçalera */
+            h2, h4 { page-break-after: avoid; }
+            
+            /* Gràfiques: forçar mida */
+            canvas { max-width: 100% !important; page-break-inside: avoid; }
+            
+            /* Marges */
+            @page { margin: 15mm; }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    window.print();
+    
+    // Eliminar estils temporals
+    setTimeout(function() {
+        var el = document.getElementById('print-style');
+        if (el) el.remove();
+    }, 1000);
+}
 }
