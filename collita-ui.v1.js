@@ -870,7 +870,6 @@ async function buscarEntrada() {
     const entrada = await obtenerAlbaraEntradaPorNum(numAlbara);
     
     if (entrada) {
-        // Buscar varietat y fruita correctamente
         const varietat = varietats.find(v => v.id === entrada.fruita_varietat_id);
         const fruita = fruites.find(f => f.id === varietat?.fruita_id);
         
@@ -882,17 +881,32 @@ async function buscarEntrada() {
             <strong>Palots:</strong> ${entrada.quantitat_palots_entrada || 0}
         `;
         
-        // Copiar dades a escandall
+        // ✅ MILLORA 1: Autoomplir num. albarà escandall i data de l'entrada
+        document.getElementById('escandall-num-albara').value = numAlbara;
+        document.getElementById('escandall-data').value = entrada.data;
+        
+        // Copiar dades pesos
         document.getElementById('escandall-qualitat-original').value = entrada.qualitat || '-';
         document.getElementById('escandall-pes-brut').value = entrada.pes_brut || '';
         document.getElementById('escandall-tara-env').value = entrada.tara_envases || '';
         document.getElementById('escandall-tara-vehicle').value = entrada.tara_vehicle || '';
         calcularPesNetEscandall();
+        
+        // ✅ MILLORA 2: Guardar fruita_id per filtrar calibres
+        // Usem un camp ocult o variable global temporal
+        window._fruitaIdEscandallActual = fruita ? fruita.id : null;
+        window._fruitaNomEscandallActual = fruita ? fruita.nom : null;
+        
+        console.log('✅ Entrada carregada, fruita:', fruita?.nom);
+        
     } else {
         document.getElementById('entrada-info').style.display = 'none';
         document.getElementById('entrada-info').innerHTML = '';
+        window._fruitaIdEscandallActual = null;
+        window._fruitaNomEscandallActual = null;
     }
 }
+ 
 
 function calcularPesNetEscandall() {
     const pesBrut = parseFloat(document.getElementById('escandall-pes-brut').value) || 0;
@@ -906,10 +920,28 @@ function calcularPesNetEscandall() {
 function afegirFilaCalibres() {
     const tbody = document.querySelector('#taula-calibres tbody');
     const tr = document.createElement('tr');
-    const allCalibres = Object.values(calibresFruita).flat();
+    
+    // ✅ Filtrar calibres per fruita actual
+    let calibresDisponibles = [];
+    
+    if (window._fruitaIdEscandallActual && calibresFruita[window._fruitaIdEscandallActual]) {
+        // Usar calibres específics de la fruita
+        calibresDisponibles = calibresFruita[window._fruitaIdEscandallActual];
+        console.log('Calibres de ' + window._fruitaNomEscandallActual + ':', calibresDisponibles);
+    } else {
+        // Fallback: tots els calibres si no hi ha fruita seleccionada
+        calibresDisponibles = Object.values(calibresFruita).flat();
+        console.warn('⚠️ Fruita no detectada, mostrant tots els calibres');
+    }
+    
+    // Eliminar duplicats i ordenar
+    calibresDisponibles = [...new Set(calibresDisponibles)];
     
     tr.innerHTML = `
-        <td><select onchange="actualitzarPercentatgesCal()"><option>- Selecciona -</option>${allCalibres.map(c => `<option>${c}</option>`).join('')}</select></td>
+        <td><select onchange="actualitzarPercentatgesCal()">
+            <option>- Selecciona -</option>
+            ${calibresDisponibles.map(c => `<option>${c}</option>`).join('')}
+        </select></td>
         <td><input type="number" min="0" step="0.01" onchange="actualitzarPercentatgesCal()"></td>
         <td><input type="number" readonly style="background: #e8f5e9;"></td>
         <td><input type="text" readonly style="background: #f0f0f0;"></td>
