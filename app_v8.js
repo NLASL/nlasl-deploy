@@ -5255,7 +5255,9 @@ async function carregarVistaReg() {
     html += '<tbody id="tbody-reg"><tr><td colspan="5">Carregant...</td></tr></tbody>';
     html += '</table></div></div>';
 	// Afegir abans de:  container.innerHTML = html;
-	html += '<div id="reg-recomanacions" style="display:none; margin-top:20px;"></div>';
+	html += '<div id="reg-recomanacions" style="display:none; margin-bottom:20px;"></div>';
+    
+    html += '<div style="background:#e3f2fd;padding:15px;border-radius:8px;margin-bottom:20px;">';
     
 	container.innerHTML = html;
     await carregarFiltreExplotacions();
