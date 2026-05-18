@@ -245,7 +245,8 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
             totalRec += calcFutur.necessitatM3;
 
             var colorDif = diferencia > 50 ? '#e74c3c' : diferencia < -50 ? '#f39c12' : '#27ae60';
-            var cultiuText = finca.cultiu === 'pressec_pla' ? 'Préssec Pla' : 'Albercoc';
+			var cultiuText = finca.cultiu === 'pressec_juny' ? 'Préssec Pla (Juny)' :
+                 finca.cultiu === 'pressec_agost' ? 'Préssec Pla (Agost)' : 'Albercoc';
 
             html += '<tr>';
             html += '<td><strong>' + finca.nom_finca + '</strong></td>';
