@@ -276,7 +276,8 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
         html += '</tbody></table></div>';
 
         // Metodologia
-        const kcPressec = await getRegKc('pressec_pla', mes);
+        const kcPressecJuny = await getRegKc('pressec_juny', mes);
+		const kcPressecAgost = await getRegKc('pressec_agost', mes);
         const kcAlbercoc = await getRegKc('albercoc', mes);
         const nomMes = new Date().toLocaleString('ca-ES', {month: 'long'});
         html += '<div style="margin-top:15px; padding:12px; background:#e8f4fd; border-left:4px solid #3498db; border-radius:4px; font-size:0.85em; color:#555;">';
