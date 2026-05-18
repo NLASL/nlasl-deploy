@@ -5223,15 +5223,16 @@ async function carregarVistaReg() {
     html += '<h2>💧 Reg — Consums</h2>';
     html += '<button class="btn btn-primary" onclick="document.getElementById(\'input-excel-reg\').click()">📥 Importar Excel</button>';
     html += '<button class="btn btn-secondary" onclick="obrirModalRegManual()">➕ Nou Registre</button>';
-	// Afegir després del botó "➕ Nou Registre":
-	html += '<button class="btn btn-info" onclick="mostrarRecomanacionsReg()">🌡️ Recomanacions</button>';
-	html += '<input type="file" id="input-excel-reg" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importarExcelReg(event)">';
+    html += '<button class="btn btn-info" onclick="mostrarRecomanacionsReg()">🌡️ Recomanacions</button>';
+    html += '<input type="file" id="input-excel-reg" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importarExcelReg(event)">';
     html += '</div>';
+
+    // ✅ RECOMANACIONS AQUÍ - just després dels botons
+    html += '<div id="reg-recomanacions" style="display:none; margin-bottom:20px;"></div>';
     
     html += '<div style="background:#e3f2fd;padding:15px;border-radius:8px;margin-bottom:20px;">';
     html += '<p style="margin:0;font-size:13px;">📋 Format Excel esperat: <strong>EXPLOTACIÓ | DATA | CONSUM (m3)</strong></p>';
     html += '</div>';
-
     html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;margin-bottom:20px;">';
     html += '<div><label>Any</label><select id="reg-filtre-any" onchange="carregarTaulaReg()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">';
     const anyActual = new Date().getFullYear();
@@ -5248,18 +5249,13 @@ async function carregarVistaReg() {
     html += '</select></div>';
     html += '<div><label>Explotació</label><select id="reg-filtre-explotacio" onchange="carregarTaulaReg()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"><option value="">Totes</option></select></div>';
     html += '</div>';
-
     html += '<div id="resum-reg" style="margin-bottom:20px;"></div>';
     html += '<div class="table-container"><table class="data-table">';
     html += '<thead><tr><th>Data</th><th>Explotació</th><th>Finca</th><th>Consum (m3)</th><th>Accions</th></tr></thead>';
     html += '<tbody id="tbody-reg"><tr><td colspan="5">Carregant...</td></tr></tbody>';
     html += '</table></div></div>';
-	// Afegir abans de:  container.innerHTML = html;
-	html += '<div id="reg-recomanacions" style="display:none; margin-bottom:20px;"></div>';
     
-    html += '<div style="background:#e3f2fd;padding:15px;border-radius:8px;margin-bottom:20px;">';
-    
-	container.innerHTML = html;
+    container.innerHTML = html;
     await carregarFiltreExplotacions();
     await carregarTaulaReg();
 }
