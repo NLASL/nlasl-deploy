@@ -139,18 +139,18 @@ function generarCardMeteo(nomZona, meteo) {
 // ============================================================
 
 async function mostrarRecomanacionsReg() {
-    console.log('🌡️ mostrarRecomanacionsReg cridat');
     const container = document.getElementById('reg-recomanacions');
-    console.log('Container:', container);
     if (!container) return;
 
-    // ✅ Toggle simple per display
-    if (container.style.display === 'block') {
-        container.style.display = 'none';
+    // Toggle si ja està carregat
+    if (container.dataset.carregat === 'true') {
+        container.style.display = container.style.display === 'none' ? 'block' : 'none';
         return;
     }
 
+    // Primera càrrega
     container.style.display = 'block';
+    container.dataset.carregat = 'true';
 
     const avui = new Date();
     const dataFi = avui.toISOString().split('T')[0];
