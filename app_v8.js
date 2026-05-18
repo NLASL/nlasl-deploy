@@ -5223,6 +5223,8 @@ async function carregarVistaReg() {
     html += '<h2>💧 Reg — Consums</h2>';
     html += '<button class="btn btn-primary" onclick="document.getElementById(\'input-excel-reg\').click()">📥 Importar Excel</button>';
     html += '<button class="btn btn-secondary" onclick="obrirModalRegManual()">➕ Nou Registre</button>';
+	// Afegir després del botó "➕ Nou Registre":
+	html += '<button class="btn btn-info" onclick="mostrarRecomanacionsReg()">🌡️ Recomanacions</button>';
 	html += '<input type="file" id="input-excel-reg" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importarExcelReg(event)">';
     html += '</div>';
     
@@ -5252,10 +5254,33 @@ async function carregarVistaReg() {
     html += '<thead><tr><th>Data</th><th>Explotació</th><th>Finca</th><th>Consum (m3)</th><th>Accions</th></tr></thead>';
     html += '<tbody id="tbody-reg"><tr><td colspan="5">Carregant...</td></tr></tbody>';
     html += '</table></div></div>';
-
-    container.innerHTML = html;
+	// Afegir abans de:  container.innerHTML = html;
+	html += '<div id="reg-recomanacions" style="display:none; margin-top:20px;"></div>';
+    
+	container.innerHTML = html;
     await carregarFiltreExplotacions();
     await carregarTaulaReg();
+}
+
+async function mostrarRecomanacionsReg() {
+    const container = document.getElementById('reg-recomanacions');
+    
+    // Toggle
+    if (container.style.display !== 'none') {
+        container.style.display = 'none';
+        return;
+    }
+    
+    container.style.display = 'block';
+    container.innerHTML = '<p>⏳ Carregant recomanacions...</p>';
+    
+    // Dates: últims 7 dies fins avui
+    const avui = new Date();
+    const dataFi = avui.toISOString().split('T')[0];
+    const dataInici = new Date(avui - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    const finques = await getRegConfiguracio();
+    await carregarDadesReg(finques, dataInici, dataFi);
 }
 
 async function carregarFiltreExplotacions() {
