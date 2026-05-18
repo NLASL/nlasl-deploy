@@ -284,7 +284,9 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
         html += '<div style="margin-top:15px; padding:12px; background:#e8f4fd; border-left:4px solid #3498db; border-radius:4px; font-size:0.85em; color:#555;">';
         html += '<strong>📐 Metodologia:</strong> ETo Penman-Monteith (Open-Meteo) × Kc FAO-56 × Superfície (ha) × 10 = m³ necessaris. ';
         html += 'Pluja efectiva = 80% precipitació. ';
-        html += 'Kc ' + nomMes + ': Préssec Pla = <strong>' + kcPressec + '</strong>, Albercoc = <strong>' + kcAlbercoc + '</strong>';
+        html += 'Kc ' + nomMes + ': Préssec Pla Juny = <strong>' + kcPressecJuny + '</strong>, ' +
+        'Préssec Pla Agost = <strong>' + kcPressecAgost + '</strong>, ' +
+        'Albercoc = <strong>' + kcAlbercoc + '</strong>';
         html += '</div>';
 
         container.innerHTML = html;
