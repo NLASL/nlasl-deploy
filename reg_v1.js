@@ -139,7 +139,10 @@ function generarCardMeteo(nomZona, meteo) {
 // ============================================================
 
 async function mostrarRecomanacionsReg() {
+	console.log('🌡️ mostrarRecomanacionsReg cridat');
     const container = document.getElementById('reg-recomanacions');
+    console.log('Container:', container);
+	const container = document.getElementById('reg-recomanacions');
     if (!container) return;
 
     // ✅ Toggle simple per display
