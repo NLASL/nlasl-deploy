@@ -142,8 +142,8 @@ async function mostrarRecomanacionsReg() {
     const container = document.getElementById('reg-recomanacions');
     if (!container) return;
 
-    // Toggle
-    if (container.style.display !== 'none' && container.innerHTML !== '') {
+    // ✅ Toggle simple per display
+    if (container.style.display === 'block') {
         container.style.display = 'none';
         return;
     }
