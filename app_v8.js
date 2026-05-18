@@ -5262,26 +5262,7 @@ async function carregarVistaReg() {
     await carregarTaulaReg();
 }
 
-async function mostrarRecomanacionsReg() {
-    const container = document.getElementById('reg-recomanacions');
-    
-    // Toggle
-    if (container.style.display !== 'none') {
-        container.style.display = 'none';
-        return;
-    }
-    
-    container.style.display = 'block';
-    container.innerHTML = '<p>⏳ Carregant recomanacions...</p>';
-    
-    // Dates: últims 7 dies fins avui
-    const avui = new Date();
-    const dataFi = avui.toISOString().split('T')[0];
-    const dataInici = new Date(avui - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    
-    const finques = await getRegConfiguracio();
-    await carregarDadesReg(finques, dataInici, dataFi);
-}
+
 
 async function carregarFiltreExplotacions() {
     const select = document.getElementById('reg-filtre-explotacio');
