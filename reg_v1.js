@@ -188,29 +188,97 @@ async function actualitzarRecomanacions() {
 // CARREGAR DADES I GENERAR TAULA
 // ============================================================
 
+async function getMeteoData(lat, lon, diesPassats, diesFuturs) {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+                `&past_days=${diesPassats}&forecast_days=${diesFuturs}` +
+                `&daily=et0_fao_evapotranspiration,precipitation_sum&timezone=Europe/Madrid`;
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Error obtenint dades meteo");
+
+    const data = await res.json();
+
+    return {
+        dates: data.daily.time,
+        eto: data.daily.et0_fao_evapotranspiration,
+        pluja: data.daily.precipitation_sum
+    };
+}
+
+function processarMeteo(m) {
+    const avui = new Date();
+    avui.setHours(0,0,0,0);
+
+    let etoPassat = 0, etoFutur = 0;
+    let plujaPassat = 0, plujaFutur = 0;
+
+    for (let i = 0; i < m.dates.length; i++) {
+        const d = new Date(m.dates[i]);
+        const eto = m.eto[i] || 0;
+        const pluja = m.pluja[i] || 0;
+
+        if (d <= avui) {
+            etoPassat += eto;
+            plujaPassat += pluja;
+        } else {
+            etoFutur += eto;
+            plujaFutur += pluja;
+        }
+    }
+
+    return {
+        etoPassat,
+        plujaPassat,
+        etoFutur,
+        plujaFutur
+    };
+}
+
 async function carregarDadesReg(finques, dataInici, dataFi) {
     const container = document.getElementById('reg-finques-container');
     if (!container) return;
 
     try {
-        const mes = new Date().getMonth() + 1;
+        const avui = new Date();
+        avui.setHours(0,0,0,0);
+        const dInici = new Date(dataInici);
+        const dFi = new Date(dataFi);
 
-        const meteoAlf = await getMeteoData(41.4167, 0.6167, 7, 7);
-        const meteoAlc = await getMeteoData(41.3833, 0.6500, 7, 7);
+        // Dies passats (dataInici → avui)
+        const diesPassats = Math.max(0, Math.round(
+            (Math.min(avui, dFi) - dInici) / (1000*60*60*24)
+        ));
+
+        // Dies futurs (avui → dataFi)
+        const diesFutures = Math.max(0, Math.round(
+            (dFi - avui) / (1000*60*60*24)
+        ));
+
+        // Límits API Open-Meteo
+        const diesPassatsCapped = Math.min(diesPassats, 92);
+        const diesFuturesCapped = Math.min(diesFutures, 16);
+
+        console.log('Dies passats:', diesPassatsCapped, 'Dies futurs:', diesFuturesCapped);
+
+        // METEO
+        const meteoAlfRaw = await getMeteoData(41.4167, 0.6167, diesPassatsCapped, diesFuturesCapped);
+        const meteoAlcRaw = await getMeteoData(41.3833, 0.6500, diesPassatsCapped, diesFuturesCapped);
+
         const meteoZones = {
-            altes: processarMeteo(meteoAlf),
-            alcano: processarMeteo(meteoAlc)
+            altes: processarMeteo(meteoAlfRaw),
+            alcano: processarMeteo(meteoAlcRaw)
         };
 
-        var html = '';
+        const mes = new Date().getMonth() + 1;
+        let html = '';
 
-        // Cards meteo
+        // CARDS METEO
         html += '<div style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap;">';
         html += generarCardMeteo('Zona Alfés', meteoZones.altes);
         html += generarCardMeteo('Zona Alcanó', meteoZones.alcano);
         html += '</div>';
 
-        // Taula
+        // TAULA
         html += '<div style="overflow-x:auto;">';
         html += '<table class="data-table" style="width:100%;">';
         html += '<thead><tr>';
@@ -226,74 +294,86 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
         html += '<th style="text-align:right;">Rec. prop. setmana (m³)</th>';
         html += '</tr></thead><tbody>';
 
-        var totalNecessitat = 0, totalConsum = 0, totalRec = 0;
+        let totalNecessitat = 0, totalConsum = 0, totalRec = 0;
 
-        for (var i = 0; i < finques.length; i++) {
-            var finca = finques[i];
-            var meteo = finca.num_explotacio === '122H165VH02' ? meteoZones.alcano : meteoZones.altes;
-            var kc = await getRegKc(finca.cultiu, mes);
-            var registresConsum = await getRegConsum(finca.num_explotacio, dataInici, dataFi);
-            var consumReal = registresConsum.reduce(function(s, r) { return s + (parseFloat(r.consum_m3) || 0); }, 0);
+        for (let finca of finques) {
+            const meteo = finca.num_explotacio === '122H165VH02'
+                ? meteoZones.alcano
+                : meteoZones.altes;
 
-            var calc = calcularNecessitatReg(meteo.etoPassat, kc, finca.superficie_ha, meteo.plujaPassat);
-            var calcFutur = calcularNecessitatReg(meteo.etoFutur, kc, finca.superficie_ha, meteo.plujaFutur);
-            var avaluacio = avaluarConsum(consumReal, calc.necessitatM3);
-            var diferencia = consumReal - calc.necessitatM3;
+            const kc = await getRegKc(finca.cultiu, mes);
+            const registresConsum = await getRegConsum(finca.num_explotacio, dataInici, dataFi);
+            const consumReal = registresConsum.reduce((s, r) => s + (parseFloat(r.consum_m3) || 0), 0);
+
+            const calc = calcularNecessitatReg(meteo.etoPassat, kc, finca.superficie_ha, meteo.plujaPassat);
+            const calcFutur = calcularNecessitatReg(meteo.etoFutur, kc, finca.superficie_ha, meteo.plujaFutur);
+
+            const avaluacio = avaluarConsum(consumReal, calc.necessitatM3);
+            const diferencia = consumReal - calc.necessitatM3;
 
             totalNecessitat += calc.necessitatM3;
             totalConsum += consumReal;
             totalRec += calcFutur.necessitatM3;
 
-            var colorDif = diferencia > 50 ? '#e74c3c' : diferencia < -50 ? '#f39c12' : '#27ae60';
-			var cultiuText = finca.cultiu === 'pressec_juny' ? 'Préssec Pla (Juny)' :
-                 finca.cultiu === 'pressec_agost' ? 'Préssec Pla (Agost)' : 'Albercoc';
+            const colorDif = diferencia > 50 ? '#e74c3c' :
+                             diferencia < -50 ? '#f39c12' : '#27ae60';
+
+            const cultiuText =
+                finca.cultiu === 'pressec_juny' ? 'Préssec Pla (Juny)' :
+                finca.cultiu === 'pressec_agost' ? 'Préssec Pla (Agost)' :
+                'Albercoc';
 
             html += '<tr>';
-            html += '<td><strong>' + finca.nom_finca + '</strong></td>';
-            html += '<td>' + cultiuText + '</td>';
-            html += '<td style="text-align:right;">' + finca.superficie_ha + '</td>';
-            html += '<td style="text-align:right;">' + calc.etcM3.toLocaleString('ca-ES') + '</td>';
-            html += '<td style="text-align:right; color:#3498db;">' + calc.plujaEfectivaM3.toLocaleString('ca-ES') + '</td>';
-            html += '<td style="text-align:right; font-weight:bold;">' + calc.necessitatM3.toLocaleString('ca-ES') + '</td>';
-            html += '<td style="text-align:right;">' + consumReal.toLocaleString('ca-ES', {maximumFractionDigits:1}) + '</td>';
-            html += '<td style="text-align:right; color:' + colorDif + '; font-weight:bold;">' + (diferencia >= 0 ? '+' : '') + diferencia.toLocaleString('ca-ES', {maximumFractionDigits:1}) + '</td>';
-            html += '<td><span style="color:' + avaluacio.color + '; font-weight:bold;">' + avaluacio.icon + ' ' + avaluacio.text + '</span></td>';
-            html += '<td style="text-align:right; font-weight:bold; color:#2980b9;">' + calcFutur.necessitatM3.toLocaleString('ca-ES') + ' m³</td>';
+            html += `<td><strong>${finca.nom_finca}</strong></td>`;
+            html += `<td>${cultiuText}</td>`;
+            html += `<td style="text-align:right;">${finca.superficie_ha}</td>`;
+            html += `<td style="text-align:right;">${calc.etcM3.toLocaleString('ca-ES')}</td>`;
+            html += `<td style="text-align:right; color:#3498db;">${calc.plujaEfectivaM3.toLocaleString('ca-ES')}</td>`;
+            html += `<td style="text-align:right; font-weight:bold;">${calc.necessitatM3.toLocaleString('ca-ES')}</td>`;
+            html += `<td style="text-align:right;">${consumReal.toLocaleString('ca-ES',{maximumFractionDigits:1})}</td>`;
+            html += `<td style="text-align:right; color:${colorDif}; font-weight:bold;">${diferencia>=0?'+':''}${diferencia.toLocaleString('ca-ES',{maximumFractionDigits:1})}</td>`;
+            html += `<td><span style="color:${avaluacio.color}; font-weight:bold;">${avaluacio.icon} ${avaluacio.text}</span></td>`;
+            html += `<td style="text-align:right; font-weight:bold; color:#2980b9;">${calcFutur.necessitatM3.toLocaleString('ca-ES')} m³</td>`;
             html += '</tr>';
         }
 
-        // Total
-        var difTotal = totalConsum - totalNecessitat;
-        html += '<tr style="border-top:3px solid #333; background:#f5f5f5; font-weight:bold;">';
-        html += '<td colspan="3">TOTAL</td>';
-        html += '<td style="text-align:right;">' + totalNecessitat.toLocaleString('ca-ES', {maximumFractionDigits:1}) + '</td>';
-        html += '<td></td>';
-        html += '<td style="text-align:right;">' + totalNecessitat.toLocaleString('ca-ES', {maximumFractionDigits:1}) + '</td>';
-        html += '<td style="text-align:right;">' + totalConsum.toLocaleString('ca-ES', {maximumFractionDigits:1}) + '</td>';
-        html += '<td style="text-align:right; color:' + (difTotal > 0 ? '#e74c3c' : '#27ae60') + ';">' + (difTotal >= 0 ? '+' : '') + difTotal.toLocaleString('ca-ES', {maximumFractionDigits:1}) + '</td>';
-        html += '<td></td>';
-        html += '<td style="text-align:right; color:#2980b9;">' + totalRec.toLocaleString('ca-ES', {maximumFractionDigits:1}) + ' m³</td>';
-        html += '</tr>';
+        // TOTALS
+        const difTotal = totalConsum - totalNecessitat;
+
+        html += `
+        <tr style="border-top:3px solid #333; background:#f5f5f5; font-weight:bold;">
+            <td colspan="3">TOTAL</td>
+            <td style="text-align:right;">${totalNecessitat.toLocaleString('ca-ES',{maximumFractionDigits:1})}</td>
+            <td></td>
+            <td style="text-align:right;">${totalNecessitat.toLocaleString('ca-ES',{maximumFractionDigits:1})}</td>
+            <td style="text-align:right;">${totalConsum.toLocaleString('ca-ES',{maximumFractionDigits:1})}</td>
+            <td style="text-align:right; color:${difTotal>0?'#e74c3c':'#27ae60'};">${difTotal>=0?'+':''}${difTotal.toLocaleString('ca-ES',{maximumFractionDigits:1})}</td>
+            <td></td>
+            <td style="text-align:right; color:#2980b9;">${totalRec.toLocaleString('ca-ES',{maximumFractionDigits:1})} m³</td>
+        </tr>`;
+
         html += '</tbody></table></div>';
 
-        // Metodologia
+        // METODOLOGIA
         const kcPressecJuny = await getRegKc('pressec_juny', mes);
-		const kcPressecAgost = await getRegKc('pressec_agost', mes);
+        const kcPressecAgost = await getRegKc('pressec_agost', mes);
         const kcAlbercoc = await getRegKc('albercoc', mes);
-        const nomMes = new Date().toLocaleString('ca-ES', {month: 'long'});
-        html += '<div style="margin-top:15px; padding:12px; background:#e8f4fd; border-left:4px solid #3498db; border-radius:4px; font-size:0.85em; color:#555;">';
-        html += '<strong>📐 Metodologia:</strong> ETo Penman-Monteith (Open-Meteo) × Kc FAO-56 × Superfície (ha) × 10 = m³ necessaris. ';
-        html += 'Pluja efectiva = 80% precipitació. ';
-        html += 'Kc ' + nomMes + ': Préssec Pla Juny = <strong>' + kcPressecJuny + '</strong>, ' +
-        'Préssec Pla Agost = <strong>' + kcPressecAgost + '</strong>, ' +
-        'Albercoc = <strong>' + kcAlbercoc + '</strong>';
-        html += '</div>';
+        const nomMes = new Date().toLocaleString('ca-ES', {month:'long'});
+
+        html += `
+        <div style="margin-top:15px; padding:12px; background:#e8f4fd; border-left:4px solid #3498db; border-radius:4px; font-size:0.85em; color:#555;">
+            <strong>📐 Metodologia:</strong> ETo Penman-Monteith (Open-Meteo) × Kc FAO-56 × Superfície (ha) × 10 = m³ necessaris.
+            Pluja efectiva = 80% precipitació.
+            Kc ${nomMes}: Préssec Pla Juny = <strong>${kcPressecJuny}</strong>,
+            Préssec Pla Agost = <strong>${kcPressecAgost}</strong>,
+            Albercoc = <strong>${kcAlbercoc}</strong>
+        </div>`;
 
         container.innerHTML = html;
 
     } catch (error) {
         console.error('❌ Error carregant recomanacions reg:', error);
-        container.innerHTML = '<p>❌ Error: ' + error.message + '</p>';
+        container.innerHTML = `<p>❌ Error: ${error.message}</p>`;
     }
 }
 
