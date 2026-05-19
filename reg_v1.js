@@ -189,17 +189,31 @@ async function actualitzarRecomanacions() {
 // ============================================================
 
 async function carregarDadesReg(finques, dataInici, dataFi) {
-    const container = document.getElementById('reg-finques-container');
-    if (!container) return;
-
-    try {
-        const mes = new Date().getMonth() + 1;
-
-        const meteoAlf = await getMeteoData(41.4167, 0.6167, 7, 7);
-        const meteoAlc = await getMeteoData(41.3833, 0.6500, 7, 7);
-        const meteoZones = {
-            altes: processarMeteo(meteoAlf),
-            alcano: processarMeteo(meteoAlc)
+    const avui = new Date();
+    avui.setHours(0,0,0,0);
+    const dInici = new Date(dataInici);
+    const dFi = new Date(dataFi);
+    
+    // Dies passats des de dataInici fins avui (o dataFi si és passat)
+    const diesPassats = Math.max(0, Math.round(
+        (Math.min(avui, dFi) - dInici) / (1000*60*60*24)
+    ));
+    
+    // Dies futurs des d'avui fins dataFi (0 si tot és passat)
+    const diesFutures = Math.max(0, Math.round(
+        (dFi - avui) / (1000*60*60*24)
+    ));
+    
+    // ⚠️ Limitació API Open-Meteo:
+    // - Màxim 92 dies passats (past_days)
+    // - Màxim 16 dies futurs (forecast_days)
+    const diesPassatsCapped = Math.min(diesPassats, 92);
+    const diesFuturesCapped = Math.min(diesFutures, 16);
+    
+    console.log('Dies passats:', diesPassatsCapped, 'Dies futurs:', diesFuturesCapped);
+    
+    const meteoAlf = await getMeteoData(41.4167, 0.6167, diesPassatsCapped, diesFuturesCapped);
+    const meteoAlc = await getMeteoData(41.3833, 0.6500, diesPassatsCapped, diesFuturesCapped);
         };
 
         var html = '';
