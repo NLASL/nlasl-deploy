@@ -116,23 +116,31 @@ function processarMeteo(meteoData) {
     };
 }
 
-function generarCardMeteo(nomZona, meteo) {
-    var html = '<div style="background:#e8f4fd; border:2px solid #3498db; border-radius:10px; padding:15px; flex:1; min-width:250px;">';
-    html += '<h4 style="margin:0 0 10px 0; color:#2980b9;">🌡️ ' + nomZona + '</h4>';
-    html += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">';
-    html += '<div style="background:white; border-radius:6px; padding:10px;">';
-    html += '<div style="font-size:0.8em; color:#666; margin-bottom:5px;">📅 Últims 7 dies</div>';
-    html += '<div>ETo: <strong>' + meteo.etoPassat + ' mm</strong></div>';
-    html += '<div>Pluja: <strong style="color:#3498db;">' + meteo.plujaPassat + ' mm</strong></div>';
-    html += '</div>';
-    html += '<div style="background:white; border-radius:6px; padding:10px;">';
-    html += '<div style="font-size:0.8em; color:#666; margin-bottom:5px;">🔮 Propers 7 dies</div>';
-    html += '<div>ETo: <strong>' + meteo.etoFutur + ' mm</strong></div>';
-    html += '<div>Pluja prev.: <strong style="color:#3498db;">' + meteo.plujaFutur + ' mm</strong></div>';
-    html += '</div>';
-    html += '</div></div>';
+function generarCardMeteo(titolZona, meteo) {
+    let html = '';
+
+    html += `<div style="flex:1; min-width:280px; border:1px solid #3498db; border-radius:6px; padding:10px; background:#f9fcff;">`;
+    html += `<h3 style="color:#2980b9; margin-bottom:8px;">🔧 ${titolZona}</h3>`;
+
+    // Període seleccionat (dades reals)
+    html += `<div style="background:#eef6fb; border-radius:4px; padding:10px; margin-bottom:8px;">`;
+    html += `<div style="font-weight:bold; color:#555;">📅 Període seleccionat</div>`;
+    html += `<div style="margin-top:4px;">ETo: <strong>${meteo.etoPassat.toFixed(1)}</strong> mm<br>`;
+    html += `Pluja: <strong>${meteo.plujaPassat.toFixed(1)}</strong> mm</div>`;
+    html += `</div>`;
+
+    // Propers 7 dies (recomanació futura)
+    html += `<div style="background:#f0f8ff; border-radius:4px; padding:10px;">`;
+    html += `<div style="font-weight:bold; color:#555;">🔮 Propers 7 dies</div>`;
+    html += `<div style="margin-top:4px;">ETo: <strong>${meteo.etoFutur.toFixed(1)}</strong> mm<br>`;
+    html += `Pluja prev.: <strong>${meteo.plujaFutur.toFixed(1)}</strong> mm</div>`;
+    html += `</div>`;
+
+    html += `</div>`;
+
     return html;
 }
+
 
 // ============================================================
 // MOSTRAR RECOMANACIONS (botó dins carregarVistaReg)
@@ -250,9 +258,8 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
         ));
 
         // Dies futurs (avui → dataFi)
-        const diesFutures = Math.max(0, Math.round(
-            (dFi - avui) / (1000*60*60*24)
-        ));
+        const diesFutures = 7; // recomanacions per als 7 dies següents al període seleccionat
+
 
         // Límits API Open-Meteo
         const diesPassatsCapped = Math.min(diesPassats, 92);
