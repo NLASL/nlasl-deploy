@@ -85,7 +85,7 @@ async function mostrarTaulaEntrades() {
         html += '<td>' + formatData(e.data) + '</td>';
         html += '<td><strong>' + e.num_albara + '</strong></td>';
         html += '<td>' + (fruita ? fruita.nom : '-') + ' / ' + varietat + '</td>';
-        html += '<td>' + (finca ? finca.nom : '-') + '</td>';
+        html += '<td>' + finca + '</td>';
         html += '<td>' + (e.qualitat || '-') + '</td>';
         html += '<td>' + (e.pes_net || 0).toFixed(2) + '</td>';
         html += '<td>' + (e.quantitat_palots_entrada || 0) + '</td>';
