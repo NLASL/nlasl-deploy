@@ -5277,11 +5277,17 @@ async function carregarFiltreExplotacions() {
     });
 }
 
+let regConfigCache = null;
+
 async function carregarTaulaReg() {
     const tbody = document.getElementById('tbody-reg');
     if (!tbody) return;
-
-    const any = parseInt(document.getElementById('reg-filtre-any')?.value) || null;
+    
+    if (!regConfigCache) {
+        regConfigCache = await getRegConfiguracio();
+    }
+    const regConfig = regConfigCache;
+	const any = parseInt(document.getElementById('reg-filtre-any')?.value) || null;
     const mes = parseInt(document.getElementById('reg-filtre-mes')?.value) || null;
     const explotacio = document.getElementById('reg-filtre-explotacio')?.value || null;
 
@@ -5314,8 +5320,8 @@ async function carregarTaulaReg() {
             '<th>Mes</th><th>Explotació</th><th>Finca</th><th>Total m³</th><th>Dies amb consum</th><th>Detall</th>';
 
         tbody.innerHTML = registres.map(function(r) {
-            const parcella = parcelles.find(function(p) { return p.num_explotacio === r.num_explotacio; });
-            const nomFinca = parcella ? parcella.finca : '-';
+            const configFinca = regConfig.find(function(c) { return c.num_explotacio === r.num_explotacio; });
+			const nomFinca = configFinca ? configFinca.nom_finca : r.num_explotacio;	
             const data = new Date(r.mes);
             const mesNom = data.toLocaleString('ca-ES', { month: 'long', year: 'numeric' });
             
