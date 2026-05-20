@@ -77,7 +77,6 @@ async function mostrarTaulaEntrades() {
     
     entrades.forEach(function(entrada) {
         const teEscandall = idsAmbEscandall.has(entrada.id);
-    entrades.forEach(e => {
         const fruita = fruites.find(f => f.id === (e.fruita_varietat_id?.fruita_id || null));
         const varietat = e.fruita_varietat_id?.varietat || '-';
         const finca = finques.find(f => f.id === e.finca);
