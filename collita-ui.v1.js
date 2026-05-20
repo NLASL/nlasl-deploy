@@ -77,13 +77,6 @@ async function mostrarTaulaEntrades() {
     
     entrades.forEach(function(entrada) {
         const teEscandall = idsAmbEscandall.has(entrada.id);
-        // ... resta de camps...
-        html += '<td style="text-align:center;">' +
-            (teEscandall ? 
-                '✅' : 
-                '<span style="color:#e74c3c; font-weight:bold;">❌ Pendent</span>') +
-        '</td>';
-    
     entrades.forEach(e => {
         const fruita = fruites.find(f => f.id === (e.fruita_varietat_id?.fruita_id || null));
         const varietat = e.fruita_varietat_id?.varietat || '-';
@@ -98,6 +91,11 @@ async function mostrarTaulaEntrades() {
         html += '<td>' + (e.pes_net || 0).toFixed(2) + '</td>';
         html += '<td>' + (e.quantitat_palots_entrada || 0) + '</td>';
         html += '<td>' + (e.pes_mig || 0).toFixed(2) + '</td>';
+		 html += '<td style="text-align:center;">' +
+            (teEscandall ? 
+                '✅' : 
+                '<span style="color:#e74c3c; font-weight:bold;">❌ Pendent</span>') +
+        '</td>';
         html += '<td>';
         html += '<button class="btn btn-sm btn-primary" onclick="veureAlbaraRegistre(\'' + e.id + '\')">👁️</button> ';
         html += '<button class="btn btn-sm btn-secondary" onclick="editarAlbaraRegistre(\'' + e.id + '\')">✏️</button> ';
