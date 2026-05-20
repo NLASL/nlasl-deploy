@@ -79,7 +79,7 @@ async function mostrarTaulaEntrades() {
 		const teEscandall = idsAmbEscandall.has(e.id);
 		const fruita = fruites.find(f => f.id === (e.fruita_varietat_id?.fruita_id || null));
         const varietat = e.fruita_varietat_id?.varietat || '-';
-        const finca = e.finca || '-'; 
+        const finca = finques.find(f => f.id === e.finca);
         
         html += '<tr>';
         html += '<td>' + formatData(e.data) + '</td>';
