@@ -57,13 +57,32 @@ async function mostrarTaulaEntrades() {
     const content = document.getElementById('collita-content');
     const entrades = await obtenirTodasEntradas();
     
+    // ✅ AFEGIR: Carregar IDs d'entrades amb escandall
+    const { data: escandallsIds } = await supabaseClient
+        .from('collita_escandall')
+        .select('collita_entrada_id')
+        .eq('estat', 'actiu');
+    
+    const idsAmbEscandall = new Set(
+        (escandallsIds || []).map(e => e.collita_entrada_id)
+    );
+    
     let html = '<div class="taula-entrades">';
     html += '<table class="data-table" style="width: 100%;">';
     html += '<thead><tr>';
     html += '<th>Data</th><th>Num. Albarà</th><th>Fruita-Varietat</th><th>Finca</th><th>Qualitat</th>';
-    html += '<th>Pes Net (kg)</th><th>Palots</th><th>Pes Mig</th><th>Accions</th>';
+    html += '<th>Pes Net (kg)</th><th>Palots</th><th>Pes Mig</th><th>Escandall</th><th>Accions</th>';
     html += '</tr></thead>';
     html += '<tbody>';
+    
+    entrades.forEach(function(entrada) {
+        const teEscandall = idsAmbEscandall.has(entrada.id);
+        // ... resta de camps...
+        html += '<td style="text-align:center;">' +
+            (teEscandall ? 
+                '✅' : 
+                '<span style="color:#e74c3c; font-weight:bold;">❌ Pendent</span>') +
+        '</td>';
     
     entrades.forEach(e => {
         const fruita = fruites.find(f => f.id === (e.fruita_varietat_id?.fruita_id || null));
@@ -1832,7 +1851,7 @@ async function mostrarAnalisiCollita(campanya, fruitaFiltreId) {
             var pctOptim = d.total > 0 ? d.optim / (d.optim + d.mitja) * 100 : 0;
             if (pctNC > 15) alertes.push({ tipus: 'error', msg: '🔴 ' + fruitaNom + ' / ' + varietatNom + ': %NC = ' + pctNC.toFixed(1) + '% (> 15%)' });
             else if (pctNC > 10) alertes.push({ tipus: 'warning', msg: '🟠 ' + fruitaNom + ' / ' + varietatNom + ': %NC = ' + pctNC.toFixed(1) + '% (> 10%)' });
-            if (pctOptim < 20) alertes.push({ tipus: 'error', msg: '🔴 ' + fruitaNom + ' / ' + varietatNom + ': %Òptim = ' + pctOptim.toFixed(1) + '% (< 20%) — Accelerar collita!' });
+            if (pctOptim < 20) alertes.push({ tipus: 'error', msg: '🔴 ' + fruitaNom + ' / ' + varietatNom + ': %Òptim = ' + pctOptim.toFixed(1) + '% (< 20%) — Alentir collita!' });
             else if (pctOptim < 40) alertes.push({ tipus: 'warning', msg: '🟠 ' + fruitaNom + ' / ' + varietatNom + ': %Òptim = ' + pctOptim.toFixed(1) + '% (< 40%) — Atenció!' });
         });
     });
