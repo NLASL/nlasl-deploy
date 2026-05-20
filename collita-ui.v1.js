@@ -75,11 +75,11 @@ async function mostrarTaulaEntrades() {
     html += '</tr></thead>';
     html += '<tbody>';
     
-    entrades.forEach(function(entrada) {
-        const teEscandall = idsAmbEscandall.has(entrada.id);
-        const fruita = fruites.find(f => f.id === (e.fruita_varietat_id?.fruita_id || null));
+    entrades.forEach(function(e) {
+		const teEscandall = idsAmbEscandall.has(e.id);
+		const fruita = fruites.find(f => f.id === (e.fruita_varietat_id?.fruita_id || null));
         const varietat = e.fruita_varietat_id?.varietat || '-';
-        const finca = finques.find(f => f.id === e.finca);
+        const finca = e.finca || '-'; 
         
         html += '<tr>';
         html += '<td>' + formatData(e.data) + '</td>';
