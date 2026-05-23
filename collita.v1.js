@@ -204,9 +204,19 @@ async function obtenerAlbaraEntradaPorNum(numAlbara) {
     }
 }
 
-async function obtenirTodasEntradas(campanya = 2025) {
+async function obtenirTodasEntradas(campanya = null) {
     try {
-        // Detectar dates de campanya: 1 octubre (any-1) → 30 setembre (any)
+        // Detectar campanya actual si no s'especifica
+        if (!campanya) {
+            const ara = new Date();
+            const mes = ara.getMonth() + 1;
+            const any = ara.getFullYear();
+            // Octubre-Desembre → campanya any+1
+            // Gener-Setembre → campanya any
+            campanya = mes >= 10 ? any + 1 : any;
+        }
+
+        // Dates campanya: 1 octubre (any-1) → 30 setembre (any)
         const dataInici = (campanya - 1) + '-10-01';
         const dataFinal = campanya + '-09-30';
 
