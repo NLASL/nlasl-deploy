@@ -1691,16 +1691,31 @@ async function guardarEdicionEscandall(event, id) {
         // Indústria
         const industriaPes = parseFloat(document.getElementById('edicio-esc-industria-pes').value) || 0;
         const industriaPerc = parseFloat(document.getElementById('edicio-esc-industria-perc').value) || 0;
+		
+		// Obtenir fruita_varietat_id de l'escandall actual
+		const { data: escandallActual } = await supabaseClient
+			.from('collita_escandall')
+			.select('fruita_varietat_id')
+			.eq('id', id)
+			.single();
+
+		const fruitaVarietatId = escandallActual?.fruita_varietat_id;
+	
         
         // Actualitzar dades bàsiques
         await actualitzarAlbaraEscandall(id, dades);
         
         // Esborrar i reinserir calibres
-        await supabaseClient.from('collita_escandall_calibres').delete().eq('escandall_id', id);
-        if (calibres.length > 0) {
-            const calibresAmbId = calibres.map(function(c) { return { ...c, escandall_id: id }; });
-            await supabaseClient.from('collita_escandall_calibres').insert(calibresAmbId);
-        }
+       if (calibres.length > 0) {
+		const calibresAmbId = calibres.map(function(c) { 
+        return { 
+            ...c, 
+            escandall_id: id,
+            categoria: calcularCategoria(c.calibre, fruitaVarietatId)
+        }; 
+    });
+		await supabaseClient.from('collita_escandall_calibres').insert(calibresAmbId);
+}
         
         // Esborrar i reinserir NC
         await supabaseClient.from('collita_escandall_no_comercial').delete().eq('escandall_id', id);
