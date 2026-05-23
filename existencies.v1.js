@@ -12,6 +12,8 @@ async function carregarVistaExistencies() {
     html += '<button class="btn btn-secondary" onclick="obrirModalInventariInicial()">📋 Inventari Inicial</button>';
     html += '<button class="btn btn-secondary" onclick="obrirModalAjust()">🔧 Ajust Estoc</button>';
 	html += '<button class="btn btn-success" onclick="exportarExistenciesExcel()">📥 Exportar Excel</button>';
+	html += '<button class="btn btn-warning" onclick="document.getElementById(\'input-inventari-fisic\').click()">📤 Importar Inventari</button>';
+	html += '<input type="file" id="input-inventari-fisic" accept=".xlsx,.xls" style="display:none;" onchange="importarInventariFisic(event)">';
     html += '</div></div>';
 
     // Filtres
@@ -408,52 +410,59 @@ async function guardarAjust(event) {
     }
 }
 
+// ============================================================
+// EXPORTACIÓ MILLORADA - Substituir exportarExistenciesExcel()
+// ============================================================
+ 
 function exportarExistenciesExcel() {
-    // Agafar les dades amb els mateixos filtres actuals
     const cerca = document.getElementById('exist-filtre-producte')?.value?.trim().toLowerCase();
     const tipus = document.getElementById('exist-filtre-tipus')?.value;
     const estat = document.getElementById('exist-filtre-estat')?.value;
-
+ 
     let dadesExport = existenciesTotes;
-
-    // Aplicar filtres igual que filtrarTaulaExistencies()
-    if (cerca) {
-        dadesExport = dadesExport.filter(e => e.nom.toLowerCase().includes(cerca));
-    }
-    if (tipus) {
-        dadesExport = dadesExport.filter(e => e.tipus_producte === tipus);
-    }
-    if (estat === 'amb_estoc') {
-        dadesExport = dadesExport.filter(e => e.estoc > 0);
-    } else if (estat === 'sense_estoc') {
-        dadesExport = dadesExport.filter(e => e.estoc === 0);
-    } else if (estat === 'negatiu') {
-        dadesExport = dadesExport.filter(e => e.estoc < 0);
-    }
-
+ 
+    if (cerca) dadesExport = dadesExport.filter(e => e.nom.toLowerCase().includes(cerca));
+    if (tipus) dadesExport = dadesExport.filter(e => e.tipus_producte === tipus);
+    if (estat === 'amb_estoc') dadesExport = dadesExport.filter(e => e.estoc > 0);
+    else if (estat === 'sense_estoc') dadesExport = dadesExport.filter(e => e.estoc === 0);
+    else if (estat === 'negatiu') dadesExport = dadesExport.filter(e => e.estoc < 0);
+ 
     if (dadesExport.length === 0) {
         mostrarNotificacio('⚠️ No hi ha dades per exportar', 'warning');
         return;
     }
-
-    // Preparar dades per Excel
-    const dataExcel = dadesExport.map(function(e) {
-        return {
-            'Producte': e.nom,
-            'Tipus': e.tipus_producte === 'fitosanitari' ? 'Fitosanitari' : 'Fertilitzant',
-            'Unitat': e.unitat_stock || e.unitat || 'L',
-            'Entrades': parseFloat(e.entrades.toFixed(3)),
-            'Sortides': parseFloat(e.sortides.toFixed(3)),
-            'Estoc App': parseFloat(e.estoc.toFixed(3)),
-            'Estoc Físic': '',
-            'Diferència': '',
-            'Observacions': ''
-        };
+ 
+    const wb = XLSX.utils.book_new();
+    const wsData = [
+        // Capçalera
+        ['Producte', 'Tipus', 'Unitat', 'Entrades', 'Sortides', 'Estoc App', 'Estoc Físic', 'Diferència', 'Observacions']
+    ];
+ 
+    // Dades
+    dadesExport.forEach(function(e) {
+        wsData.push([
+            e.nom,
+            e.tipus_producte === 'fitosanitari' ? 'Fitosanitari' : 'Fertilitzant',
+            e.unitat_stock || e.unitat || 'L',
+            parseFloat(e.entrades.toFixed(3)),
+            parseFloat(e.sortides.toFixed(3)),
+            parseFloat(e.estoc.toFixed(3)),
+            '',   // Estoc Físic - omplir a mà
+            '',   // Diferència - fórmula
+            ''    // Observacions - omplir a mà
+        ]);
     });
-
-    // Crear Excel
-    const ws = XLSX.utils.json_to_sheet(dataExcel);
-
+ 
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+ 
+    // ✅ Afegir fórmules de diferència (Estoc Físic - Estoc App)
+    // Columna G = Estoc Físic (index 6), Columna F = Estoc App (index 5), Columna H = Diferència (index 7)
+    for (let i = 1; i < wsData.length; i++) {
+        const row = i + 1; // Excel és 1-indexat i fila 1 és capçalera
+        const cellRef = XLSX.utils.encode_cell({ r: i, c: 7 }); // Columna H
+        ws[cellRef] = { f: 'G' + row + '-F' + row };            // =G2-F2
+    }
+ 
     // Amplada columnes
     ws['!cols'] = [
         { wch: 35 }, // Producte
@@ -466,32 +475,227 @@ function exportarExistenciesExcel() {
         { wch: 12 }, // Diferència
         { wch: 25 }  // Observacions
     ];
-
-    // Estil capçalera (fons verd, lletra blanca)
-    const range = XLSX.utils.decode_range(ws['!ref']);
-    for (let C = range.s.c; C <= range.e.c; C++) {
-        const cell = ws[XLSX.utils.encode_cell({ r: 0, c: C })];
-        if (cell) {
-            cell.s = {
-                fill: { fgColor: { rgb: '2E7D32' } },
-                font: { bold: true, color: { rgb: 'FFFFFF' } },
-                alignment: { horizontal: 'center' }
-            };
-        }
-    }
-
-    const wb = XLSX.utils.book_new();
+ 
     XLSX.utils.book_append_sheet(wb, ws, 'Inventari');
-
-    // Nom fitxer amb data i filtre
+ 
     const avui = new Date().toISOString().split('T')[0];
     const tipusText = estat === 'amb_estoc' ? 'positiu' :
                       estat === 'negatiu' ? 'negatiu' :
                       estat === 'sense_estoc' ? 'zero' : 'tots';
     XLSX.writeFile(wb, 'inventari_' + tipusText + '_' + avui + '.xlsx');
-
+ 
     mostrarNotificacio('✅ Excel exportat: ' + dadesExport.length + ' productes', 'success');
 }
-
+ 
+// ============================================================
+// IMPORTACIÓ INVENTARI FÍSIC
+// ============================================================
+ 
+// Afegir botó a la vista existències (a carregarVistaExistencies):
+// html += '<button class="btn btn-warning" onclick="document.getElementById(\'input-inventari-fisic\').click()">📤 Importar Inventari</button>';
+// html += '<input type="file" id="input-inventari-fisic" accept=".xlsx,.xls" style="display:none;" onchange="importarInventariFisic(event)">';
+ 
+async function importarInventariFisic(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+ 
+    try {
+        mostrarNotificacio('⏳ Llegint Excel...', 'info');
+ 
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const dades = XLSX.utils.sheet_to_json(ws);
+ 
+        console.log('📊 Dades importades:', dades.length, 'files');
+        console.log('Primer registre:', dades[0]);
+ 
+        // Filtrar files amb Estoc Físic informat
+        const dadesAmbFisic = dades.filter(function(row) {
+            return row['Estoc Físic'] !== undefined && 
+                   row['Estoc Físic'] !== '' && 
+                   row['Estoc Físic'] !== null &&
+                   !isNaN(parseFloat(row['Estoc Físic']));
+        });
+ 
+        if (dadesAmbFisic.length === 0) {
+            mostrarNotificacio('⚠️ No hi ha dades d\'Estoc Físic al fitxer', 'warning');
+            event.target.value = '';
+            return;
+        }
+ 
+        // Mostrar previsualització
+        mostrarPrevisualitzacioInventari(dadesAmbFisic);
+ 
+    } catch (error) {
+        console.error('Error important inventari:', error);
+        mostrarNotificacio('❌ Error llegint Excel: ' + error.message, 'error');
+    }
+ 
+    event.target.value = '';
+}
+ 
+function mostrarPrevisualitzacioInventari(dades) {
+    // Calcular ajustos necessaris
+    const ajustos = dades.map(function(row) {
+        const estocApp = parseFloat(row['Estoc App']) || 0;
+        const estocFisic = parseFloat(row['Estoc Físic']);
+        const diferencia = estocFisic - estocApp;
+        return {
+            producte: row['Producte'],
+            tipus: row['Tipus'],
+            unitat: row['Unitat'] || 'L',
+            estocApp: estocApp,
+            estocFisic: estocFisic,
+            diferencia: parseFloat(diferencia.toFixed(3)),
+            observacions: row['Observacions'] || '',
+            teCanvi: Math.abs(diferencia) > 0.001
+        };
+    });
+ 
+    const ambCanvis = ajustos.filter(a => a.teCanvi);
+    const senseCanvis = ajustos.filter(a => !a.teCanvi);
+ 
+    // Crear modal de previsualització
+    let modal = document.getElementById('modal-inventari-fisic');
+    if (modal) modal.remove();
+ 
+    modal = document.createElement('div');
+    modal.id = 'modal-inventari-fisic';
+    modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; display:flex; align-items:center; justify-content:center;';
+ 
+    let html = '<div style="background:white; border-radius:12px; padding:25px; width:95%; max-width:900px; max-height:90vh; overflow-y:auto;">';
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">';
+    html += '<h3 style="margin:0;">📦 Previsualització Inventari Físic</h3>';
+    html += '<button onclick="document.getElementById(\'modal-inventari-fisic\').remove()" style="background:none; border:none; font-size:1.5em; cursor:pointer;">✕</button>';
+    html += '</div>';
+ 
+    // Resum
+    html += '<div style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap;">';
+    html += '<div style="background:#e8f5e9; border:2px solid #27ae60; border-radius:8px; padding:12px; flex:1;">';
+    html += '<strong style="color:#27ae60;">✅ Sense canvis: ' + senseCanvis.length + '</strong></div>';
+    html += '<div style="background:#fff3e0; border:2px solid #f39c12; border-radius:8px; padding:12px; flex:1;">';
+    html += '<strong style="color:#f39c12;">⚠️ Amb ajust: ' + ambCanvis.length + '</strong></div>';
+    html += '</div>';
+ 
+    if (ambCanvis.length === 0) {
+        html += '<p style="text-align:center; color:#27ae60; font-size:1.2em;">✅ L\'estoc físic coincideix amb l\'app. No cal fer ajustos!</p>';
+    } else {
+        html += '<p style="color:#666; margin-bottom:10px;">Els següents productes tindran un ajust d\'estoc:</p>';
+        html += '<table class="data-table" style="width:100%; margin-bottom:20px;">';
+        html += '<thead><tr>';
+        html += '<th>Producte</th><th>Unitat</th>';
+        html += '<th style="text-align:right;">Estoc App</th>';
+        html += '<th style="text-align:right;">Estoc Físic</th>';
+        html += '<th style="text-align:right;">Ajust</th>';
+        html += '<th>Observacions</th>';
+        html += '</tr></thead><tbody>';
+ 
+        ambCanvis.forEach(function(a) {
+            const colorDif = a.diferencia > 0 ? '#27ae60' : '#e74c3c';
+            const signe = a.diferencia > 0 ? '+' : '';
+            html += '<tr>';
+            html += '<td><strong>' + a.producte + '</strong></td>';
+            html += '<td>' + a.unitat + '</td>';
+            html += '<td style="text-align:right;">' + a.estocApp.toFixed(3) + '</td>';
+            html += '<td style="text-align:right; font-weight:bold;">' + a.estocFisic.toFixed(3) + '</td>';
+            html += '<td style="text-align:right; color:' + colorDif + '; font-weight:bold;">' + signe + a.diferencia.toFixed(3) + '</td>';
+            html += '<td style="font-size:0.85em; color:#666;">' + (a.observacions || '-') + '</td>';
+            html += '</tr>';
+        });
+ 
+        html += '</tbody></table>';
+ 
+        // Botons
+        html += '<div style="display:flex; gap:10px; justify-content:flex-end;">';
+        html += '<button class="btn btn-secondary" onclick="document.getElementById(\'modal-inventari-fisic\').remove()">❌ Cancel·lar</button>';
+        html += '<button class="btn btn-success" onclick="confirmarAjustosInventari(' + JSON.stringify(ambCanvis).replace(/'/g, "\\'") + ')">✅ Confirmar ' + ambCanvis.length + ' ajustos</button>';
+        html += '</div>';
+    }
+ 
+    html += '</div>';
+    modal.innerHTML = html;
+    document.body.appendChild(modal);
+ 
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) modal.remove();
+    });
+}
+ 
+async function confirmarAjustosInventari(ajustos) {
+    try {
+        mostrarNotificacio('⏳ Aplicant ajustos...', 'info');
+ 
+        const avui = new Date().toISOString().split('T')[0];
+        let ajustsFets = 0;
+        let errors = 0;
+ 
+        for (let i = 0; i < ajustos.length; i++) {
+            const ajust = ajustos[i];
+ 
+            // Buscar producte_id pel nom
+            let producteId = null;
+            let tipusProducte = null;
+ 
+            const fitosanitari = fitosanitaris.find(f => f.nom === ajust.producte);
+            const fertilitzant = fertilitzants.find(f => f.nom === ajust.producte);
+ 
+            if (fitosanitari) {
+                producteId = fitosanitari.id;
+                tipusProducte = 'fitosanitari';
+            } else if (fertilitzant) {
+                producteId = fertilitzant.id;
+                tipusProducte = 'fertilitzant';
+            }
+ 
+            if (!producteId) {
+                console.warn('⚠️ Producte no trobat:', ajust.producte);
+                errors++;
+                continue;
+            }
+ 
+            // Crear moviment d'ajust
+            const moviment = {
+                data: avui,
+                producte_id: producteId,
+                tipus_producte: tipusProducte,
+                tipus_moviment: 'ajust_inventari',
+                quantitat: ajust.diferencia,  // positiu = entrada, negatiu = sortida
+                unitat: ajust.unitat,
+                observacions: 'Inventari físic: ' + (ajust.observacions || 'Ajust manual'),
+                creat_per: currentUser ? currentUser.id : null,
+                estat: 'actiu'
+            };
+ 
+            const { error } = await supabaseClient
+                .from('estoc_moviments')
+                .insert([moviment]);
+ 
+            if (error) {
+                console.error('Error inserint ajust:', error);
+                errors++;
+            } else {
+                ajustsFets++;
+            }
+        }
+ 
+        // Tancar modal
+        const modal = document.getElementById('modal-inventari-fisic');
+        if (modal) modal.remove();
+ 
+        if (errors > 0) {
+            mostrarNotificacio('⚠️ ' + ajustsFets + ' ajustos aplicats, ' + errors + ' errors', 'warning');
+        } else {
+            mostrarNotificacio('✅ ' + ajustsFets + ' ajustos d\'inventari aplicats correctament', 'success');
+        }
+ 
+        // Recarregar existències
+        await carregarTaulaExistencies();
+ 
+    } catch (error) {
+        console.error('Error aplicant ajustos:', error);
+        mostrarNotificacio('❌ Error: ' + error.message, 'error');
+    }
+}
 
 console.log('✅ Existències v1 carregat');
