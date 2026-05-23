@@ -492,6 +492,6 @@ function exportarExistenciesExcel() {
 
     mostrarNotificacio('✅ Excel exportat: ' + dadesExport.length + ' productes', 'success');
 }
-}
+
 
 console.log('✅ Existències v1 carregat');
