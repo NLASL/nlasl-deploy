@@ -609,7 +609,8 @@ function mostrarPrevisualitzacioInventari(dades) {
         // Botons
         html += '<div style="display:flex; gap:10px; justify-content:flex-end;">';
         html += '<button class="btn btn-secondary" onclick="document.getElementById(\'modal-inventari-fisic\').remove()">❌ Cancel·lar</button>';
-        html += '<button class="btn btn-success" onclick="confirmarAjustosInventari(' + JSON.stringify(ambCanvis).replace(/'/g, "\\'") + ')">✅ Confirmar ' + ambCanvis.length + ' ajustos</button>';
+        window._ajustosInventariPendents = ambCanvis;
+		html += '<button class="btn btn-success" onclick="confirmarAjustosInventari()">✅ Confirmar ' + ambCanvis.length + ' ajustos</button>';
         html += '</div>';
     }
  
@@ -622,7 +623,9 @@ function mostrarPrevisualitzacioInventari(dades) {
     });
 }
  
-async function confirmarAjustosInventari(ajustos) {
+async function confirmarAjustosInventari() {
+    const ajustos = window._ajustosInventariPendents || [];
+    if (ajustos.length === 0) return;
     try {
         mostrarNotificacio('⏳ Aplicant ajustos...', 'info');
  
