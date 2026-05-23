@@ -406,6 +406,8 @@ async function guardarAjust(event) {
     } catch (error) {
         mostrarNotificacio('Error: ' + error.message, 'error');
     }
+}
+
 function exportarExistenciesExcel() {
     // Agafar les dades amb els mateixos filtres actuals
     const cerca = document.getElementById('exist-filtre-producte')?.value?.trim().toLowerCase();
