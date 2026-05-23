@@ -11,6 +11,7 @@ async function carregarVistaExistencies() {
     html += '<div style="display:flex;gap:8px;">';
     html += '<button class="btn btn-secondary" onclick="obrirModalInventariInicial()">📋 Inventari Inicial</button>';
     html += '<button class="btn btn-secondary" onclick="obrirModalAjust()">🔧 Ajust Estoc</button>';
+	html += '<button class="btn btn-success" onclick="exportarExistenciesExcel()">📥 Exportar Excel</button>';
     html += '</div></div>';
 
     // Filtres
@@ -405,6 +406,90 @@ async function guardarAjust(event) {
     } catch (error) {
         mostrarNotificacio('Error: ' + error.message, 'error');
     }
+function exportarExistenciesExcel() {
+    // Agafar les dades amb els mateixos filtres actuals
+    const cerca = document.getElementById('exist-filtre-producte')?.value?.trim().toLowerCase();
+    const tipus = document.getElementById('exist-filtre-tipus')?.value;
+    const estat = document.getElementById('exist-filtre-estat')?.value;
+
+    let dadesExport = existenciesTotes;
+
+    // Aplicar filtres igual que filtrarTaulaExistencies()
+    if (cerca) {
+        dadesExport = dadesExport.filter(e => e.nom.toLowerCase().includes(cerca));
+    }
+    if (tipus) {
+        dadesExport = dadesExport.filter(e => e.tipus_producte === tipus);
+    }
+    if (estat === 'amb_estoc') {
+        dadesExport = dadesExport.filter(e => e.estoc > 0);
+    } else if (estat === 'sense_estoc') {
+        dadesExport = dadesExport.filter(e => e.estoc === 0);
+    } else if (estat === 'negatiu') {
+        dadesExport = dadesExport.filter(e => e.estoc < 0);
+    }
+
+    if (dadesExport.length === 0) {
+        mostrarNotificacio('⚠️ No hi ha dades per exportar', 'warning');
+        return;
+    }
+
+    // Preparar dades per Excel
+    const dataExcel = dadesExport.map(function(e) {
+        return {
+            'Producte': e.nom,
+            'Tipus': e.tipus_producte === 'fitosanitari' ? 'Fitosanitari' : 'Fertilitzant',
+            'Unitat': e.unitat_stock || e.unitat || 'L',
+            'Entrades': parseFloat(e.entrades.toFixed(3)),
+            'Sortides': parseFloat(e.sortides.toFixed(3)),
+            'Estoc App': parseFloat(e.estoc.toFixed(3)),
+            'Estoc Físic': '',
+            'Diferència': '',
+            'Observacions': ''
+        };
+    });
+
+    // Crear Excel
+    const ws = XLSX.utils.json_to_sheet(dataExcel);
+
+    // Amplada columnes
+    ws['!cols'] = [
+        { wch: 35 }, // Producte
+        { wch: 15 }, // Tipus
+        { wch: 8 },  // Unitat
+        { wch: 12 }, // Entrades
+        { wch: 12 }, // Sortides
+        { wch: 12 }, // Estoc App
+        { wch: 12 }, // Estoc Físic
+        { wch: 12 }, // Diferència
+        { wch: 25 }  // Observacions
+    ];
+
+    // Estil capçalera (fons verd, lletra blanca)
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let C = range.s.c; C <= range.e.c; C++) {
+        const cell = ws[XLSX.utils.encode_cell({ r: 0, c: C })];
+        if (cell) {
+            cell.s = {
+                fill: { fgColor: { rgb: '2E7D32' } },
+                font: { bold: true, color: { rgb: 'FFFFFF' } },
+                alignment: { horizontal: 'center' }
+            };
+        }
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Inventari');
+
+    // Nom fitxer amb data i filtre
+    const avui = new Date().toISOString().split('T')[0];
+    const tipusText = estat === 'amb_estoc' ? 'positiu' :
+                      estat === 'negatiu' ? 'negatiu' :
+                      estat === 'sense_estoc' ? 'zero' : 'tots';
+    XLSX.writeFile(wb, 'inventari_' + tipusText + '_' + avui + '.xlsx');
+
+    mostrarNotificacio('✅ Excel exportat: ' + dadesExport.length + ' productes', 'success');
+}
 }
 
 console.log('✅ Existències v1 carregat');
