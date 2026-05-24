@@ -119,33 +119,26 @@ async function mostrarVista_Entrades() {
 async function mostrarTaulaEntrades() {
     const content = document.getElementById('collita-content');
     if (!content) return;
- 
-    content.innerHTML = '<p>⏳ Carregant entrades...</p>';
- 
-    // Llegir filtres
+
     const campanya = parseInt(document.getElementById('filtre-campanya-entrades')?.value) || null;
     const fruitaId = document.getElementById('filtre-fruita-entrades')?.value || null;
     const varietatId = document.getElementById('filtre-varietat-entrades')?.value || null;
- 
-    // Carregar entrades filtrades per campanya
+
+    // ✅ AFEGIR LOGS TEMPORALS:
+    console.log('campanya:', campanya, 'fruitaId:', fruitaId, 'varietatId:', varietatId);
+
     let entrades = await obtenirTodasEntradas(campanya);
- 
-    // Filtrar per fruita
+    console.log('entrades totals:', entrades.length);
+
     if (fruitaId) {
-        entrades = entrades.filter(function(e) {
-            return e.fruita_varietat_id?.fruita_id === fruitaId;
-        });
+        entrades = entrades.filter(e => e.fruita_varietat_id?.fruita_id === fruitaId);
+        console.log('entrades after fruita filter:', entrades.length);
     }
- 
-    // Filtrar per varietat
+
     if (varietatId) {
-    entrades = entrades.filter(function(e) {
-        // e.fruita_varietat_id és l'UUID directe a la BD
-        // però el join el converteix en objecte sense id
-        // Cal usar el camp original sense join
-        return e.fruita_varietat_id_raw === varietatId;
-    });
-}
+        entrades = entrades.filter(e => e.fruita_varietat_id?.id === varietatId);
+        console.log('entrades after varietat filter:', entrades.length);
+    }
  
     // Carregar IDs d'entrades amb escandall
     const { data: escandallsIds } = await supabaseClient
