@@ -119,25 +119,32 @@ async function mostrarVista_Entrades() {
 async function mostrarTaulaEntrades() {
     const content = document.getElementById('collita-content');
     if (!content) return;
-
+ 
+    content.innerHTML = '<p>⏳ Carregant entrades...</p>';
+ 
+    // Llegir filtres
     const campanya = parseInt(document.getElementById('filtre-campanya-entrades')?.value) || null;
     const fruitaId = document.getElementById('filtre-fruita-entrades')?.value || null;
     const varietatId = document.getElementById('filtre-varietat-entrades')?.value || null;
-
-    // ✅ AFEGIR LOGS TEMPORALS:
-    console.log('campanya:', campanya, 'fruitaId:', fruitaId, 'varietatId:', varietatId);
-
+ 
+    // Carregar entrades filtrades per campanya
     let entrades = await obtenirTodasEntradas(campanya);
-    console.log('entrades totals:', entrades.length);
-
+ 
+    // Filtrar per fruita
     if (fruitaId) {
-        entrades = entrades.filter(e => e.fruita_varietat_id?.fruita_id === fruitaId);
-        console.log('entrades after fruita filter:', entrades.length);
+        entrades = entrades.filter(function(e) {
+            return e.fruita_varietat_id?.fruita_id === fruitaId;
+        });
     }
-
+ 
+    // Filtrar per varietat
     if (varietatId) {
-        entrades = entrades.filter(e => e.fruita_varietat_id?.id === varietatId);
-        console.log('entrades after varietat filter:', entrades.length);
+        entrades = entrades.filter(function(e) {
+            const fvId = typeof e.fruita_varietat_id === 'object'
+                ? e.fruita_varietat_id?.id
+                : e.fruita_varietat_id;
+            return fvId === varietatId;
+        });
     }
  
     // Carregar IDs d'entrades amb escandall
@@ -598,60 +605,179 @@ async function eliminarAlbaraEntradaConfirm(id) {
 
 async function mostrarVista_Escandalls() {
     const container = document.getElementById('view-container');
-    
+ 
+    // Detectar campanya actual
+    const ara = new Date();
+    const mes = ara.getMonth() + 1;
+    const campanyadefecte = mes >= 10 ? ara.getFullYear() + 1 : ara.getFullYear();
+ 
     let html = '<div class="vista-escandalls">';
     html += '<h2>🍎 Collita - Escandalls</h2>';
-    
-    // Navegació
-    html += '<div style="margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px;">';
-    html += '<button class="btn btn-primary" onclick="mostrarFormulariAlbaraEscandall()" style="margin-right: 10px;">➕ Nou Escandall</button>';
+ 
+    // Navegació - botons
+    html += '<div style="margin-bottom:15px; border-bottom:2px solid #ddd; padding-bottom:10px;">';
+    html += '<button class="btn btn-primary" onclick="mostrarFormulariAlbaraEscandall()" style="margin-right:10px;">➕ Nou Escandall</button>';
     html += '<button class="btn btn-info" onclick="mostrarResumEscandalls()" style="margin-right:10px;">📊 Resum</button>';
-	html += '<button class="btn btn-info" onclick="canviarVistaCollita(\'analisi\')" style="margin-right:10px;">📊 Anàlisi</button>';
-	html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'entrades\')">← Entrades</button>';
+    html += '<button class="btn btn-info" onclick="canviarVistaCollita(\'analisi\')" style="margin-right:10px;">📊 Anàlisi</button>';
+    html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'entrades\')">← Entrades</button>';
     html += '</div>';
-    
-    // Taula
+ 
+    // Filtres
+    html += '<div style="display:flex; gap:15px; align-items:flex-end; margin-bottom:15px; flex-wrap:wrap; background:#f5f5f5; padding:12px; border-radius:8px;">';
+ 
+    // Campanya
+    html += '<div><label style="display:block; font-size:0.85em; margin-bottom:3px;"><strong>Campanya</strong></label>';
+    html += '<select id="filtre-campanya-escandalls" onchange="mostrarTaulaEscandalls()" style="padding:6px; border-radius:4px; border:1px solid #ddd;">';
+    [2024, 2025, 2026, 2027].forEach(function(c) {
+        var sel = c === campanyadefecte ? ' selected' : '';
+        html += '<option value="' + c + '"' + sel + '>' + c + '</option>';
+    });
+    html += '</select></div>';
+ 
+    // Fruita
+    html += '<div><label style="display:block; font-size:0.85em; margin-bottom:3px;"><strong>Fruita</strong></label>';
+    html += '<select id="filtre-fruita-escandalls" onchange="actualitzarVarietatsEscandalls()" style="padding:6px; border-radius:4px; border:1px solid #ddd;">';
+    html += '<option value="">Totes</option>';
+    fruites.forEach(function(f) {
+        html += '<option value="' + f.id + '">' + f.nom + '</option>';
+    });
+    html += '</select></div>';
+ 
+    // Varietat
+    html += '<div><label style="display:block; font-size:0.85em; margin-bottom:3px;"><strong>Varietat</strong></label>';
+    html += '<select id="filtre-varietat-escandalls" onchange="mostrarTaulaEscandalls()" style="padding:6px; border-radius:4px; border:1px solid #ddd;">';
+    html += '<option value="">Totes</option>';
+    html += '</select></div>';
+ 
+    // Botó netejar
+    html += '<div><label style="display:block; font-size:0.85em; margin-bottom:3px;">&nbsp;</label>';
+    html += '<button class="btn btn-secondary" onclick="netejarFiltresEscandalls()">✕ Netejar</button>';
+    html += '</div>';
+ 
+    html += '</div>';
+ 
+    // Contingut taula
     html += '<div id="collita-content"></div>';
     html += '</div>';
-    
+ 
     container.innerHTML = html;
+ 
+    // Funció per actualitzar varietats quan canvia fruita
+    window.actualitzarVarietatsEscandalls = function() {
+        const fruitaId = document.getElementById('filtre-fruita-escandalls').value;
+        const sel = document.getElementById('filtre-varietat-escandalls');
+        sel.innerHTML = '<option value="">Totes</option>';
+        if (fruitaId) {
+            varietats
+                .filter(function(v) { return v.fruita_id === fruitaId; })
+                .forEach(function(v) {
+                    sel.innerHTML += '<option value="' + v.id + '">' + v.varietat + '</option>';
+                });
+        }
+        mostrarTaulaEscandalls();
+    };
+ 
+    // Funció per netejar filtres
+    window.netejarFiltresEscandalls = function() {
+        document.getElementById('filtre-fruita-escandalls').value = '';
+        document.getElementById('filtre-varietat-escandalls').innerHTML = '<option value="">Totes</option>';
+        document.getElementById('filtre-campanya-escandalls').value = campanyadefecte;
+        mostrarTaulaEscandalls();
+    };
+ 
     await mostrarTaulaEscandalls();
 }
+ 
 
 async function mostrarTaulaEscandalls() {
     const content = document.getElementById('collita-content');
-    const escandalls = await obtenirTodasEscandalls();
-    
-    // ✅ Cargar todas las entradas
-    const todasEntradas = await obtenirTodasEntradas();
-    
-    let html = '<div class="taula-escandalls">';
-    html += '<table class="data-table" style="width: 100%;">';
+    if (!content) return;
+ 
+    content.innerHTML = '<p>⏳ Carregant escandalls...</p>';
+ 
+    // Llegir filtres
+    const campanya = parseInt(document.getElementById('filtre-campanya-escandalls')?.value) || null;
+    const fruitaId = document.getElementById('filtre-fruita-escandalls')?.value || null;
+    const varietatId = document.getElementById('filtre-varietat-escandalls')?.value || null;
+ 
+    // Carregar tots els escandalls
+    let escandalls = await obtenirTodasEscandalls();
+ 
+    // Filtrar per campanya (per dates de l'escandall)
+    if (campanya) {
+        const dataInici = (campanya - 1) + '-10-01';
+        const dataFinal = campanya + '-09-30';
+        escandalls = escandalls.filter(function(e) {
+            return e.data >= dataInici && e.data <= dataFinal;
+        });
+    }
+ 
+    // Filtrar per fruita
+    if (fruitaId) {
+        escandalls = escandalls.filter(function(e) {
+            const varietatObj = varietats.find(function(v) { return v.id === e.fruita_varietat_id; });
+            return varietatObj && varietatObj.fruita_id === fruitaId;
+        });
+    }
+ 
+    // Filtrar per varietat
+    if (varietatId) {
+        escandalls = escandalls.filter(function(e) {
+            return e.fruita_varietat_id === varietatId;
+        });
+    }
+ 
+    // Resum ràpid
+    const totalKg = escandalls.reduce(function(s, e) { return s + (parseFloat(e.pes_net) || 0); }, 0);
+    const ambAlerta = escandalls.filter(function(e) { return e.diferencia_pes_net > 0 || e.diferencia_palots > 0; }).length;
+ 
+    let html = '';
+ 
+    // Cards resum
+    html += '<div style="display:flex; gap:15px; margin-bottom:15px; flex-wrap:wrap;">';
+    html += '<div style="background:#e8f5e9; border:2px solid #27ae60; border-radius:8px; padding:10px; flex:1;">';
+    html += '📦 <strong>' + escandalls.length + '</strong> escandalls · <strong>' + totalKg.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' kg</strong>';
+    html += '</div>';
+    if (ambAlerta > 0) {
+        html += '<div style="background:#fff3e0; border:2px solid #f39c12; border-radius:8px; padding:10px; flex:1;">';
+        html += '⚠️ <strong>' + ambAlerta + '</strong> escandalls amb alerta';
+        html += '</div>';
+    }
+    html += '</div>';
+ 
+    if (escandalls.length === 0) {
+        html += '<p style="text-align:center; color:#999; padding:30px;">No hi ha escandalls per aquest filtre</p>';
+        content.innerHTML = html;
+        return;
+    }
+ 
+    // Taula
+    html += '<div class="table-container">';
+    html += '<table class="data-table" style="width:100%;">';
     html += '<thead><tr>';
-    html += '<th>Data</th><th>Num. Escandall</th><th>Fruita-Varietat</th><th>Pes Net (kg)</th>';
-    html += '<th>Qualitat Orig → Reclassificada</th><th>Alerts</th><th>Accions</th>';
+    html += '<th>Data</th><th>Num. Escandall</th><th>Fruita / Varietat</th>';
+    html += '<th style="text-align:right;">Pes Net (kg)</th>';
+    html += '<th>Qualitat Orig → Reclassificada</th>';
+    html += '<th style="text-align:center;">Alerts</th>';
+    html += '<th>Accions</th>';
     html += '</tr></thead>';
     html += '<tbody>';
-    
-    escandalls.forEach(e => {
-        // ✅ Buscar entrada relacionada
-        const entrada = e.collita_entrada;  // ← Ahora viene en la relación
-        const varietat = varietats.find(v => v.id === entrada?.fruita_varietat_id);
-        const fruita = fruites.find(f => f.id === varietat?.fruita_id);
-        
-		console.log('Escandall:', e.num_albara_escandall, 'Entrada:', entrada?.num_albara, 'Qualitat:', entrada?.qualitat);
-		
+ 
+    escandalls.forEach(function(e) {
+        const entrada = e.collita_entrada;
+        const varietatObj = varietats.find(function(v) { return v.id === e.fruita_varietat_id; });
+        const fruitaObj = fruites.find(function(f) { return f.id === (varietatObj?.fruita_id || null); });
+ 
         let alertIcon = '✅';
-        if (e.diferencia_pes_net > 0) alertIcon = '⚠️';
-        if (e.diferencia_palots > 0) alertIcon = '⚠️';
-        
+        if (e.diferencia_pes_net > 0 || e.diferencia_palots > 0) alertIcon = '⚠️';
+ 
         html += '<tr>';
         html += '<td>' + formatData(e.data) + '</td>';
         html += '<td><strong>' + e.num_albara_escandall + '</strong></td>';
-        html += '<td>' + (fruita ? fruita.nom : '-') + ' / ' + (varietat ? varietat.varietat : '-') + '</td>';
-        html += '<td>' + (e.pes_net || 0).toFixed(2) + '</td>';
+        html += '<td>' + (fruitaObj ? fruitaObj.nom : '-') + ' / ' + (varietatObj ? varietatObj.varietat : '-') + '</td>';
+        html += '<td style="text-align:right;">' + (e.pes_net || 0).toFixed(2) + '</td>';
         html += '<td>' + (entrada?.qualitat || '-') + ' → ' + (e.qualitat_reclassificada || '-') + '</td>';
-        html += '<td>' + alertIcon + '</td>';
+        html += '<td style="text-align:center;">' + alertIcon + '</td>';
         html += '<td>';
         html += '<button class="btn btn-sm btn-primary" onclick="veureEscandall(\'' + e.id + '\')">👁️</button> ';
         html += '<button class="btn btn-sm btn-secondary" onclick="editarEscandallRegistre(\'' + e.id + '\')">✏️</button> ';
@@ -661,7 +787,7 @@ async function mostrarTaulaEscandalls() {
         html += '</td>';
         html += '</tr>';
     });
-    
+ 
     html += '</tbody></table></div>';
     content.innerHTML = html;
 }
