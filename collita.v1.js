@@ -223,9 +223,9 @@ async function obtenirTodasEntradas(campanya = null) {
         const { data, error } = await supabaseClient
             .from('collita_entrada')
             .select(`
-                *,
-                fruita_varietat_id (fruita_id, varietat)
-            `)
+			*,
+			fruita_varietat_id (id, fruita_id, varietat)
+			`)
             .eq('estat', 'actiu')
             .gte('data', dataInici)
             .lte('data', dataFinal)

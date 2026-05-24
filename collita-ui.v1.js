@@ -139,13 +139,13 @@ async function mostrarTaulaEntrades() {
  
     // Filtrar per varietat
     if (varietatId) {
-        entrades = entrades.filter(function(e) {
-            const fvId = typeof e.fruita_varietat_id === 'object'
-                ? e.fruita_varietat_id?.id
-                : e.fruita_varietat_id;
-            return fvId === varietatId;
-        });
-    }
+    entrades = entrades.filter(function(e) {
+        // e.fruita_varietat_id és l'UUID directe a la BD
+        // però el join el converteix en objecte sense id
+        // Cal usar el camp original sense join
+        return e.fruita_varietat_id_raw === varietatId;
+    });
+}
  
     // Carregar IDs d'entrades amb escandall
     const { data: escandallsIds } = await supabaseClient
