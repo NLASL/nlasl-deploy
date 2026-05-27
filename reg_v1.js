@@ -92,27 +92,34 @@ function avaluarConsum(consumReal, necessitat) {
     return { text: 'Rega POC (' + Math.round((1-ratio)*100) + '% dèficit)', color: '#e74c3c', icon: '🔴' };
 }
 
-function processarMeteo(meteoData) {
-    if (!meteoData || !meteoData.daily) {
-        return { etoPassat: 0, etoFutur: 0, plujaPassat: 0, plujaFutur: 0 };
+function processarMeteo(m, dInici, dFi) { // <-- Afegim els filtres de l'usuari aquí
+    const avui = new Date();
+    avui.setHours(0,0,0,0);
+
+    let etoPassat = 0, etoFutur = 0;
+    let plujaPassat = 0, plujaFutur = 0;
+
+    for (let i = 0; i < m.dates.length; i++) {
+        const d = new Date(m.dates[i]);
+        const eto = m.eto[i] || 0;
+        const pluja = m.pluja[i] || 0;
+
+        // 🌟 LA CLAU: Només sumem al passat si està DINS del rang demanat per l'usuari
+        if (d >= dInici && d <= dFi && d <= avui) {
+            etoPassat += eto;
+            plujaPassat += pluja;
+        } else if (d > avui) {
+            // El futur es manté igual per a la previsió dels propers 7 dies
+            etoFutur += eto;
+            plujaFutur += pluja;
+        }
     }
-    const avui = new Date().toISOString().split('T')[0];
-    const dates = meteoData.daily.time || [];
-    const eto = meteoData.daily.et0_fao_evapotranspiration || [];
-    const pluja = meteoData.daily.rain_sum || [];
-    var etoPassat = 0, etoFutur = 0, plujaPassat = 0, plujaFutur = 0;
-    dates.forEach(function(data, i) {
-        const esPassat = data <= avui;
-        const etoVal = parseFloat(eto[i]) || 0;
-        const plujaVal = parseFloat(pluja[i]) || 0;
-        if (esPassat) { etoPassat += etoVal; plujaPassat += plujaVal; }
-        else { etoFutur += etoVal; plujaFutur += plujaVal; }
-    });
+
     return {
-        etoPassat: parseFloat(etoPassat.toFixed(1)),
-        etoFutur: parseFloat(etoFutur.toFixed(1)),
-        plujaPassat: parseFloat(plujaPassat.toFixed(1)),
-        plujaFutur: parseFloat(plujaFutur.toFixed(1))
+        etoPassat,
+        plujaPassat,
+        etoFutur,
+        plujaFutur
     };
 }
 
@@ -269,10 +276,11 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
         const meteoAlfRaw = await getMeteoData(41.4167, 0.6167, diesPassatsCapped, diesFuturesCapped);
         const meteoAlcRaw = await getMeteoData(41.3833, 0.6500, diesPassatsCapped, diesFuturesCapped);
 
-        const meteoZones = {
-            altes: processarMeteo(meteoAlfRaw),
-            alcano: processarMeteo(meteoAlcRaw)
-        };
+        // CODI MODIFICAT
+		const meteoZones = {
+			altes: processarMeteo(meteoAlfRaw, dInici, dFi),  // <-- Afegim dInici i dFi
+			alcano: processarMeteo(meteoAlcRaw, dInici, dFi)  // <-- Afegim dInici i dFi
+		};
 
         const mes = new Date().getMonth() + 1;
         let html = '';
