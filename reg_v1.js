@@ -68,6 +68,9 @@ async function getMeteoData(lat, lon, diesPassats, diesFuturs) {
     };
 }
 
+// ============================================================
+// PROCESSAMENT METEO
+// ============================================================
 
 function processarMeteo(m, dInici, dFi) {
     const avui = new Date();
@@ -95,8 +98,6 @@ function processarMeteo(m, dInici, dFi) {
     }
 
     return { etoPassat, plujaPassat, etoFutur, plujaFutur };
-	console.log("DEBUG processarMeteo input:", m.dates, dInici, dFi);
-
 }
 
 
@@ -221,7 +222,7 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
         const dFi = new Date(dataFi);
 
         // Dies passats EXACTES del període seleccionat
-        let diesPassats = 0;
+		let diesPassats = Math.ceil((avui - dInici) / 86400000) + 1;
 
         if (dFi <= avui) {
             diesPassats = Math.max(1, Math.ceil((dFi - dInici) / 86400000) + 1);
@@ -339,9 +340,7 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
 
     } catch (error) {
         console.error('❌ Error carregant recomanacions reg:', error);
-		console.log("DEBUG diesPassats:", diesPassats, "dInici:", dInici, "dFi:", dFi);
-		console.log("DEBUG meteoAlfRaw:", meteoAlfRaw);
-        container.innerHTML = `<p>❌ Error: ${error.message}</p>`;
+		container.innerHTML = `<p>❌ Error: ${error.message}</p>`;
     }
 }
 
