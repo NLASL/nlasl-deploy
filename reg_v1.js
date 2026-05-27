@@ -253,9 +253,7 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
         const dFi = new Date(dataFi);
 
         // Dies passats (dataInici → avui)
-        const diesPassats = Math.max(0, Math.round(
-            (Math.min(avui, dFi) - dInici) / (1000*60*60*24)
-        ));
+        const diesPassats = Math.max(0, Math.ceil((avui - dInici) / (1000 * 60 * 60 * 24)));
 
         // Dies futurs (avui → dataFi)
         const diesFutures = 7; // recomanacions per als 7 dies següents al període seleccionat
