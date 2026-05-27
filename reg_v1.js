@@ -68,8 +68,6 @@ async function getMeteoData(lat, lon, diesPassats, diesFuturs) {
     };
 }
 
-console.log("DEBUG meteoAlfRaw:", meteoAlfRaw);
-
 
 function processarMeteo(m, dInici, dFi) {
     const avui = new Date();
@@ -97,10 +95,9 @@ function processarMeteo(m, dInici, dFi) {
     }
 
     return { etoPassat, plujaPassat, etoFutur, plujaFutur };
+	console.log("DEBUG processarMeteo input:", m.dates, dInici, dFi);
+
 }
-
-console.log("DEBUG processarMeteo:", m.dates, dInici, dFi);
-
 
 
 // ============================================================
@@ -342,10 +339,11 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
 
     } catch (error) {
         console.error('❌ Error carregant recomanacions reg:', error);
+		console.log("DEBUG diesPassats:", diesPassats, "dInici:", dInici, "dFi:", dFi);
+		console.log("DEBUG meteoAlfRaw:", meteoAlfRaw);
         container.innerHTML = `<p>❌ Error: ${error.message}</p>`;
     }
 }
 
-console.log("DEBUG diesPassats:", diesPassats, "dInici:", dInici, "dFi:", dFi);
 
 console.log('✅ Reg Intel·ligent v1 carregat');
