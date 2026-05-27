@@ -1,5 +1,5 @@
 // ============================================================
-// REG_V1.JS - Reg Intel·ligent
+// REG_V1.JS - Reg Intel·ligent (CORREGIT)
 // Càlcul de recomanacions de reg basades en ETo (Open-Meteo)
 // S'integra dins carregarVistaReg() existent a app_v8.js
 // ============================================================
@@ -46,6 +46,52 @@ async function getRegConsum(numExplotacio, dataInici, dataFi) {
 }
 
 // ============================================================
+// UTILITATS DE DATES (CORRECCIÓ CRÍTICA)
+// ============================================================
+
+/**
+ * Converteix un string de data (YYYY-MM-DD) a un objecte Date LOCAL
+ * sense desfase de timezone. new Date('2026-05-22') interpreta com a UTC
+ * i a Europa es converteix a local amb +2h, causant errors de comparació.
+ */
+function parseDataLocal(dataStr) {
+    const [any, mes, dia] = dataStr.split('-').map(Number);
+    return new Date(any, mes - 1, dia, 0, 0, 0, 0);
+}
+
+/**
+ * Compara dues dates IGNORANT l'hora (només any, mes, dia).
+ * Retorna: -1 si a < b, 0 si a === b, 1 si a > b
+ */
+function compararDates(a, b) {
+    const aStr = a.getFullYear() * 10000 + (a.getMonth() + 1) * 100 + a.getDate();
+    const bStr = b.getFullYear() * 10000 + (b.getMonth() + 1) * 100 + b.getDate();
+    if (aStr < bStr) return -1;
+    if (aStr > bStr) return 1;
+    return 0;
+}
+
+/**
+ * Retorna true si la data 'd' està dins del rang [inici, fi] (inclusiu),
+ * comparant NOMÉS any, mes i dia (ignora hores).
+ */
+function dataDinsRang(d, inici, fi) {
+    const dStr = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+    const iniStr = inici.getFullYear() * 10000 + (inici.getMonth() + 1) * 100 + inici.getDate();
+    const fiStr = fi.getFullYear() * 10000 + (fi.getMonth() + 1) * 100 + fi.getDate();
+    return dStr >= iniStr && dStr <= fiStr;
+}
+
+/**
+ * Retorna true si la data 'd' és posterior a 'referencia' (comparant només dia).
+ */
+function dataEsPosterior(d, referencia) {
+    const dStr = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+    const refStr = referencia.getFullYear() * 10000 + (referencia.getMonth() + 1) * 100 + referencia.getDate();
+    return dStr > refStr;
+}
+
+// ============================================================
 // API OPEN-METEO
 // ============================================================
 
@@ -69,10 +115,10 @@ async function getMeteoData(lat, lon, diesPassats, diesFuturs) {
 }
 
 // ============================================================
-// PROCESSAMENT METEO
+// PROCESSAMENT METEO (CORREGIT)
 // ============================================================
 
-function processarMeteo(m, dInici, dFi) {
+function processarMeteo(m, dInici, dFi, incloureFutur = true) {
     const avui = new Date();
     avui.setHours(0, 0, 0, 0);
 
@@ -80,20 +126,25 @@ function processarMeteo(m, dInici, dFi) {
     let plujaPassat = 0, plujaFutur = 0;
 
     for (let i = 0; i < m.dates.length; i++) {
-        const d = new Date(m.dates[i]);
+        // CORRECCIÓ: Parsejar la data de l'API com a LOCAL per evitar desfase UTC
+        const d = parseDataLocal(m.dates[i]);
         const eto = m.eto[i] || 0;
         const pluja = m.pluja[i] || 0;
 
-        // Només dies dins del rang seleccionat
-        if (d >= dInici && d <= dFi) {
-
-            if (d <= avui) {
+        // CORRECCIÓ: Usar comparació per data (ignorant hores) en lloc de <= / >=
+        if (dataDinsRang(d, dInici, dFi)) {
+            // És un dia dins del període seleccionat per l'usuari
+            if (compararDates(d, avui) <= 0) {
                 etoPassat += eto;
                 plujaPassat += pluja;
-            } else {
-                etoFutur += eto;
-                plujaFutur += pluja;
             }
+        }
+
+        // CORRECCIÓ: La recomanació futura és SEMPRE independent del període seleccionat
+        // Agafem els propers 7 dies des d'avui, no des de dFi
+        if (incloureFutur && compararDates(d, avui) > 0 && compararDates(d, avui) <= 7) {
+            etoFutur += eto;
+            plujaFutur += pluja;
         }
     }
 
@@ -118,8 +169,13 @@ function calcularNecessitatReg(etoMm, kc, superficieHa, plujaMm) {
 }
 
 function avaluarConsum(consumReal, necessitat) {
-    if (necessitat === 0)
+    if (necessitat === 0) {
+        // CORRECCIÓ: Si hi ha consum real però necessitat = 0, mostrar excés
+        if (consumReal > 0) {
+            return { text: `Rega MASSA (excés total)`, color: '#e74c3c', icon: '🔴' };
+        }
         return { text: 'No cal reg', color: '#27ae60', icon: '✅' };
+    }
 
     const ratio = consumReal / necessitat;
 
@@ -207,7 +263,7 @@ async function actualitzarRecomanacions() {
 
 
 // ============================================================
-// CARREGAR DADES I GENERAR TAULA
+// CARREGAR DADES I GENERAR TAULA (CORREGIT)
 // ============================================================
 
 async function carregarDadesReg(finques, dataInici, dataFi) {
@@ -218,11 +274,12 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
         const avui = new Date();
         avui.setHours(0, 0, 0, 0);
 
-        const dInici = new Date(dataInici);
-        const dFi = new Date(dataFi);
+        // CORRECCIÓ: Parsejar dates com a LOCAL per evitar desfase UTC
+        const dInici = parseDataLocal(dataInici);
+        const dFi = parseDataLocal(dataFi);
 
         // Dies passats EXACTES del període seleccionat
-		let diesPassats = Math.ceil((avui - dInici) / 86400000) + 1;
+        let diesPassats = Math.ceil((avui - dInici) / 86400000) + 1;
 
         if (dFi <= avui) {
             diesPassats = Math.max(1, Math.ceil((dFi - dInici) / 86400000) + 1);
@@ -340,9 +397,9 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
 
     } catch (error) {
         console.error('❌ Error carregant recomanacions reg:', error);
-		container.innerHTML = `<p>❌ Error: ${error.message}</p>`;
+        container.innerHTML = `<p>❌ Error: ${error.message}</p>`;
     }
 }
 
 
-console.log('✅ Reg Intel·ligent v1 carregat');
+console.log('✅ Reg Intel·ligent v1 (corregit) carregat');
