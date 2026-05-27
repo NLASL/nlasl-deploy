@@ -68,6 +68,9 @@ async function getMeteoData(lat, lon, diesPassats, diesFuturs) {
     };
 }
 
+console.log("DEBUG meteoAlfRaw:", meteoAlfRaw);
+
+
 function processarMeteo(m, dInici, dFi) {
     const avui = new Date();
     avui.setHours(0, 0, 0, 0);
@@ -95,6 +98,8 @@ function processarMeteo(m, dInici, dFi) {
 
     return { etoPassat, plujaPassat, etoFutur, plujaFutur };
 }
+
+console.log("DEBUG processarMeteo:", m.dates, dInici, dFi);
 
 
 
@@ -341,5 +346,6 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
     }
 }
 
+console.log("DEBUG diesPassats:", diesPassats, "dInici:", dInici, "dFi:", dFi);
 
 console.log('✅ Reg Intel·ligent v1 carregat');
