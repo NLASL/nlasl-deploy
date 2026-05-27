@@ -1,5 +1,5 @@
 // ============================================================
-// REG_V1.JS - Reg Intel·ligent (CORREGIT)
+// REG_V1.JS - Reg Intel·ligent (CORREGIT DEFINITIU)
 // Càlcul de recomanacions de reg basades en ETo (Open-Meteo)
 // S'integra dins carregarVistaReg() existent a app_v8.js
 // ============================================================
@@ -118,7 +118,7 @@ async function getMeteoData(lat, lon, diesPassats, diesFuturs) {
 // PROCESSAMENT METEO (CORREGIT)
 // ============================================================
 
-function processarMeteo(m, dInici, dFi, incloureFutur = true) {
+function processarMeteo(m, dInici, dFi) {
     const avui = new Date();
     avui.setHours(0, 0, 0, 0);
 
@@ -131,18 +131,16 @@ function processarMeteo(m, dInici, dFi, incloureFutur = true) {
         const eto = m.eto[i] || 0;
         const pluja = m.pluja[i] || 0;
 
-        // CORRECCIÓ: Usar comparació per data (ignorant hores) en lloc de <= / >=
-        if (dataDinsRang(d, dInici, dFi)) {
-            // És un dia dins del període seleccionat per l'usuari
-            if (compararDates(d, avui) <= 0) {
-                etoPassat += eto;
-                plujaPassat += pluja;
-            }
+        // CORRECCIÓ: Usar comparació per data (ignorant hores)
+        if (dataDinsRang(d, dInici, dFi) && compararDates(d, avui) <= 0) {
+            // És un dia dins del període seleccionat i ja ha passat (o és avui)
+            etoPassat += eto;
+            plujaPassat += pluja;
         }
 
         // CORRECCIÓ: La recomanació futura és SEMPRE independent del període seleccionat
-        // Agafem els propers 7 dies des d'avui, no des de dFi
-        if (incloureFutur && compararDates(d, avui) > 0 && compararDates(d, avui) <= 7) {
+        // Agafem els propers 7 dies des d'avui
+        if (compararDates(d, avui) > 0 && compararDates(d, avui) <= 7) {
             etoFutur += eto;
             plujaFutur += pluja;
         }
@@ -263,7 +261,7 @@ async function actualitzarRecomanacions() {
 
 
 // ============================================================
-// CARREGAR DADES I GENERAR TAULA (CORREGIT)
+// CARREGAR DADES I GENERAR TAULA (CORREGIT DEFINITIU)
 // ============================================================
 
 async function carregarDadesReg(finques, dataInici, dataFi) {
@@ -278,22 +276,33 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
         const dInici = parseDataLocal(dataInici);
         const dFi = parseDataLocal(dataFi);
 
-        // Dies passats EXACTES del període seleccionat
-        let diesPassats = Math.ceil((avui - dInici) / 86400000) + 1;
+        // ============================================================
+        // CORRECCIÓ CRÍTICA: Càlcul de diesPassats
+        // ============================================================
+        // Open-Meteo amb past_days=N retorna N dies PASSATS des d'AVUI.
+        // Per tant, diesPassats ha de ser la distància des d'AVUI fins a dInici,
+        // NO la distància entre dInici i dFi.
+        //
+        // Exemple: avui=28/05, dInici=22/05, dFi=22/05
+        //   INCORRECTE: diesPassats = dFi - dInici + 1 = 1
+        //     → L'API retorna només 1 dia passat (27/05), cap dia és 22/05
+        //   CORRECTE: diesPassats = avui - dInici + 1 = 7
+        //     → L'API retorna 7 dies passats (21/05 a 27/05), incloent 22/05
+        // ============================================================
 
-        if (dFi <= avui) {
-            diesPassats = Math.max(1, Math.ceil((dFi - dInici) / 86400000) + 1);
-        } else if (dInici <= avui) {
-            diesPassats = Math.max(1, Math.ceil((avui - dInici) / 86400000) + 1);
-        } else {
+        let diesPassats = Math.max(1, Math.ceil((avui - dInici) / 86400000) + 1);
+
+        // Si el període seleccionat és totalment futur (dInici > avui),
+        // no necessitem dades passades
+        if (dInici > avui) {
             diesPassats = 0;
         }
 
+        // Límit de l'API Open-Meteo (màxim 92 dies passats)
+        diesPassats = Math.min(diesPassats, 92);
+
         // Recomanació futura: sempre 7 dies
         const diesFutures = 7;
-
-        // Límits Open‑Meteo
-        diesPassats = Math.min(diesPassats, 92);
 
         // METEO
         const meteoAlfRaw = await getMeteoData(41.4167, 0.6167, diesPassats, diesFutures);
@@ -402,4 +411,4 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
 }
 
 
-console.log('✅ Reg Intel·ligent v1 (corregit) carregat');
+console.log('✅ Reg Intel·ligent v1 (corregit definitiu) carregat');
