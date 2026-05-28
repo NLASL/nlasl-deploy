@@ -411,4 +411,4 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
 }
 
 
-console.log('✅ Reg Intel·ligent v1 (corregit definitiu) carregat');
+console.log('✅ Reg Intel·ligent v1 (definitiu) carregat');
