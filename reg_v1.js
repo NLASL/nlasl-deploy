@@ -418,6 +418,10 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
 
         const difTotal = totalConsum - totalNecessitat;
 
+        // CORRECCIÓ: Color del total basat en el ratio (alineat amb l'estat)
+        const ratioTotal = totalNecessitat > 0 ? totalConsum / totalNecessitat : 1;
+        const colorDifTotal = colorDiferencia(ratioTotal);
+
         html += `
         <tr style="border-top:3px solid #333; background:#f5f5f5; font-weight:bold;">
             <td colspan="3">TOTAL</td>
@@ -425,7 +429,7 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
             <td></td>
             <td style="text-align:right;">${totalNecessitat.toLocaleString('ca-ES',{maximumFractionDigits:1})}</td>
             <td style="text-align:right;">${totalConsum.toLocaleString('ca-ES',{maximumFractionDigits:1})}</td>
-            <td style="text-align:right; color:${difTotal>0?'#e74c3c':'#27ae60'};">${difTotal>=0?'+':''}${difTotal.toLocaleString('ca-ES',{maximumFractionDigits:1})}</td>
+            <td style="text-align:right; color:${colorDifTotal};">${difTotal>=0?'+':''}${difTotal.toLocaleString('ca-ES',{maximumFractionDigits:1})}</td>
             <td></td>
             <td style="text-align:right; color:#2980b9;">${totalRec.toLocaleString('ca-ES',{maximumFractionDigits:1})} m³</td>
         </tr>`;
