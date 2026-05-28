@@ -1,5 +1,5 @@
 // ============================================================
-// REG_V1.JS - Reg Intel·ligent (CORREGIT DEFINITIU)
+// REG_V1.JS - Reg Intel·ligent (CORREGIT DEFINITIU v2)
 // Càlcul de recomanacions de reg basades en ETo (Open-Meteo)
 // S'integra dins carregarVistaReg() existent a app_v8.js
 // ============================================================
@@ -166,23 +166,54 @@ function calcularNecessitatReg(etoMm, kc, superficieHa, plujaMm) {
     };
 }
 
+// ============================================================
+// AVALUACIÓ I COLORS (CORREGIT - ALINEAT)
+// ============================================================
+
+/**
+ * Avalua el consum i retorna text, color i icona.
+ * També retorna el ratio per reutilitzar-lo al color de la diferència.
+ */
 function avaluarConsum(consumReal, necessitat) {
     if (necessitat === 0) {
         // CORRECCIÓ: Si hi ha consum real però necessitat = 0, mostrar excés
         if (consumReal > 0) {
-            return { text: `Rega MASSA (excés total)`, color: '#e74c3c', icon: '🔴' };
+            return {
+                text: `Rega MASSA (excés total)`,
+                color: '#e74c3c',
+                icon: '🔴',
+                ratio: Infinity
+            };
         }
-        return { text: 'No cal reg', color: '#27ae60', icon: '✅' };
+        return {
+            text: 'No cal reg',
+            color: '#27ae60',
+            icon: '✅',
+            ratio: 1
+        };
     }
 
     const ratio = consumReal / necessitat;
 
-    if (ratio > 1.25) return { text: `Rega MASSA (${Math.round((ratio - 1) * 100)}% excés)`, color: '#e74c3c', icon: '🔴' };
-    if (ratio > 1.10) return { text: 'Lleugerament alt', color: '#e67e22', icon: '🟠' };
-    if (ratio >= 0.85) return { text: 'Consum correcte', color: '#27ae60', icon: '🟢' };
-    if (ratio >= 0.70) return { text: 'Lleugerament baix', color: '#f39c12', icon: '🟡' };
+    if (ratio > 1.25) return { text: `Rega MASSA (${Math.round((ratio - 1) * 100)}% excés)`, color: '#e74c3c', icon: '🔴', ratio };
+    if (ratio > 1.10) return { text: 'Lleugerament alt', color: '#e67e22', icon: '🟠', ratio };
+    if (ratio >= 0.85) return { text: 'Consum correcte', color: '#27ae60', icon: '🟢', ratio };
+    if (ratio >= 0.70) return { text: 'Lleugerament baix', color: '#f39c12', icon: '🟡', ratio };
 
-    return { text: `Rega POC (${Math.round((1 - ratio) * 100)}% dèficit)`, color: '#e74c3c', icon: '🔴' };
+    return { text: `Rega POC (${Math.round((1 - ratio) * 100)}% dèficit)`, color: '#e74c3c', icon: '🔴', ratio };
+}
+
+/**
+ * CORRECCIÓ: Retorna el color de la diferència basat en el MATEIX ratio
+ * que usa l'avaluació de l'estat. Així els colors estan alineats.
+ */
+function colorDiferencia(ratio) {
+    if (ratio === Infinity) return '#e74c3c';  // Excés total
+    if (ratio > 1.25) return '#e74c3c';        // Rega MASSA
+    if (ratio > 1.10) return '#e67e22';        // Lleugerament alt
+    if (ratio >= 0.85) return '#27ae60';       // Consum correcte
+    if (ratio >= 0.70) return '#f39c12';       // Lleugerament baix
+    return '#e74c3c';                          // Rega POC
 }
 
 function generarCardMeteo(titolZona, meteo) {
@@ -354,17 +385,16 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
             const calc = calcularNecessitatReg(meteo.etoPassat, kc, finca.superficie_ha, meteo.plujaPassat);
             const calcFutur = calcularNecessitatReg(meteo.etoFutur, kc, finca.superficie_ha, meteo.plujaFutur);
 
+            // CORRECCIÓ: Obtenir ratio de l'avaluació per alinear colors
             const avaluacio = avaluarConsum(consumReal, calc.necessitatM3);
             const diferencia = consumReal - calc.necessitatM3;
+
+            // CORRECCIÓ: Color de la diferència basat en el mateix ratio que l'estat
+            const colorDif = colorDiferencia(avaluacio.ratio);
 
             totalNecessitat += calc.necessitatM3;
             totalConsum += consumReal;
             totalRec += calcFutur.necessitatM3;
-
-            const colorDif =
-                diferencia > 50 ? '#e74c3c' :
-                diferencia < -50 ? '#f39c12' :
-                '#27ae60';
 
             const cultiuText =
                 finca.cultiu === 'pressec_juny' ? 'Préssec Pla (Juny)' :
@@ -411,4 +441,4 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
 }
 
 
-console.log('✅ Reg Intel·ligent v1 (definitiu) carregat');
+console.log('✅ Reg Intel·ligent v1 (corregit definitiu v2) carregat');
