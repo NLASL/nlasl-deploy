@@ -4,7 +4,7 @@
 // ============================================================
 
 // VERSIÓ - Incrementar aquest número per forçar actualització
-const VERSION = 'v114';
+const VERSION = 'v115';
 const CACHE_NAME = 'quadern-camp-nlasl-' + VERSION;
 
 // Fitxers a cachear
