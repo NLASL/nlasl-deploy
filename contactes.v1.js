@@ -16,7 +16,7 @@ const CATEGORIES_CONTACTES = {
     reparacions:   { icon: '🔧', label: 'Reparacions',    color: '#ff9800' },
     administracio: { icon: '📋', label: 'Administració',  color: '#2196f3' },
     cooperativa:   { icon: '🌾', label: 'Cooperativa',    color: '#4caf50' },
-    veterinari:    { icon: '🐾', label: 'Veterinari',     color: '#00bcd4' },
+    mutua:    	   { icon: '🏥', label: 'Mútua i Salut',  color: '#00bcd4' },
     altres:        { icon: '📌', label: 'Altres',         color: '#607d8b' }
 };
 
