@@ -199,6 +199,9 @@ function canviarVista(vista) {
 			const role = currentUserProfile ? currentUserProfile.role : 'visor';
 			const treballadorActiu = treballadors.find(function(t) { 
 			return t.auth_user_id === currentUser.id; 
+		case 'contactes':
+			carregarVistaContactes();
+			break;	
     });
     if (treballadorActiu && role === 'visor') {
         carregarVistaControlHorariTreballador();
