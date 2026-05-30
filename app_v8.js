@@ -167,9 +167,6 @@ function canviarVista(vista) {
         case 'fertilitzacions':
             carregarVistaFertilitzacions();
             break;
-		case 'fertilitzants':
-			await carregarVistaFertilitzants();
-			break;	
         case 'productes':
             carregarVistaProductes();
             break;
@@ -205,6 +202,9 @@ function canviarVista(vista) {
 			const role = currentUserProfile ? currentUserProfile.role : 'visor';
 			const treballadorActiu = treballadors.find(function(t) { 
 			return t.auth_user_id === currentUser.id; 
+		case 'fertilitzants':
+			await carregarVistaFertilitzants();
+			break;		
 			
     });
     if (treballadorActiu && role === 'visor') {
