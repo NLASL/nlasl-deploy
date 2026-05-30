@@ -167,6 +167,9 @@ function canviarVista(vista) {
         case 'fertilitzacions':
             carregarVistaFertilitzacions();
             break;
+		case 'fertilitzants':
+			await carregarVistaFertilitzants();
+			break;	
         case 'productes':
             carregarVistaProductes();
             break;
@@ -1245,9 +1248,12 @@ async function carregarVistaFertilitzacions() {
     let html = '<div class="view-fertilitzacions">';
     html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">';
     html += '<h2>🌿 Fertilitzacions</h2>';
-    if (podeCrear) {
-        html += '<button class="btn btn-primary" onclick="obrirModalFertilitzacio()">➕ Nova Fertilització</button>';
-    }
+	html += '<div style="display:flex; gap:8px; align-items:center;">';
+	if (podeCrear) {
+    html += '<button class="btn btn-primary" onclick="obrirModalFertilitzacio()">➕ Nova Fertilització</button>';
+	}
+	html += '<button class="btn-recomanacions" onclick="canviarVista(\'fertilitzants\')"><i class="ti ti-chart-bar"></i> Comparador</button>';
+	html += '</div>';
     html += '</div>';
  
     // Filtre campanya
