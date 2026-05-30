@@ -195,13 +195,14 @@ function canviarVista(vista) {
 			canviarVistaCollita('registres');
 			carregarVistaCollita();
 			break;
+		case 'contactes':
+			carregarVistaContactes();
+			break;	
 		case 'control-horari':
 			const role = currentUserProfile ? currentUserProfile.role : 'visor';
 			const treballadorActiu = treballadors.find(function(t) { 
 			return t.auth_user_id === currentUser.id; 
-		case 'contactes':
-			carregarVistaContactes();
-			break;	
+			
     });
     if (treballadorActiu && role === 'visor') {
         carregarVistaControlHorariTreballador();
