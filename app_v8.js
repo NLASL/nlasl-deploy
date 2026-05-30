@@ -365,10 +365,11 @@ alertes.forEach(function(a) {
     }
     
     html += '<div class="dashboard-actions"><h3>Accions Ràpides</h3><div class="quick-actions">';
-    html += '<button class="btn btn-primary" onclick="canviarVista(\'parcelles\')">🗺️ Veure Parcel·les</button>';
-    html += '<button class="btn btn-success" onclick="canviarVista(\'tractaments\')">🌱 Nou Tractament</button>';
-    html += '<button class="btn btn-secondary" onclick="canviarVista(\'productes\')">📦 Gestionar Productes</button>';
-    html += '</div></div></div>';
+	html += '<button class="btn btn-primary" onclick="canviarVista(\'parcelles\')">🗺️ Veure Parcel·les</button>';
+	html += '<button class="btn btn-success" onclick="canviarVista(\'tractaments\')">🌱 Nou Tractament</button>';
+	html += '<button class="btn btn-secondary" onclick="canviarVista(\'productes\')">📦 Gestionar Productes</button>';
+	html += '<button class="btn btn-secondary" onclick="canviarVista(\'contactes\')">📞 Contactes</button>';
+	html += '</div></div></div>';
     
     container.innerHTML = html;
 }
