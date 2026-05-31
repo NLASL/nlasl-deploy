@@ -21,7 +21,7 @@ const FERTILITZANTS_MODES       = ['fertirrigació', 'foliar', 'sòl', 'hidropon
  * (usa la vista fertilitzants_complet)
  */
 async function getFertilitzantsComplet() {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from('fertilitzants_complet')
     .select('*')
     .order('nom');
@@ -33,7 +33,7 @@ async function getFertilitzantsComplet() {
  * Retorna un fertilitzant complet per id
  */
 async function getFertilitzantById(id) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from('fertilitzants_complet')
     .select('*')
     .eq('id', id)
@@ -46,7 +46,7 @@ async function getFertilitzantById(id) {
  * Actualitza preu_kg i preu_kg_data a la taula principal fertilitzants
  */
 async function actualitzarPreuFertilitzant(id, preuKg) {
-  const { error } = await supabase
+  const { error } = await supabaseClient
     .from('fertilitzants')
     .update({
       preu_kg:      preuKg,
@@ -64,7 +64,7 @@ async function actualitzarPreuFertilitzant(id, preuKg) {
  * Retorna les dades tècniques d'un fertilitzant (null si no existeixen)
  */
 async function getTecnicByFertilitzantId(fertilitzantId) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from('fertilitzants_tecnics')
     .select('*')
     .eq('fertilitzant_id', fertilitzantId)
@@ -96,7 +96,7 @@ async function upsertFertilitzantTecnic(fertilitzantId, dades) {
     }
   });
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from('fertilitzants_tecnics')
     .upsert(payload, { onConflict: 'fertilitzant_id' })
     .select()
@@ -109,7 +109,7 @@ async function upsertFertilitzantTecnic(fertilitzantId, dades) {
  * Elimina les dades tècniques d'un fertilitzant
  */
 async function eliminarFertilitzantTecnic(fertilitzantId) {
-  const { error } = await supabase
+  const { error } = await supabaseClient
     .from('fertilitzants_tecnics')
     .delete()
     .eq('fertilitzant_id', fertilitzantId);
@@ -125,7 +125,7 @@ async function eliminarFertilitzantTecnic(fertilitzantId) {
  * Retorna { preu, data_albara } o null si no hi ha compres
  */
 async function getDarrerPreuCompra(fertilitzantId) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from('compres_linies')
     .select('preu, data_albara, created_at')
     .eq('producte_id', fertilitzantId)
