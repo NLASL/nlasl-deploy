@@ -20,7 +20,7 @@ let _fertilitzantActiu = null; // objecte en edició al modal tècnic
 // ─────────────────────────────────────────────
 
 async function carregarVistaFertilitzants() {
-  const main = document.getElementById('main-content');
+  const main = document.getElementById('view-container');
   if (!main) return;
 
   main.innerHTML = renderEsquelet();
