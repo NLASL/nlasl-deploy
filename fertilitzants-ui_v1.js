@@ -672,7 +672,7 @@ async function obrirModalPreu(fertilitzantId, nom) {
 // EVENTS FILTRES / SELECCIÓ
 // ─────────────────────────────────────────────
 
-ffunction canviarTab(tab, btn) {
+function canviarTab(tab, btn) {
   document.querySelectorAll('.fert-tab').forEach(t => {
     t.classList.remove('fert-tab--actiu');
     t.setAttribute('aria-selected', 'false');
