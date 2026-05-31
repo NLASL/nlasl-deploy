@@ -26,12 +26,9 @@ async function carregarVistaFertilitzants() {
   main.innerHTML = renderEsquelet();
   _seleccionats.clear();
 
-  // Esperar que el DOM estigui llest abans de renderitzar
-  await new Promise(resolve => setTimeout(resolve, 0));
-
   try {
     _fertilitzants = await Fertilitzants.getComplet();
-    renderTot();
+    requestAnimationFrame(() => renderTot());
   } catch (e) {
     main.innerHTML = `<p class="error-msg">Error carregant fertilitzants: ${e.message}</p>`;
   }
