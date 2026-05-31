@@ -212,7 +212,6 @@ function canviarVista(vista) {
 		case 'fertilitzants':
 			await carregarVistaFertilitzants();
 			break;		
-			
     });
     if (treballadorActiu && role === 'visor') {
         carregarVistaControlHorariTreballador();
