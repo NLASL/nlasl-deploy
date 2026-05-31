@@ -201,6 +201,9 @@ function canviarVista(vista) {
 		case 'fertilitzants':
 			carregarVistaFertilitzants();
 			break;
+		case 'fertilitzants-tecnics':
+			carregarVistaFertilitzantsTecnics();
+			break;	
 		case 'control-horari':
 			const role = currentUserProfile ? currentUserProfile.role : 'visor';
 			const treballadorActiu = treballadors.find(function(t) {
