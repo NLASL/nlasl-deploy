@@ -62,7 +62,7 @@ function renderEsqueletTecnics() {
     <div class="ft-cerca-wrap">
       <input type="text" id="ft-cerca" class="form-input ft-cerca-input"
              placeholder="Cercar producte..."
-             oninput="filtrarFertTecnics(this.value)">
+             oninput="filtrarFertTecnics(this.value)" style="border:2px solid #888 !important; background:#fff !important; color:#111 !important; padding:8px 12px !important; border-radius:6px !important; width:320px !important;">
     </div>
 
     <div id="ft-taula-wrap"></div>
@@ -1089,18 +1089,18 @@ function injectarEstilsFertTecnics() {
                          line-height:1.5; margin-top:.5rem; }
 
     /* Modal base */
-    .modal { display:none; position:fixed; inset:0; z-index:1000;
+    .modal { display:none; position:fixed; inset:0; z-index:9999;
              align-items:center; justify-content:center; }
-    .modal-overlay { position:absolute; inset:0; background:rgba(0,0,0,.15); }
+    .modal-overlay { position:absolute; inset:0; background:rgba(0,0,0,.7); }
     .modal-box { position:relative; background:var(--color-background-primary);
                  border-radius:var(--border-radius-lg); width:min(700px,95vw);
                  max-height:90vh; overflow-y:auto;
-                 box-shadow:0 8px 32px rgba(0,0,0,.25); z-index:1; }
+                 box-shadow:0 8px 32px rgba(0,0,0,.25); z-index:10000; }
     .modal-box--lg  { width:min(600px,95vw); }
     .modal-box--xl  { width:min(900px,96vw); }
     .modal-header { display:flex; justify-content:space-between; align-items:center;
                     padding:1rem 1.25rem; border-bottom:1px solid var(--color-border-tertiary);
-                    position:sticky; top:0; background:var(--color-background-primary); z-index:2; }
+                    position:sticky; top:0; background:var(--color-background-primary); z-index:10001; }
     .modal-header h2 { font-size:16px; font-weight:600; }
     .modal-close { background:none; border:none; cursor:pointer; font-size:18px;
                    color:var(--color-text-secondary); padding:4px; }
