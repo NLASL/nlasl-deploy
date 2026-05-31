@@ -20,11 +20,14 @@ let _fertilitzantActiu = null; // objecte en edició al modal tècnic
 // ─────────────────────────────────────────────
 
 async function carregarVistaFertilitzants() {
-  const main = document.getElementById('view-container');
+  const main = document.getElementById('main-content');
   if (!main) return;
 
   main.innerHTML = renderEsquelet();
   _seleccionats.clear();
+
+  // Esperar que el DOM estigui llest abans de renderitzar
+  await new Promise(resolve => setTimeout(resolve, 0));
 
   try {
     _fertilitzants = await Fertilitzants.getComplet();
@@ -40,15 +43,10 @@ async function carregarVistaFertilitzants() {
 
 function renderEsquelet() {
   return `
-  <div class="fert-header">
-      <div class="fert-header-esq">
-        <button class="btn-ghost btn-sm" onclick="canviarVista('fertilitzacions')">← Tornar</button>
-        <h1 class="fert-titol">Fertilitzants</h1>
-      </div>
+  <div id="fert-wrap" class="fert-wrap">
+    <div class="fert-header">
+      <h1 class="fert-titol">Fertilitzants</h1>
       <div class="fert-header-accions">
-        <button class="btn-secondary btn-sm" onclick="canviarVista('fertilitzants-tecnics')">
-          <i class="ti ti-settings"></i> Dades tècniques
-        </button>
         ${hasPermission('insert') ? `<button class="btn-secondary btn-sm" onclick="obrirModalTecnic(null)">
           <i class="ti ti-plus"></i> Nou fertilitzant
         </button>` : ''}
