@@ -820,8 +820,14 @@ function renderFormImportMapa() {
   </div>
   <div class="form-grup" style="margin-bottom:1rem;">
     <label class="form-label">Fitxer Excel MAPA (.xlsx)</label>
-    <input type="file" id="inp-excel-mapa" accept=".xlsx"
-           class="form-input" onchange="previsualitzarImportMapa(this)">
+    <div class="ft-file-wrap">
+      <label class="ft-file-label">
+        <i class="ti ti-file-spreadsheet"></i>
+        <span id="ft-file-nom">Seleccionar fitxer Excel...</span>
+        <input type="file" id="inp-excel-mapa" accept=".xlsx" style="display:none"
+               onchange="previsualitzarImportMapa(this); document.getElementById('ft-file-nom').textContent = this.files[0]?.name || 'Seleccionar fitxer Excel...'">
+      </label>
+    </div>
   </div>
   <div id="import-preview"></div>
   <div class="modal-footer">
@@ -990,7 +996,8 @@ function injectarEstilsFertTecnics() {
 
     /* Cerca */
     .ft-cerca-wrap { margin-bottom:1rem; }
-    .ft-cerca-input { max-width:320px; background:var(--color-background-primary) !important; color:var(--color-text-primary) !important; border:1px solid var(--color-border-secondary) !important; }
+    .ft-cerca-input { max-width:320px; background:var(--color-background-primary) !important; color:var(--color-text-primary) !important; border:2px solid var(--color-border-secondary) !important; border-radius:var(--border-radius-md) !important; padding:8px 12px !important; }
+    .ft-cerca-input:focus { border-color:var(--color-border-info) !important; outline:none !important; }
 
     /* Taula */
     .ft-taula-scroll { overflow-x:auto; }
@@ -1054,8 +1061,25 @@ function injectarEstilsFertTecnics() {
     .npk-pill-sm { font-size:11px; padding:2px 6px; border-radius:var(--border-radius-md);
                    font-weight:500; }
 
-    /* Importació */
-    .import-info { font-size:13px; line-height:1.6; margin-bottom:1rem; }
+    /* Modal text força visible */
+    .modal-box, .modal-box * { color:var(--color-text-primary); }
+    .modal-box p, .modal-box li, .modal-box label { color:var(--color-text-primary) !important; }
+    .modal-body { padding:1.25rem; background:var(--color-background-primary); }
+
+    /* Selector fitxer personalitzat */
+    .ft-file-wrap { margin-top:4px; }
+    .ft-file-label { display:inline-flex; align-items:center; gap:8px; cursor:pointer;
+                     background:var(--color-background-secondary);
+                     border:2px dashed var(--color-border-secondary);
+                     border-radius:var(--border-radius-md);
+                     padding:.75rem 1.25rem; font-size:13px;
+                     color:var(--color-text-primary);
+                     transition:border-color .15s; }
+    .ft-file-label:hover { border-color:var(--color-border-info); }
+
+    /* Import info text */
+    .import-info p, .import-info li { color:var(--color-text-primary) !important; font-size:13px; }
+    .import-url a { color:var(--color-text-info); }
     .import-url { margin:.5rem 0; }
     .import-passos { margin:.5rem 0 .5rem 1.2rem; }
     .import-passos li { margin-bottom:4px; }
@@ -1067,7 +1091,7 @@ function injectarEstilsFertTecnics() {
     /* Modal base */
     .modal { display:none; position:fixed; inset:0; z-index:1000;
              align-items:center; justify-content:center; }
-    .modal-overlay { position:absolute; inset:0; background:rgba(0,0,0,.5); }
+    .modal-overlay { position:absolute; inset:0; background:rgba(0,0,0,.15); }
     .modal-box { position:relative; background:var(--color-background-primary);
                  border-radius:var(--border-radius-lg); width:min(700px,95vw);
                  max-height:90vh; overflow-y:auto;
