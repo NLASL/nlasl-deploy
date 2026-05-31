@@ -197,39 +197,32 @@ function canviarVista(vista) {
 			break;
 		case 'contactes':
 			carregarVistaContactes();
-			break;	
+			break;
 		case 'fertilitzants':
 			carregarVistaFertilitzants();
-			break;		
+			break;
 		case 'control-horari':
 			const role = currentUserProfile ? currentUserProfile.role : 'visor';
-			const treballadorActiu = treballadors.find(function(t) { 
-			return t.auth_user_id === currentUser.id; 
-			});
+			const treballadorActiu = treballadors.find(function(t) {
+			return t.auth_user_id === currentUser.id;
+    });
 			if (role === 'visor') {
 			carregarVistaControlHorariTreballador(treballadorActiu);
 			} else {
 			carregarVistaControlHorari();
-			}
+    }
 			break;
-		    };
-    if (treballadorActiu && role === 'visor') {
-        carregarVistaControlHorariTreballador();
-    } else {
-        carregarVistaControlHorari();
-    }
-        case 'incidencies':
-            carregarVistaIncidencies();
-            break;
-        case 'absencies':
-            carregarVistaAbsencies();
-            break;
+		case 'incidencies':
+			carregarVistaIncidencies();
+			break;
+		case 'absencies':
+			carregarVistaAbsencies();
+			break;
 		case 'alertes':
-            carregarVistaAlertes();
-            break;
-		default:
-            container.innerHTML = '<p>Vista no trobada</p>';
-    }
+			carregarVistaAlertes();
+			break;
+default:
+    container.innerHTML = '<p>Vista no trobada</p>';
 }
 
 // DASHBOARD (mantenir codi anterior - copiat de app.v5.js)
