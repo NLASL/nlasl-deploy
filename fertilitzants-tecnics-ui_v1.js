@@ -48,6 +48,9 @@ function renderEsqueletTecnics() {
       </div>
       <div class="ft-header-dret">
         ${hasPermission('insert') ? `
+        <button class="btn-secondary btn-sm" onclick="obrirModalSincronitzar()">
+          <i class="ti ti-refresh"></i> Sincronitzar MAPA
+        </button>
         <button class="btn-secondary btn-sm" onclick="obrirModalImportacioMapa()">
           <i class="ti ti-file-import"></i> Actualitzar registre MAPA
         </button>` : ''}
@@ -987,7 +990,7 @@ function injectarEstilsFertTecnics() {
 
     /* Cerca */
     .ft-cerca-wrap { margin-bottom:1rem; }
-    .ft-cerca-input { max-width:320px; }
+    .ft-cerca-input { max-width:320px; background:var(--color-background-primary) !important; color:var(--color-text-primary) !important; border:1px solid var(--color-border-secondary) !important; }
 
     /* Taula */
     .ft-taula-scroll { overflow-x:auto; }
@@ -1071,4 +1074,212 @@ function injectarEstilsFertTecnics() {
     }
   `;
   document.head.appendChild(s);
+}
+
+// ─────────────────────────────────────────────
+// SINCRONITZACIÓ AUTOMÀTICA TOTS ELS PRODUCTES
+// ─────────────────────────────────────────────
+
+async function sincronitzarAmbMapa() {
+  const btn = document.getElementById('btn-sincronitzar');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader ti-spin"></i> Sincronitzant...'; }
+
+  try {
+    // 1. Carregar tots els fertilitzants del catàleg
+    const fertilitzants = await Fertilitzants.getComplet();
+    let coincidencies = 0;
+    let actualitzats  = 0;
+    let senseMatch    = [];
+
+    const log = document.getElementById('sinc-log');
+
+    for (const f of fertilitzants) {
+      // 2. Cerca al MAPA: primer per registre, si no per nom
+      let mapaData = null;
+
+      if (f.registre_mapa) {
+        const { data } = await supabaseClient
+          .from('fertilitzants_mapa')
+          .select('*')
+          .ilike('registre_mapa', f.registre_mapa)
+          .maybeSingle();
+        mapaData = data;
+      }
+
+      if (!mapaData) {
+        // Cerca per nom normalitzat (eliminar espais extra, majúscules)
+        const nomNet = f.nom.trim().toUpperCase();
+        const { data } = await supabaseClient
+          .from('fertilitzants_mapa')
+          .select('*')
+          .ilike('nom_comercial', nomNet)
+          .maybeSingle();
+        mapaData = data;
+      }
+
+      if (!mapaData) {
+        // Cerca parcial per les primeres paraules del nom
+        const primeresPaula = f.nom.trim().split(' ').slice(0, 3).join(' ');
+        const { data } = await supabaseClient
+          .from('fertilitzants_mapa')
+          .select('*')
+          .ilike('nom_comercial', `%${primeresPaula}%`)
+          .limit(1)
+          .maybeSingle();
+        mapaData = data;
+      }
+
+      if (!mapaData) {
+        senseMatch.push(f.nom);
+        if (log) log.innerHTML += `<div class="sinc-miss">✗ ${f.nom} — sense coincidència MAPA</div>`;
+        continue;
+      }
+
+      coincidencies++;
+
+      // 3. Construir payload per a fertilitzants_tecnics
+      const dades = {
+        ca:                   mapaData.ca_total,
+        mg:                   mapaData.mg_total,
+        s:                    mapaData.s_total,
+        materia_organica:     mapaData.materia_organica,
+        n_nitric:             mapaData.n_nitric,
+        n_amoniacal:          mapaData.n_amoniacal,
+        n_ureic:              mapaData.n_ureic,
+        n_organic:            mapaData.n_organic,
+        fe_total:             mapaData.fe_total,
+        fe_soluble:           mapaData.fe_soluble,
+        b_total:              mapaData.b_total,
+        b_soluble:            mapaData.b_soluble,
+        mn_total:             mapaData.mn_total,
+        mn_soluble:           mapaData.mn_soluble,
+        zn_total:             mapaData.zn_total,
+        zn_soluble:           mapaData.zn_soluble,
+        mo_total:             mapaData.mo_total,
+        mo_soluble:           mapaData.mo_soluble,
+        cu_total:             mapaData.cu_total,
+        cu_soluble:           mapaData.cu_soluble,
+        cd_cadmi:             mapaData.cd,
+        pb_plom:              mapaData.pb,
+        hg_mercuri:           mapaData.hg,
+        cr_crom_total:        mapaData.cr_total,
+        cr_crom_vi:           mapaData.cr_vi,
+        ni_niquel:            mapaData.ni,
+        zn_cinc_metal:        mapaData.zn_metal,
+        cu_coure_metal:       mapaData.cu_metal,
+        classificacio_annex5: mapaData.classificacio_annex5,
+        ph_minim:             mapaData.ph_minim,
+        ph_maxim:             mapaData.ph_maxim,
+        forma_presentacio:    mapaData.forma_presentacio,
+        humitat_max:          mapaData.humitat_max,
+        fabricant:            mapaData.fabricant,
+        registre_mapa:        mapaData.registre_mapa,
+        fitxa_tecnica_url:    mapaData.url_mapa,
+        solubilitat:          mapaData.hidrosoluble ? 'total' : 'desconeguda',
+        modes_aplicacio:      mapaData.modes_aplicacio || [],
+        carboni_organic:      mapaData.carboni_organic,
+        humitat_max:          mapaData.humitat_max,
+      };
+
+      // Detectar fertirrigació des de modes_aplicacio
+      const modeText = (mapaData.modes_aplicacio || []).join(' ').toLowerCase();
+      if (modeText.includes('fertirri') && !dades.modes_aplicacio.includes('fertirrigació')) {
+        dades.modes_aplicacio.push('fertirrigació');
+      }
+
+      await Fertilitzants.upsertTecnic(f.id, dades);
+
+      // Actualitzar NPK base si estaven buits
+      const actualitzacioBase = {};
+      if (mapaData.n_total && !f.n) actualitzacioBase.n = mapaData.n_total;
+      if (mapaData.p_total && !f.p) actualitzacioBase.p = mapaData.p_total;
+      if (mapaData.k_total && !f.k) actualitzacioBase.k = mapaData.k_total;
+      if (Object.keys(actualitzacioBase).length) {
+        await supabaseClient.from('fertilitzants').update(actualitzacioBase).eq('id', f.id);
+      }
+
+      actualitzats++;
+      if (log) log.innerHTML += `<div class="sinc-ok">✓ ${f.nom} → ${mapaData.nom_comercial} (${mapaData.registre_mapa})</div>`;
+    }
+
+    // Resum final
+    if (log) {
+      log.innerHTML += `
+      <div class="sinc-resum">
+        <strong>Sincronització completada:</strong>
+        ${actualitzats} actualitzats · ${senseMatch.length} sense coincidència MAPA
+      </div>`;
+    }
+
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-refresh"></i> Sincronitzar de nou'; }
+
+    // Recarregar llista
+    _ftLlista = await Fertilitzants.getComplet();
+    renderTaulaFertTecnics();
+
+  } catch (e) {
+    mostrarNotificacio(`Error sincronitzant: ${e.message}`, 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-refresh"></i> Sincronitzar amb MAPA'; }
+  }
+}
+
+async function obrirModalSincronitzar() {
+  const container = document.getElementById('view-container');
+
+  // Insertar modal si no existeix
+  if (!document.getElementById('modal-sinc')) {
+    const div = document.createElement('div');
+    div.innerHTML = `
+    <div id="modal-sinc" class="modal" style="display:none" role="dialog" aria-modal="true">
+      <div class="modal-overlay" onclick="tancarModalSinc()"></div>
+      <div class="modal-box modal-box--lg">
+        <div class="modal-header">
+          <h2>Sincronitzar amb registre MAPA</h2>
+          <button class="modal-close" onclick="tancarModalSinc()"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="modal-body">
+          <p style="font-size:13px; margin-bottom:1rem;">
+            Cerca coincidències entre els teus <strong>${_ftLlista.length} fertilitzants</strong>
+            i el registre MAPA. Actualitza automàticament solubilitat, forma, NPK secundari,
+            micronutrients, metalls pesants i número de registre.
+          </p>
+          <p style="font-size:12px; color:var(--color-text-secondary); margin-bottom:1rem;">
+            <i class="ti ti-info-circle"></i>
+            Productes d'importació sense registre espanyol (ex: POLY-FEED) quedaran sense match.
+          </p>
+          <div id="sinc-log" class="sinc-log"></div>
+          <div class="modal-footer">
+            <button class="btn-secondary" onclick="tancarModalSinc()">Tancar</button>
+            <button class="btn-primary" id="btn-sincronitzar" onclick="sincronitzarAmbMapa()">
+              <i class="ti ti-refresh"></i> Sincronitzar amb MAPA
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+    document.body.appendChild(div.firstElementChild);
+
+    // Afegir CSS log si no existeix
+    if (!document.getElementById('style-sinc')) {
+      const s = document.createElement('style');
+      s.id = 'style-sinc';
+      s.textContent = `
+        .sinc-log { max-height:300px; overflow-y:auto; font-size:12px; font-family:var(--font-mono);
+                    background:var(--color-background-secondary); border-radius:var(--border-radius-md);
+                    padding:.75rem; margin-bottom:1rem; }
+        .sinc-ok   { color:var(--color-text-success); margin-bottom:3px; }
+        .sinc-miss { color:var(--color-text-secondary); margin-bottom:3px; }
+        .sinc-resum { margin-top:1rem; padding:.75rem; background:var(--color-background-primary);
+                      border-radius:var(--border-radius-md); border-top:2px solid var(--color-border-secondary); }
+      `;
+      document.head.appendChild(s);
+    }
+  }
+
+  document.getElementById('modal-sinc').style.display = 'flex';
+}
+
+function tancarModalSinc() {
+  const modal = document.getElementById('modal-sinc');
+  if (modal) modal.style.display = 'none';
 }
