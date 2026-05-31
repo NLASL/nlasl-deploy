@@ -218,7 +218,6 @@ function canviarVista(vista) {
     } else {
         carregarVistaControlHorari();
     }
-    break;
         case 'incidencies':
             carregarVistaIncidencies();
             break;
