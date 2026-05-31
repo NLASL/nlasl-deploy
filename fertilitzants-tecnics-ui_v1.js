@@ -1064,8 +1064,26 @@ function injectarEstilsFertTecnics() {
                          font-size:13px; display:flex; align-items:center; gap:8px;
                          line-height:1.5; margin-top:.5rem; }
 
-    /* Modal xl */
-    .modal-box--xl { width:min(900px,96vw); }
+    /* Modal base */
+    .modal { display:none; position:fixed; inset:0; z-index:1000;
+             align-items:center; justify-content:center; }
+    .modal-overlay { position:absolute; inset:0; background:rgba(0,0,0,.5); }
+    .modal-box { position:relative; background:var(--color-background-primary);
+                 border-radius:var(--border-radius-lg); width:min(700px,95vw);
+                 max-height:90vh; overflow-y:auto;
+                 box-shadow:0 8px 32px rgba(0,0,0,.25); z-index:1; }
+    .modal-box--lg  { width:min(600px,95vw); }
+    .modal-box--xl  { width:min(900px,96vw); }
+    .modal-header { display:flex; justify-content:space-between; align-items:center;
+                    padding:1rem 1.25rem; border-bottom:1px solid var(--color-border-tertiary);
+                    position:sticky; top:0; background:var(--color-background-primary); z-index:2; }
+    .modal-header h2 { font-size:16px; font-weight:600; }
+    .modal-close { background:none; border:none; cursor:pointer; font-size:18px;
+                   color:var(--color-text-secondary); padding:4px; }
+    .modal-body { padding:1.25rem; }
+    .modal-footer { display:flex; justify-content:flex-end; gap:8px;
+                    padding-top:1rem; margin-top:1rem;
+                    border-top:1px solid var(--color-border-tertiary); }
 
     @media (max-width:768px) {
       .ft-stats-grid { gap:6px; }
