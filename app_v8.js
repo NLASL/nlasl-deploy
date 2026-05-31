@@ -224,6 +224,7 @@ function canviarVista(vista) {
 default:
     container.innerHTML = '<p>Vista no trobada</p>';
 }
+}
 
 // DASHBOARD (mantenir codi anterior - copiat de app.v5.js)
 async function carregarDashboard() {
