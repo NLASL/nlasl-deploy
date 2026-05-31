@@ -195,35 +195,36 @@ function canviarVista(vista) {
 			canviarVistaCollita('registres');
 			carregarVistaCollita();
 			break;
-		case 'contactes':
-			carregarVistaContactes();
-			break;
-		case 'fertilitzants':
-			carregarVistaFertilitzants();
-			break;
-		case 'fertilitzants-tecnics':
-			carregarVistaFertilitzantsTecnics();
-			break;	
-		case 'control-horari':
-			const role = currentUserProfile ? currentUserProfile.role : 'visor';
-			const treballadorActiu = treballadors.find(function(t) {
-			return t.auth_user_id === currentUser.id;
+	case 'contactes':
+    carregarVistaContactes();
+    break;
+case 'fertilitzants':
+    carregarVistaFertilitzants();
+    break;
+case 'fertilitzants-tecnics':
+    carregarVistaFertilitzantsTecnics();
+    break;
+case 'control-horari': {
+    const role = currentUserProfile ? currentUserProfile.role : 'visor';
+    const treballadorActiu = treballadors.find(function(t) {
+        return t.auth_user_id === currentUser.id;
     });
-			if (role === 'visor') {
-			carregarVistaControlHorariTreballador(treballadorActiu);
-			} else {
-			carregarVistaControlHorari();
+    if (role === 'visor') {
+        carregarVistaControlHorariTreballador(treballadorActiu);
+    } else {
+        carregarVistaControlHorari();
     }
-			break;
-		case 'incidencies':
-			carregarVistaIncidencies();
-			break;
-		case 'absencies':
-			carregarVistaAbsencies();
-			break;
-		case 'alertes':
-			carregarVistaAlertes();
-			break;
+    break;
+}
+case 'incidencies':
+    carregarVistaIncidencies();
+    break;
+case 'absencies':
+    carregarVistaAbsencies();
+    break;
+case 'alertes':
+    carregarVistaAlertes();
+    break;
 default:
     container.innerHTML = '<p>Vista no trobada</p>';
 }
