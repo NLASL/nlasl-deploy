@@ -70,29 +70,29 @@ function renderEsqueletTecnics() {
 
   <!-- Modal dades tècniques + cerca MAPA -->
   <div id="modal-ft" class="modal" style="display:none" role="dialog" aria-modal="true">
-    <div class="modal-overlay" onclick="tancarModalFT()"></div>
-    <div class="modal-box modal-box--xl">
-      <div class="modal-header">
+    <div class="modal-overlay" onclick="tancarModalFT()" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;"></div>
+    <div class="modal-box modal-box--xl" style="position:relative; background:#ffffff; color:#111111; border-radius:8px; width:min(620px,95vw); max-height:90vh; overflow-y:auto; box-shadow:0 8px 40px rgba(0,0,0,.5); z-index:10000;">
+      <div class="modal-header" style="background:#ffffff;padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
         <h2 id="modal-ft-titol">Dades tècniques</h2>
         <button class="modal-close" onclick="tancarModalFT()">
           <i class="ti ti-x"></i>
         </button>
       </div>
-      <div class="modal-body" id="modal-ft-body"></div>
+      <div class="modal-body" style="padding:1.25rem;background:#ffffff;color:#111111;" id="modal-ft-body"></div>
     </div>
   </div>
 
   <!-- Modal importació MAPA -->
   <div id="modal-import-mapa" class="modal" style="display:none" role="dialog" aria-modal="true">
-    <div class="modal-overlay" onclick="tancarModalImportMapa()"></div>
-    <div class="modal-box modal-box--lg">
-      <div class="modal-header">
+    <div class="modal-overlay" onclick="tancarModalImportMapa()" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;"></div>
+    <div class="modal-box modal-box--lg" style="position:relative; background:#ffffff; color:#111111; border-radius:8px; width:min(620px,95vw); max-height:90vh; overflow-y:auto; box-shadow:0 8px 40px rgba(0,0,0,.5); z-index:10000;">
+      <div class="modal-header" style="background:#ffffff;padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
         <h2>Actualitzar registre MAPA</h2>
         <button class="modal-close" onclick="tancarModalImportMapa()">
           <i class="ti ti-x"></i>
         </button>
       </div>
-      <div class="modal-body" id="modal-import-body">
+      <div class="modal-body" style="padding:1.25rem;background:#ffffff;color:#111111;" id="modal-import-body">
         ${renderFormImportMapa()}
       </div>
     </div>
@@ -1273,13 +1273,13 @@ async function obrirModalSincronitzar() {
     const div = document.createElement('div');
     div.innerHTML = `
     <div id="modal-sinc" class="modal" style="display:none" role="dialog" aria-modal="true">
-      <div class="modal-overlay" onclick="tancarModalSinc()"></div>
-      <div class="modal-box modal-box--lg">
-        <div class="modal-header">
+      <div class="modal-overlay" onclick="tancarModalSinc()" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;"></div>
+      <div class="modal-box modal-box--lg" style="position:relative; background:#ffffff; color:#111111; border-radius:8px; width:min(620px,95vw); max-height:90vh; overflow-y:auto; box-shadow:0 8px 40px rgba(0,0,0,.5); z-index:10000;">
+        <div class="modal-header" style="background:#ffffff;padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
           <h2>Sincronitzar amb registre MAPA</h2>
           <button class="modal-close" onclick="tancarModalSinc()"><i class="ti ti-x"></i></button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body" style="padding:1.25rem;background:#ffffff;color:#111111;">
           <p style="font-size:13px; margin-bottom:1rem;">
             Cerca coincidències entre els teus <strong>${_ftLlista.length} fertilitzants</strong>
             i el registre MAPA. Actualitza automàticament solubilitat, forma, NPK secundari,
