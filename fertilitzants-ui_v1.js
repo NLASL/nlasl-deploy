@@ -678,16 +678,13 @@ function canviarTab(tab, btn) {
     t.setAttribute('aria-selected', 'false');
   });
   document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+
   btn.classList.add('fert-tab--actiu');
   btn.setAttribute('aria-selected', 'true');
   const content = document.getElementById(`tab-content-${tab}`);
   if (content) content.style.display = 'block';
-
-  // Re-renderitzar el comparador quan es fa visible
-  if (tab === 'comparador' && _fertilitzants.length > 0) {
-    renderTot();
-  }
 }
+
 function canviarFase(val) {
   _fase = val;
   renderTot();
