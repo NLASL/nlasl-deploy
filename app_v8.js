@@ -198,6 +198,9 @@ function canviarVista(vista) {
 		case 'contactes':
 			carregarVistaContactes();
 			break;	
+		case 'fertilitzants':
+			carregarVistaFertilitzants();
+			break;		
 		case 'control-horari':
 			const role = currentUserProfile ? currentUserProfile.role : 'visor';
 			const treballadorActiu = treballadors.find(function(t) { 
@@ -209,10 +212,7 @@ function canviarVista(vista) {
 			carregarVistaControlHorari();
 			}
 			break;
-		case 'fertilitzants':
-			carregarVistaFertilitzants();
-			break;		
-    };
+		    });
     if (treballadorActiu && role === 'visor') {
         carregarVistaControlHorariTreballador();
     } else {
