@@ -212,7 +212,7 @@ function canviarVista(vista) {
 			carregarVistaControlHorari();
 			}
 			break;
-		    });
+		    };
     if (treballadorActiu && role === 'visor') {
         carregarVistaControlHorariTreballador();
     } else {
