@@ -28,7 +28,7 @@ async function carregarVistaFertilitzants() {
 
   try {
     _fertilitzants = await Fertilitzants.getComplet();
-    requestAnimationFrame(() => renderTot());
+    renderTot();
   } catch (e) {
     main.innerHTML = `<p class="error-msg">Error carregant fertilitzants: ${e.message}</p>`;
   }
@@ -672,19 +672,22 @@ async function obrirModalPreu(fertilitzantId, nom) {
 // EVENTS FILTRES / SELECCIÓ
 // ─────────────────────────────────────────────
 
-function canviarTab(tab, btn) {
+ffunction canviarTab(tab, btn) {
   document.querySelectorAll('.fert-tab').forEach(t => {
     t.classList.remove('fert-tab--actiu');
     t.setAttribute('aria-selected', 'false');
   });
   document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-
   btn.classList.add('fert-tab--actiu');
   btn.setAttribute('aria-selected', 'true');
   const content = document.getElementById(`tab-content-${tab}`);
   if (content) content.style.display = 'block';
-}
 
+  // Re-renderitzar el comparador quan es fa visible
+  if (tab === 'comparador' && _fertilitzants.length > 0) {
+    renderTot();
+  }
+}
 function canviarFase(val) {
   _fase = val;
   renderTot();
