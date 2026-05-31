@@ -210,7 +210,7 @@ function canviarVista(vista) {
 			}
 			break;
 		case 'fertilitzants':
-			await carregarVistaFertilitzants();
+			carregarVistaFertilitzants();
 			break;		
     });
     if (treballadorActiu && role === 'visor') {
