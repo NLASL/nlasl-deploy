@@ -212,7 +212,7 @@ function canviarVista(vista) {
 		case 'fertilitzants':
 			carregarVistaFertilitzants();
 			break;		
-    });
+    };
     if (treballadorActiu && role === 'visor') {
         carregarVistaControlHorariTreballador();
     } else {
