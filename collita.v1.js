@@ -66,7 +66,7 @@ async function carregarDadesCollita() {
         const { data: classData, error: classError } = await supabaseClient
             .from('classificacions_no_comercial')
             .select('*')
-            .eq('campanya', 2025)
+            .eq('campanya', 2026)
             .eq('actiu', true);
         if (classError) throw new Error('Error classificacions: ' + classError.message);
         classificacionsNoCom = classData || [];
