@@ -1861,7 +1861,7 @@ function generarFilaCalibre(calibre, pesKg, percentatge) {
 }
 
 function generarFilaNC(classificacio, pesKg, percentatge) {
-    var opcions = ['Pedra', 'Penal', 'DefecX', 'Defectes', 'Decolorat', 'Madur', 'Immadur'];
+    var opcions = ['Decolorat', 'Defectes',  'DefecX', 'Immadur', 'Madur', 'Pedra', 'Penal', 'Petit'];
     var html = '<tr style="border-bottom:1px solid #eee;">';
     html += '<td style="padding:6px;"><select style="width:100%;">';
     opcions.forEach(function(o) {
