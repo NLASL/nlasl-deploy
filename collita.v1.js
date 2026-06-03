@@ -221,15 +221,16 @@ async function obtenirTodasEntradas(campanya = null) {
         const dataFinal = campanya + '-09-30';
 
         const { data, error } = await supabaseClient
-            .from('collita_entrada')
-            .select(`
+			.from('collita_entrada')
+			.select(`
 			*,
-			fruita_varietat_id (id, fruita_id, varietat)
+			fruita_varietat_id (id, fruita_id, varietat),
+			collita_escandall (qualitat_reclassificada)
 			`)
-            .eq('estat', 'actiu')
-            .gte('data', dataInici)
-            .lte('data', dataFinal)
-            .order('data', { ascending: false });
+			.eq('estat', 'actiu')
+			.gte('data', dataInici)
+			.lte('data', dataFinal)
+			.order('data', { ascending: false });
 
         if (error) throw error;
         return data || [];

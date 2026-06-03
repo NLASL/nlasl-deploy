@@ -269,7 +269,13 @@ async function mostrarResumEntrades(campanya) {
         resum[clau].totalPesNet += parseFloat(e.pes_net) || 0;
         resum[clau].totalPalots += parseInt(e.quantitat_palots_entrada) || 0;
  
-        var qual = e.qualitat || 'Sense qualitat';
+        // Agafar qualitat_reclassificada del primer escandall actiu si existeix
+		var escandall = e.collita_escandall && e.collita_escandall.length > 0 
+			? e.collita_escandall[0] 
+			: null;
+		var qual = (escandall && escandall.qualitat_reclassificada) 
+			? escandall.qualitat_reclassificada 
+			: (e.qualitat || 'Sense qualitat');
         if (!resum[clau].qualitats[qual]) {
             resum[clau].qualitats[qual] = { kg: 0, albarans: 0 };
         }
