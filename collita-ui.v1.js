@@ -1948,6 +1948,8 @@ async function guardarEdicionEscandall(event, id) {
         
         // Actualitzar dades bàsiques
         await actualitzarAlbaraEscandall(id, dades);
+		
+		await supabaseClient.from('collita_escandall_calibres').delete().eq('escandall_id', id);
         
         // Esborrar i reinserir calibres
        if (calibres.length > 0) {
@@ -1981,6 +1983,7 @@ async function guardarEdicionEscandall(event, id) {
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
     }
 	}
+	
 async function mostrarVista_Analisi() {
     const container = document.getElementById('view-container');
  
