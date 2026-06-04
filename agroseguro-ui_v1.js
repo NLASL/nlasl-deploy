@@ -651,17 +651,4 @@ function obtenirCampanyaActual() {
     }
 }
     
-    // Default: campanya actual per dates
-    const avui = new Date();
-    const mes = avui.getMonth() + 1;
-    const any = avui.getFullYear();
-    
-    // Campanya comença 1 octubre any anterior (si estem a oct-dec) o any actual (si estem a gen-sept)
-    if (mes >= 10) {
-        return any;
-    } else {
-        return any - 1;
-    }
-}
-
 console.log('✅ Agroseguro UI v1 carregat');
