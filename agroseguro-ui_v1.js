@@ -639,16 +639,7 @@ async function eliminarPolissaConfirm(polissaId) {
 // ============================================================
 
 function obtenirCampanyaActual() {
-    // Usar la implementació local (evitar recursió infinita)
-    const avui = new Date();
-    const mes = avui.getMonth() + 1;
-    const any = avui.getFullYear();
-    
-    if (mes >= 10) {
-        return any;
-    } else {
-        return any - 1;
-    }
+    return new Date().getFullYear();  // Sempre retorna any actual
 }
     
 console.log('✅ Agroseguro UI v1 carregat');
