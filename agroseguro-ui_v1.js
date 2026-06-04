@@ -151,7 +151,7 @@ async function carregarVistaAssegurances() {
             </div>
         `;
         
-        document.getElementById('main-content').innerHTML = html;
+        document.getElementById('view-container').innerHTML = html;
         
         // Event listeners tabs
         document.querySelectorAll('.tab-btn').forEach(btn => {
