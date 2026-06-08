@@ -73,10 +73,10 @@ function obrirModalNovaPolissa() {
                                 <label for="nova-linia">Linia:</label>
                                 <select id="nova-linia" name="linia" required>
                                     <option value="">- Selecciona -</option>
-                                    <option value="FRUTALAS">🍑 FRUTALAS</option>
+                                    <option value="FRUTALS">🍑 FRUTALS</option>
                                     <option value="CEREAL">🌾 CEREAL</option>
                                     <option value="OLIVERA">🫒 OLIVERA</option>
-                                    <option value="ALTRA">📋 ALTRA</option>
+                                    <option value="ALTRE">📋 ALTRE</option>
                                 </select>
                             </div>
                             
@@ -356,10 +356,10 @@ async function obrirModalEditarPolissa(polissaId) {
                                 <div class="form-group">
                                     <label for="edit-linia">Linia:</label>
                                     <select id="edit-linia" name="linia" required>
-                                        <option value="FRUTALAS" ${polissa.linia === 'FRUTALAS' ? 'selected' : ''}>🍑 FRUTALAS</option>
+                                        <option value="FRUTALS" ${polissa.linia === 'FRUTALS' ? 'selected' : ''}>🍑 FRUTALS</option>
                                         <option value="CEREAL" ${polissa.linia === 'CEREAL' ? 'selected' : ''}>🌾 CEREAL</option>
                                         <option value="OLIVERA" ${polissa.linia === 'OLIVERA' ? 'selected' : ''}>🫒 OLIVERA</option>
-                                        <option value="ALTRA" ${polissa.linia === 'ALTRA' ? 'selected' : ''}>📋 ALTRA</option>
+                                        <option value="ALTRE" ${polissa.linia === 'ALTRE' ? 'selected' : ''}>📋 ALTRE</option>
                                     </select>
                                 </div>
                                 
