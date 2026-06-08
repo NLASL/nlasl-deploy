@@ -36,42 +36,14 @@ const CULTIUS_VARIETATS = {
 
 function toggleSubmenu(id) {
     const submenu = document.getElementById('submenu-' + id);
-    if (!submenu) {
-        console.warn('Submenu no trobat:', id);
-        return;
-    }
-    
     const visible = submenu.style.display === 'block';
-    
-    // Cerrar todos EXCEPTO:
-    // 1. El actual
-    // 2. Los submenús PADRES del actual
-    document.querySelectorAll('.submenu').forEach(function(s) {
-        // Si es el que quiero toggle, no hacer nada aquí
-        if (s.id === 'submenu-' + id) return;
-        
-        // Si el submenu actual está dentro de otro submenu (anidado)
-        // NO cerrar el submenu padre
-        if (submenu.closest('#' + s.id)) return;
-        
-        // Cerrar todos los demás
-        s.style.display = 'none';
-    });
-    
-    // Toggle el actual
-    submenu.style.display = visible ? 'none' : 'block';
+    tancarSubmenus();
+    if (!visible) submenu.style.display = 'block';
 }
 
 function tancarSubmenus() {
     document.querySelectorAll('.submenu').forEach(function(s) {
-        // Solo cerrar submenus que NO están anidados dentro de otro submenu activo
-        const parent = s.parentElement;
-        const parentSubmenu = parent.closest('.submenu');
-        
-        if (!parentSubmenu) {
-            // Es un submenu de primer nivel → cerrarlo
-            s.style.display = 'none';
-        }
+        s.style.display = 'none';
     });
 }
 
@@ -91,16 +63,6 @@ function formatData(data) {
     if (!data) return '';
     const d = new Date(data);
     return d.toLocaleDateString('ca-ES');
-}
-
-function obtenirCampanya(data) {
-    // Data format: "YYYY-MM-DD"
-    const [any, mes, dia] = data.split('-');
-    const anyActual = parseInt(any);
-    
-    // Si la data es 2026 o posterior → campanya 2026
-    // Si la data es 2025 o anterior → campanya 2025
-    return anyActual >= 2026 ? '2026' : '2025';
 }
 
 function mostrarNotificacio(missatge, tipus) {
@@ -140,6 +102,21 @@ function hasPermission(action) {
     
     return false;
 }
+const nouTractament = {
+    data,
+    data_limit: dataLimitStr,
+    parcella_id: p.id,
+    producte_id: producteId,
+    dosi,
+    unitat,
+    superficie_tractada: superficieParcel,
+    operador,
+    maquinaria,
+    condicions_meteo: meteo,
+    observacions,
+    estat: 'actiu',
+    campanya: obtenirCampanya(data)
+};
 
 // Navegació
 function canviarVista(vista) {
@@ -191,46 +168,29 @@ function canviarVista(vista) {
 		case 'collita':
 			carregarVistaCollita();
 			break;
-		case 'collita-registres':
-			canviarVistaCollita('registres');
-			carregarVistaCollita();
-			break;
-		case 'assegurances':
-            carregarVistaAssegurances();
-            break;
-		case 'contactes':
-			carregarVistaContactes();
-			break;
-		case 'fertilitzants':
-			carregarVistaFertilitzants();
-			break;
-		case 'fertilitzants-tecnics':
-			carregarVistaFertilitzantsTecnics();
-			break;
-		case 'control-horari': {
-    const role = currentUserProfile ? currentUserProfile.role : 'visor';
-    const treballadorActiu = treballadors.find(function(t) {
-        return t.auth_user_id === currentUser.id;
+		case 'control-horari':
+			const role = currentUserProfile ? currentUserProfile.role : 'visor';
+			const treballadorActiu = treballadors.find(function(t) { 
+			return t.auth_user_id === currentUser.id; 
     });
-    if (role === 'visor') {
-        carregarVistaControlHorariTreballador(treballadorActiu);
+    if (treballadorActiu && role === 'visor') {
+        carregarVistaControlHorariTreballador();
     } else {
         carregarVistaControlHorari();
     }
     break;
-}
-case 'incidencies':
-    carregarVistaIncidencies();
-    break;
-case 'absencies':
-    carregarVistaAbsencies();
-    break;
-case 'alertes':
-    carregarVistaAlertes();
-    break;
-default:
-    container.innerHTML = '<p>Vista no trobada</p>';
-}
+        case 'incidencies':
+            carregarVistaIncidencies();
+            break;
+        case 'absencies':
+            carregarVistaAbsencies();
+            break;
+		case 'alertes':
+            carregarVistaAlertes();
+            break;
+		default:
+            container.innerHTML = '<p>Vista no trobada</p>';
+    }
 }
 
 // DASHBOARD (mantenir codi anterior - copiat de app.v5.js)
@@ -251,42 +211,27 @@ async function carregarDashboard() {
         return;
     }
     
-    let parcellesFiltrades = parcelles.filter(function(p) {
-    return p.campanya === 2026;  // ← FILTRO CAMPANYA
-});
-
-	if (fincaSeleccionada) {
-		parcellesFiltrades = parcellesFiltrades.filter(function(p) {
-        return p.finca === fincaSeleccionada;
-    });
-}
-
-// Calcular totalSuperficie
-const totalSuperficie = parcellesFiltrades.reduce(function(sum, p) {
-    return sum + (parseFloat(p.superficie) || 0);
-}, 0);
-
-// Calcular distribució cultius
-const cultius = {};
-parcellesFiltrades.forEach(function(p) {
-    const cultiu = p.cultiu || 'Sense especificar';
-    if (!cultius[cultiu]) {
-        cultius[cultiu] = { count: 0, superficie: 0 };
+    let parcellesFiltrades = parcelles;
+    if (fincaSeleccionada) {
+        parcellesFiltrades = parcelles.filter(function(p) {
+            return p.finca === fincaSeleccionada;
+        });
     }
-    cultius[cultiu].count++;
-    cultius[cultiu].superficie += parseFloat(p.superficie) || 0;
-});
-
-	// También filtrar les altres taules per campanya 2026
-		tractaments = tractaments.filter(function(t) {
-    return t.campanya === '2026' || t.campanya === 2026;
-});
-
-		fertilitzacions = fertilitzacions.filter(function(f) {
-    return f.campanya === '2026' || f.campanya === 2026;
-});
     
-     
+    const totalSuperficie = parcellesFiltrades.reduce(function(sum, p) {
+        return sum + (parseFloat(p.superficie) || 0);
+    }, 0);
+    
+    const cultius = {};
+    parcellesFiltrades.forEach(function(p) {
+        const cultiu = p.cultiu || 'Sense especificar';
+        if (!cultius[cultiu]) {
+            cultius[cultiu] = { count: 0, superficie: 0 };
+        }
+        cultius[cultiu].count++;
+        cultius[cultiu].superficie += parseFloat(p.superficie) || 0;
+    });
+    
     let html = '<div class="dashboard">';
     html += '<h2>📊 ' + (fincaSeleccionada ? 'Finca: ' + fincaSeleccionada : 'Resum General') + '</h2>';
     html += '<div style="margin-bottom: 30px;"><label style="font-weight: bold; margin-right: 10px;">🗺️ Seleccionar finca:</label>';
@@ -374,11 +319,10 @@ alertes.forEach(function(a) {
     }
     
     html += '<div class="dashboard-actions"><h3>Accions Ràpides</h3><div class="quick-actions">';
-	html += '<button class="btn btn-primary" onclick="canviarVista(\'parcelles\')">🗺️ Veure Parcel·les</button>';
-	html += '<button class="btn btn-success" onclick="canviarVista(\'tractaments\')">🌱 Nou Tractament</button>';
-	html += '<button class="btn btn-secondary" onclick="canviarVista(\'productes\')">📦 Gestionar Productes</button>';
-	html += '<button class="btn btn-secondary" onclick="canviarVista(\'contactes\')">📞 Contactes</button>';
-	html += '</div></div></div>';
+    html += '<button class="btn btn-primary" onclick="canviarVista(\'parcelles\')">🗺️ Veure Parcel·les</button>';
+    html += '<button class="btn btn-success" onclick="canviarVista(\'tractaments\')">🌱 Nou Tractament</button>';
+    html += '<button class="btn btn-secondary" onclick="canviarVista(\'productes\')">📦 Gestionar Productes</button>';
+    html += '</div></div></div>';
     
     container.innerHTML = html;
 }
@@ -534,161 +478,110 @@ async function eliminarAlerta(id) {
 // VISTA TRACTAMENTS AMB CRUD
 // ============================================================
 
-// ============================================================
-// HELPER - Detectar campanya actual i generar opcions
-// ============================================================
- 
-function generarOpcionsCampanya(idSelect, campanyadefecte) {
-    const sel = document.getElementById(idSelect);
-    if (!sel) return;
-    sel.innerHTML = '';
-    [2024, 2025, 2026, 2027].forEach(function(c) {
-        const opt = document.createElement('option');
-        opt.value = c;
-        opt.text = c;
-        if (c === campanyadefecte) opt.selected = true;
-        sel.appendChild(opt);
-    });
-}
- 
-function getCampanyaDefecte() {
-    const ara = new Date();
-    const mes = ara.getMonth() + 1;
-    return mes >= 10 ? ara.getFullYear() + 1 : ara.getFullYear();
-}
- 
-function getDatesCampanya(campanya) {
-    return {
-        dataInici: (campanya - 1) + '-10-01',
-        dataFinal: campanya + '-09-30'
-    };
-}
- 
-// ============================================================
-// TRACTAMENTS - Substituir carregarVistaTractaments()
-// ============================================================
- 
 async function carregarVistaTractaments() {
     const container = document.getElementById('view-container');
     const podeCrear = hasPermission('insert');
-    const campanyadefecte = getCampanyaDefecte();
- 
+    
     let html = '<div class="view-tractaments">';
-    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">';
+    html += '<div style="display: flex; justify-content: space-between; margin-bottom: 20px;">';
     html += '<h2>🌱 Tractaments Fitosanitaris</h2>';
     if (podeCrear) {
         html += '<button class="btn btn-primary" onclick="obrirModalTractament()">➕ Nou Tractament</button>';
     }
     html += '</div>';
- 
-    // Filtre campanya
-    html += '<div style="margin-bottom:15px; background:#f5f5f5; padding:12px; border-radius:8px; display:flex; align-items:center; gap:10px;">';
-    html += '<label><strong>Campanya:</strong></label>';
-    html += '<select id="filtre-campanya-tractaments" style="padding:6px; border-radius:4px; border:1px solid #ddd;">';
-    [2024, 2025, 2026, 2027].forEach(function(c) {
-        html += '<option value="' + c + '"' + (c === campanyadefecte ? ' selected' : '') + '>' + c + '</option>';
-    });
-    html += '</select>';
-    html += '</div>';
- 
     html += '<div class="table-container"><table class="data-table">';
     html += '<thead><tr><th>Data</th><th>Producte</th><th>Finca</th><th>Parcel·les</th><th>Superfície (Ha)</th><th>Dosi</th><th>Accions</th></tr></thead>';
     html += '<tbody id="tbody-tractaments"><tr><td colspan="7">Carregant...</td></tr></tbody>';
     html += '</table></div></div>';
- 
+    
     html += crearModalTractament();
- 
+    
     container.innerHTML = html;
- 
-    document.getElementById('filtre-campanya-tractaments').addEventListener('change', carregarTaulaTractaments);
- 
     await carregarTaulaTractaments();
 }
- 
-// ============================================================
-// TRACTAMENTS - Substituir carregarTaulaTractaments()
-// ============================================================
- 
+
 async function carregarTaulaTractaments() {
     const tbody = document.getElementById('tbody-tractaments');
     if (!tbody) return;
- 
-    // Llegir campanya seleccionada
-    const campanya = parseInt(document.getElementById('filtre-campanya-tractaments')?.value) || getCampanyaDefecte();
-    const { dataInici, dataFinal } = getDatesCampanya(campanya);
- 
+
     try {
         const { data } = await supabaseClient
             .from('tractaments')
             .select('*')
             .eq('estat', 'actiu')
-            .gte('data', dataInici)
-            .lte('data', dataFinal)
             .order('data', { ascending: false });
- 
+
         tractaments = data || [];
- 
+
         if (!tractaments.length) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hi ha tractaments per la campanya ' + campanya + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hi ha tractaments</td></tr>';
             return;
         }
- 
-        // Agrupació per data + producte + finca + varietat
+
+        // 🔵 AGRUPACIÓ PER DATA + PRODUCTE + FINCA + VARIETAT
         const grups = {};
-        tractaments.forEach(function(t) {
-            const p = parcelles.find(function(pa) { return pa.id === t.parcella_id; });
+
+        tractaments.forEach(t => {
+            const p = parcelles.find(pa => pa.id === t.parcella_id);
             if (!p) return;
+
             const finca = p.finca || 'Sense finca';
             const varietat = p.varietat || 'Sense varietat';
-            const clau = t.data + '|' + t.producte_id + '|' + finca + '|' + varietat;
+
+            const clau = `${t.data}|${t.producte_id}|${finca}|${varietat}`;
+
             if (!grups[clau]) {
                 grups[clau] = {
                     data: t.data,
                     producte_id: t.producte_id,
-                    finca: finca,
-                    varietat: varietat,
+                    finca,
+                    varietat,
                     dosi: t.dosi,
                     unitat: t.unitat,
                     tractaments: []
                 };
             }
+
             grups[clau].tractaments.push(t);
         });
- 
+
         const podeEditar = hasPermission('update');
         const podeEliminar = hasPermission('delete');
+
         let html = '';
- 
-        Object.keys(grups).sort().reverse().forEach(function(clau) {
+
+        Object.keys(grups).sort().reverse().forEach(clau => {
             const g = grups[clau];
-            const producte = fitosanitaris.find(function(f) { return f.id === g.producte_id; });
+            const producte = fitosanitaris.find(f => f.id === g.producte_id);
             const nomProducte = producte ? producte.nom : 'Producte desconegut';
-            const superficieTotal = g.tractaments.reduce(function(sum, t) {
-                return sum + (parseFloat(t.superficie_tractada) || 0);
-            }, 0);
- 
-            html += '<tr>';
-            html += '<td><strong>' + formatData(g.data) + '</strong></td>';
-            html += '<td>' + nomProducte + '</td>';
-            html += '<td>' + g.finca + '</td>';
-            html += '<td>' + g.varietat + '</td>';
-            html += '<td>' + superficieTotal.toFixed(2) + '</td>';
-            html += '<td>' + g.dosi + ' ' + g.unitat + '</td>';
-            html += '<td>';
-            html += '<button class="btn btn-sm btn-primary" onclick="veureTractamentGrup(\'' + clau + '\')">👁️</button>';
-            if (podeEditar) html += ' <button class="btn btn-sm btn-secondary" onclick="editarTractamentGrup(\'' + clau + '\')">✏️</button>';
-            if (podeEliminar) html += ' <button class="btn btn-sm btn-danger" onclick="eliminarTractamentGrup(\'' + clau + '\')">🗑️</button>';
-            html += '</td>';
-            html += '</tr>';
+
+            const superficieTotal = g.tractaments.reduce((sum, t) =>
+                sum + (parseFloat(t.superficie_tractada) || 0), 0);
+
+            html += `
+                <tr>
+                    <td><strong>${formatData(g.data)}</strong></td>
+                    <td>${nomProducte}</td>
+                    <td>${g.finca}</td>
+                    <td>${g.varietat}</td>
+                    <td>${superficieTotal.toFixed(2)}</td>
+                    <td>${g.dosi} ${g.unitat}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="veureTractamentGrup('${clau}')">👁️</button>
+                        ${podeEditar ? `<button class="btn btn-sm btn-secondary" onclick="editarTractamentGrup('${clau}')">✏️</button>` : ''}
+                        ${podeEliminar ? `<button class="btn btn-sm btn-danger" onclick="eliminarTractamentGrup('${clau}')">🗑️</button>` : ''}
+                    </td>
+                </tr>`;
         });
- 
+
         tbody.innerHTML = html;
- 
+
     } catch (error) {
         console.error(error);
         tbody.innerHTML = '<tr><td colspan="7">Error carregant dades</td></tr>';
     }
 }
+
 
 function crearModalTractament() {
     let html = '<div id="modal-tractament" class="modal" style="display: none;">';
@@ -718,8 +611,8 @@ function crearModalTractament() {
     html += '<div id="info-fitosanitari" style="display:none; background: #e8f5e9; padding: 12px; border-radius: 6px; margin-bottom: 15px;"></div>';
     
 	html += '<div class="form-group"><label>Dosi *</label><div style="display: flex; gap: 10px;">';
-	html += '<input type="number" id="tractament-dosi" required min="0" step="0.001" style="flex: 2;" onchange="calcularQuantitatTotal()">';
-	html += '<select id="tractament-unitat" style="flex: 1;" onchange="calcularQuantitatTotal()"><option value="L/Ha">L/Ha</option><option value="kg/Ha">kg/Ha</option></select>';
+	html += '<input type="number" id="tractament-dosi" required min="0" step="0.01" style="flex: 2;" onchange="calcularQuantitatTotal()">';
+	html += '<select id="tractament-unitat" style="flex: 1;" onchange="calcularQuantitatTotal()"><option value="L/Ha">L/Ha</option><option value="kg/Ha">kg/Ha</option><option value="g/Ha">g/Ha</option></select>';
 	html += '</div></div>';
 
 	html += '<div class="form-group"><label>Quantitat Total: <span id="quantitat-total">0</span> <span id="unitat-total">L</span></label></div>';
@@ -819,7 +712,7 @@ function calcularQuantitatTotal() {
     const unitat = document.getElementById('tractament-unitat').value;
     
     const quantitat = superficie * dosi;
-    document.getElementById('quantitat-total').textContent = quantitat.toFixed(3);
+    document.getElementById('quantitat-total').textContent = quantitat.toFixed(2);
     
     const unitatBase = unitat.split('/')[0];
     document.getElementById('unitat-total').textContent = unitatBase;
@@ -997,7 +890,7 @@ async function guardarTractament(event) {
                 maquinaria,
                 condicions_meteo: meteo,
                 observacions,
-                estat: 'actiu',
+                estat: 'actiu'
 				campanya: obtenirCampanya(data),
             };
 
@@ -1098,7 +991,7 @@ async function veureTractamentGrup(clau) {
                 <div><strong>🌱 Varietat:</strong> ${varietat}</div>
                 <div><strong>💧 Dosi:</strong> ${primer.dosi} ${primer.unitat}</div>
                 <div><strong>📏 Superfície total:</strong> ${superficieTotal.toFixed(2)} Ha</div>
-                <div><strong>📦 Quantitat total:</strong> ${quantitatTotal.toFixed(3)} ${unitatBase}</div>
+                <div><strong>📦 Quantitat total:</strong> ${quantitatTotal.toFixed(2)} ${unitatBase}</div>
                 ${primer.data_limit ? `<div><strong>⏰ Data límit:</strong> ${formatData(primer.data_limit)}</div>` : ''}
             </div>
 
@@ -1242,131 +1135,122 @@ async function eliminarTractamentGrup(clau) {
 // VISTA FERTILITZACIONS AMB CRUD
 // ============================================================
 
-// ============================================================
-// FERTILITZACIONS - Substituir carregarVistaFertilitzacions()
-// ============================================================
- 
 async function carregarVistaFertilitzacions() {
     const container = document.getElementById('view-container');
     const podeCrear = hasPermission('insert');
-    const campanyadefecte = getCampanyaDefecte();
- 
+    
     let html = '<div class="view-fertilitzacions">';
-    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">';
-    html += '<h2>🌿 Fertilitzacions</h2>';
-	html += '<div style="display:flex; gap:8px; align-items:center;">';
-	if (podeCrear) {
-    html += '<button class="btn btn-primary" onclick="obrirModalFertilitzacio()">➕ Nova Fertilització</button>';
-	}
-	html += '<button class="btn-recomanacions" onclick="canviarVista(\'fertilitzants\')"><i class="ti ti-chart-bar"></i> Comparador</button>';
-	html += '</div>';
+    
+    // ─────────────────────────────────────────────
+    // BLOC SUPERIOR: Títol + Botó
+    // ─────────────────────────────────────────────
+    html += '<div style="display: flex; justify-content: space-between; margin-bottom: 20px;">';
+    html += '<h2>🌿 Fertilitzacions <span id="campanya-titol"></span></h2>';
+    if (podeCrear) {
+        html += '<button class="btn btn-primary" onclick="obrirModalFertilitzacio()">➕ Nova Fertilització</button>';
+    }
     html += '</div>';
- 
-    // Filtre campanya
-    html += '<div style="margin-bottom:15px; background:#f5f5f5; padding:12px; border-radius:8px; display:flex; align-items:center; gap:10px;">';
-    html += '<label><strong>Campanya:</strong></label>';
-    html += '<select id="filtre-campanya-fertilitzacions" style="padding:6px; border-radius:4px; border:1px solid #ddd;">';
-    [2024, 2025, 2026, 2027].forEach(function(c) {
-        html += '<option value="' + c + '"' + (c === campanyadefecte ? ' selected' : '') + '>' + c + '</option>';
-    });
+
+    // ─────────────────────────────────────────────
+    // ✔ AFEGIT: FILTRE DE CAMPANYA
+    // ─────────────────────────────────────────────
+    html += '<div style="margin-bottom: 15px;">';
+    html += 'Campanya: <select id="filtre-campanya" class="form-control" style="width: 150px; display: inline-block; margin-left: 8px;">';
+    html += '<option value="">Totes</option>';
     html += '</select>';
     html += '</div>';
- 
+    
+    // ─────────────────────────────────────────────
+    // TAULA
+    // ─────────────────────────────────────────────
     html += '<div class="table-container"><table class="data-table">';
     html += '<thead><tr><th>Data</th><th>Producte</th><th>Finca</th><th>Parcel·les</th><th>Superfície (Ha)</th><th>Dosi</th><th>Accions</th></tr></thead>';
     html += '<tbody id="tbody-fertilitzacions"><tr><td colspan="7">Carregant...</td></tr></tbody>';
     html += '</table></div></div>';
- 
+    
     html += crearModalFertilitzacio();
- 
+    
     container.innerHTML = html;
- 
-    document.getElementById('filtre-campanya-fertilitzacions').addEventListener('change', carregarTaulaFertilitzacions);
- 
+
+    // ✔ Carregar campanyes i aplicar filtre
+    await carregarCampanyes();
+    document.getElementById('filtre-campanya').addEventListener('change', carregarTaulaFertilitzacions);
+
     await carregarTaulaFertilitzacions();
 }
- 
-// ============================================================
-// FERTILITZACIONS - Substituir carregarTaulaFertilitzacions()
-// ============================================================
- 
+
+
 async function carregarTaulaFertilitzacions() {
     const tbody = document.getElementById('tbody-fertilitzacions');
     if (!tbody) return;
- 
-    // Llegir campanya seleccionada
-    const campanya = parseInt(document.getElementById('filtre-campanya-fertilitzacions')?.value) || getCampanyaDefecte();
-    const { dataInici, dataFinal } = getDatesCampanya(campanya);
- 
+
     try {
-        // Filtrar per campanya directament a la query
-        const { data, error } = await supabaseClient
-            .from('fertilitzacions')
-            .select('*')
-            .eq('estat', 'actiu')
-            .gte('data', dataInici)
-            .lte('data', dataFinal)
-            .order('data', { ascending: false });
- 
-        if (error) throw error;
-        fertilitzacions = data || [];
- 
+        fertilitzacions = await getFertilitzacions();
+
         if (!fertilitzacions.length) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hi ha fertilitzacions per la campanya ' + campanya + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hi ha fertilitzacions</td></tr>';
             return;
         }
- 
-        // Agrupació per data + producte + finca + varietat
+
+        // 🔵 AGRUPACIÓ PER DATA + PRODUCTE + FINCA + VARIETAT
         const grups = {};
-        fertilitzacions.forEach(function(f) {
-            const p = parcelles.find(function(pa) { return pa.id === f.parcella_id; });
+
+        fertilitzacions.forEach(f => {
+            const p = parcelles.find(pa => pa.id === f.parcella_id);
             if (!p) return;
+
             const finca = p.finca || 'Sense finca';
             const varietat = p.varietat || 'Sense varietat';
-            const clau = f.data + '|' + f.producte_id + '|' + finca + '|' + varietat;
+
+            const clau = `${f.data}|${f.producte_id}|${finca}|${varietat}`;
+
             if (!grups[clau]) {
                 grups[clau] = {
                     data: f.data,
                     producte_id: f.producte_id,
-                    finca: finca,
-                    varietat: varietat,
+                    finca,
+                    varietat,
                     dosi: f.dosi,
                     unitat: f.unitat,
                     fertilitzacions: []
                 };
             }
+
             grups[clau].fertilitzacions.push(f);
         });
- 
+
         const podeEditar = hasPermission('update');
         const podeEliminar = hasPermission('delete');
+
         let html = '';
- 
-        Object.keys(grups).sort().reverse().forEach(function(clau) {
+
+        Object.keys(grups).sort().reverse().forEach(clau => {
             const g = grups[clau];
-            const producte = fertilitzants.find(function(f) { return f.id === g.producte_id; });
+            const producte = fertilitzants.find(f => f.id === g.producte_id);
             const nomProducte = producte ? producte.nom : 'Producte desconegut';
-            const superficieTotal = g.fertilitzacions.reduce(function(sum, f) {
-                return sum + (parseFloat(f.superficie_tractada) || 0);
-            }, 0);
- 
-            html += '<tr>';
-            html += '<td><strong>' + formatData(g.data) + '</strong></td>';
-            html += '<td>' + nomProducte + '</td>';
-            html += '<td>' + g.finca + '</td>';
-            html += '<td>' + g.varietat + '</td>';
-            html += '<td>' + superficieTotal.toFixed(2) + '</td>';
-            html += '<td>' + g.dosi + ' ' + g.unitat + '</td>';
-            html += '<td>';
-            html += '<button class="btn btn-sm btn-primary" onclick="veureFertilitzacioGrup(\'' + clau + '\')">👁️</button>';
-            if (podeEditar) html += ' <button class="btn btn-sm btn-secondary" onclick="editarFertilitzacioGrup(\'' + clau + '\')">✏️</button>';
-            if (podeEliminar) html += ' <button class="btn btn-sm btn-danger" onclick="eliminarFertilitzacioGrup(\'' + clau + '\')">🗑️</button>';
-            html += '</td>';
-            html += '</tr>';
+
+            const superficieTotal = g.fertilitzacions.reduce((sum, f) =>
+                sum + (parseFloat(f.superficie_tractada) || 0), 0
+            );
+
+            html += `
+                <tr>
+                    <td><strong>${formatData(g.data)}</strong></td>
+                    <td>${nomProducte}</td>
+                    <td>${g.finca}</td>
+                    <td>${g.varietat}</td>
+                    <td>${superficieTotal.toFixed(2)}</td>
+                    <td>${g.dosi} ${g.unitat}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="veureFertilitzacioGrup('${clau}')">👁️</button>
+                        ${podeEditar ? `<button class="btn btn-sm btn-secondary" onclick="editarFertilitzacioGrup('${clau}')">✏️</button>` : ''}
+                        ${podeEliminar ? `<button class="btn btn-sm btn-danger" onclick="eliminarFertilitzacioGrup('${clau}')">🗑️</button>` : ''}
+                    </td>
+                </tr>`;
         });
- 
+
         tbody.innerHTML = html;
- 
+
     } catch (error) {
         console.error('Error:', error);
         tbody.innerHTML = '<tr><td colspan="7">Error carregant dades</td></tr>';
@@ -4241,55 +4125,45 @@ document.getElementById('fitxatge-tasca').required = false;
 
 async function carregarVistaInformes() {
     const container = document.getElementById('view-container');
- 
-    const ara = new Date();
-    const mes = ara.getMonth() + 1;
-    const campanyadefecte = mes >= 10 ? ara.getFullYear() + 1 : ara.getFullYear();
- 
+    
+    const anyActual = new Date().getFullYear();
+    
     let html = '<div class="view-informes">';
     html += '<h2>📊 Informes</h2>';
- 
+    
     // BLOC LLIBRE FERTILITZACIONS
     html += '<div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,0.1);margin-bottom:20px;">';
     html += '<h3 style="margin-top:0;">📗 Llibre de Fertilitzacions</h3>';
     html += '<div style="display:flex;gap:15px;align-items:flex-end;flex-wrap:wrap;">';
- 
-    // Selector campanya
-    html += '<div><label>Campanya</label><select id="informe-fert-any" style="padding:8px;border:1px solid #ddd;border-radius:4px;">';
-    [2024, 2025, 2026, 2027].forEach(function(c) {
-        html += '<option value="' + c + '"' + (c === campanyadefecte ? ' selected' : '') + '>' + c + '</option>';
-    });
+    html += '<div><label>Any</label><select id="informe-fert-any" style="padding:8px;border:1px solid #ddd;border-radius:4px;">';
+    for (let a = anyActual; a >= anyActual - 3; a--) {
+        html += '<option value="' + a + '">' + a + '</option>';
+    }
     html += '</select></div>';
- 
-    // Selector finca
     html += '<div><label>Finca</label><select id="informe-fert-finca" style="padding:8px;border:1px solid #ddd;border-radius:4px;min-width:200px;"><option value="">Totes</option>';
     finques.forEach(function(f) { html += '<option value="' + f + '">' + f + '</option>'; });
     html += '</select></div>';
- 
     html += '<button class="btn btn-primary" onclick="generarLlibreFertilitzacions()">📗 Generar Llibre</button>';
     html += '<button class="btn btn-secondary" onclick="exportarLlibreFertilitzacionsCSV()">⬇️ Exportar CSV</button>';
     html += '</div>';
     html += '<div id="taula-llibre-fertilitzacions" style="margin-top:20px;"></div>';
     html += '</div>';
- 
+
     // BLOC DAN
     html += '<div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,0.1);margin-bottom:20px;">';
     html += '<h3 style="margin-top:0;">📋 DAN — Declaració Activitat Notificable</h3>';
     html += '<div style="display:flex;gap:15px;align-items:flex-end;flex-wrap:wrap;">';
- 
-    // Selector campanya
-    html += '<div><label>Campanya</label><select id="informe-dan-any" style="padding:8px;border:1px solid #ddd;border-radius:4px;">';
-    [2024, 2025, 2026, 2027].forEach(function(c) {
-        html += '<option value="' + c + '"' + (c === campanyadefecte ? ' selected' : '') + '>' + c + '</option>';
-    });
+    html += '<div><label>Any</label><select id="informe-dan-any" style="padding:8px;border:1px solid #ddd;border-radius:4px;">';
+    for (let a = anyActual; a >= anyActual - 3; a--) {
+        html += '<option value="' + a + '">' + a + '</option>';
+    }
     html += '</select></div>';
- 
     html += '<button class="btn btn-primary" onclick="generarDAN()">📋 Generar DAN</button>';
     html += '<button class="btn btn-secondary" onclick="exportarDANCSV()">⬇️ Exportar CSV</button>';
     html += '</div>';
     html += '<div id="taula-dan" style="margin-top:20px;"></div>';
     html += '</div>';
- 
+
     // BLOC CONTROL HORARI
     html += '<div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">';
     html += '<h3 style="margin-top:0;">⏱️ Control Horari</h3>';
@@ -4297,90 +4171,76 @@ async function carregarVistaInformes() {
     html += '<div><label>Data Inici</label><input type="date" id="informe-horari-inici" style="padding:8px;border:1px solid #ddd;border-radius:4px;"></div>';
     html += '<div><label>Data Fi</label><input type="date" id="informe-horari-fi" style="padding:8px;border:1px solid #ddd;border-radius:4px;"></div>';
     html += '<button class="btn btn-secondary" onclick="exportarControlHorariLaboral()">📋 Exportar Laboral</button>';
-    html += '<button class="btn btn-secondary" onclick="exportarControlHorariGestio()">📊 Exportar Gestió</button>';
+	html += '<button class="btn btn-secondary" onclick="exportarControlHorariGestio()">📊 Exportar Gestió</button>';
     html += '</div>';
     html += '</div>';
- 
+
     html += '</div>';
     container.innerHTML = html;
 }
- 
-// ============================================================
-// HELPER - Dates per campanya
-// ============================================================
- 
-function getDatesCampanyaInformes(campanya) {
-    return {
-        dataInici: (campanya - 1) + '-10-01',
-        dataFinal: campanya + '-09-30'
-    };
-}
- 
-// ============================================================
-// LLIBRE FERTILITZACIONS
-// ============================================================
- 
+
 async function generarLlibreFertilitzacions() {
-    const campanya = parseInt(document.getElementById('informe-fert-any').value);
+    const any = document.getElementById('informe-fert-any').value;
     const finca = document.getElementById('informe-fert-finca').value;
     const container = document.getElementById('taula-llibre-fertilitzacions');
-    const { dataInici, dataFinal } = getDatesCampanyaInformes(campanya);
- 
+    
     container.innerHTML = '<p>Carregant...</p>';
- 
+    
     try {
         const { data, error } = await supabaseClient
             .from('fertilitzacions')
             .select('*')
-            .gte('data', dataInici)
-            .lte('data', dataFinal)
+            .gte('data', any + '-01-01')
+            .lte('data', any + '-12-31')
             .order('data');
         if (error) throw error;
- 
+
         let registres = data || [];
- 
+        
         if (finca) {
             registres = registres.filter(function(r) {
                 const p = parcelles.find(function(pa) { return pa.id === r.parcella_id; });
                 return p && p.finca === finca;
             });
         }
- 
+
         if (registres.length === 0) {
-            container.innerHTML = '<p style="color:#999;">No hi ha fertilitzacions per la campanya ' + campanya + '</p>';
+            container.innerHTML = '<p style="color:#999;">No hi ha fertilitzacions per aquest any/finca</p>';
             return;
         }
- 
+
         let html = '<div class="table-container"><table class="data-table">';
         html += '<thead><tr>';
         html += '<th>Data</th><th>Finca</th><th>Parcel·la</th><th>SIGPAC</th><th>Cultiu</th><th>Varietat</th>';
         html += '<th>Sup. (Ha)</th><th>Producte</th><th>Tipus</th><th>Dosi</th><th>Unitat</th>';
         html += '<th>Qtitat Total</th><th>N (kg)</th><th>P (kg)</th><th>K (kg)</th><th>Mètode</th><th>Operador</th>';
         html += '</tr></thead><tbody>';
- 
+
         let totalN = 0, totalP = 0, totalK = 0, totalSup = 0;
- 
+
         registres.forEach(function(r) {
             const p = parcelles.find(function(pa) { return pa.id === r.parcella_id; });
             const prod = fertilitzants.find(function(f) { return f.id === r.producte_id; });
- 
+            
             const fincaNom = p ? (p.finca || '-') : '-';
             const parcellaNom = p ? (p.nom || '-') : '-';
             const sigpac = p ? (p.sigpac || '-') : '-';
             const cultiu = p ? (p.cultiu || '-') : '-';
             const varietat = p ? (p.varietat || '-') : '-';
             const sup = parseFloat(r.superficie_tractada) || 0;
+            const nomProd = prod ? prod.nom : '-';
+            const tipusProd = prod ? (prod.tipus || '-') : '-';
             const dosi = parseFloat(r.dosi) || 0;
-            const usTotal = dosi * sup;
-            const nKg = prod ? (parseFloat(prod.n) || 0) * usTotal / 100 : 0;
-            const pKg = prod ? (parseFloat(prod.p) || 0) * usTotal / 100 : 0;
-            const kKg = prod ? (parseFloat(prod.k) || 0) * usTotal / 100 : 0;
- 
+			const usTotal = dosi * sup;
+			const nKg = prod ? (parseFloat(prod.n) || 0) * usTotal / 100 : 0;
+			const pKg = prod ? (parseFloat(prod.p) || 0) * usTotal / 100 : 0;
+			const kKg = prod ? (parseFloat(prod.k) || 0) * usTotal / 100 : 0;
+
             totalN += nKg;
             totalP += pKg;
             totalK += kKg;
             totalSup += sup;
- 
+
             html += '<tr>';
             html += '<td>' + formatData(r.data) + '</td>';
             html += '<td>' + fincaNom + '</td>';
@@ -4389,8 +4249,8 @@ async function generarLlibreFertilitzacions() {
             html += '<td>' + cultiu + '</td>';
             html += '<td>' + varietat + '</td>';
             html += '<td>' + sup.toFixed(2) + '</td>';
-            html += '<td>' + (prod ? prod.nom : '-') + '</td>';
-            html += '<td>' + (prod ? (prod.tipus || '-') : '-') + '</td>';
+            html += '<td>' + nomProd + '</td>';
+            html += '<td>' + tipusProd + '</td>';
             html += '<td>' + (r.dosi || '-') + '</td>';
             html += '<td>' + (r.unitat || '-') + '</td>';
             html += '<td>' + usTotal.toFixed(2) + '</td>';
@@ -4401,8 +4261,7 @@ async function generarLlibreFertilitzacions() {
             html += '<td>' + (r.operador || '-') + '</td>';
             html += '</tr>';
         });
- 
-        // Fila totals
+
         html += '<tr style="background:#f1f8e9;font-weight:bold;">';
         html += '<td colspan="6"><strong>TOTALS</strong></td>';
         html += '<td>' + totalSup.toFixed(2) + '</td>';
@@ -4412,29 +4271,28 @@ async function generarLlibreFertilitzacions() {
         html += '<td>' + totalK.toFixed(2) + '</td>';
         html += '<td colspan="2"></td>';
         html += '</tr>';
- 
+
         html += '</tbody></table></div>';
-        html += '<p style="color:#999;font-size:12px;margin-top:8px;">' + registres.length + ' registres — Campanya ' + campanya + ' (' + dataInici + ' → ' + dataFinal + ')</p>';
+        html += '<p style="color:#999;font-size:12px;margin-top:8px;">' + registres.length + ' registres — Any ' + any + '</p>';
         container.innerHTML = html;
- 
+
     } catch (error) {
         container.innerHTML = '<p style="color:red;">Error: ' + error.message + '</p>';
     }
 }
- 
+
 async function exportarLlibreFertilitzacionsCSV() {
-    const campanya = parseInt(document.getElementById('informe-fert-any').value);
+    const any = document.getElementById('informe-fert-any').value;
     const finca = document.getElementById('informe-fert-finca').value;
-    const { dataInici, dataFinal } = getDatesCampanyaInformes(campanya);
- 
+
     const { data, error } = await supabaseClient
         .from('fertilitzacions')
         .select('*')
-        .gte('data', dataInici)
-        .lte('data', dataFinal)
+        .gte('data', any + '-01-01')
+        .lte('data', any + '-12-31')
         .order('data');
     if (error) { mostrarNotificacio('Error: ' + error.message, 'error'); return; }
- 
+
     let registres = data || [];
     if (finca) {
         registres = registres.filter(function(r) {
@@ -4442,11 +4300,11 @@ async function exportarLlibreFertilitzacionsCSV() {
             return p && p.finca === finca;
         });
     }
- 
+
     if (registres.length === 0) { mostrarNotificacio('No hi ha dades per exportar', 'error'); return; }
- 
+
     let csv = 'Data;Finca;Parcel·la;SIGPAC;Cultiu;Varietat;Superfície (Ha);Producte;Tipus;Dosi;Unitat;Quantitat Total;N (kg);P (kg);K (kg);Mètode;Operador\n';
- 
+
     registres.forEach(function(r) {
         const p = parcelles.find(function(pa) { return pa.id === r.parcella_id; });
         const prod = fertilitzants.find(function(f) { return f.id === r.producte_id; });
@@ -4456,7 +4314,6 @@ async function exportarLlibreFertilitzacionsCSV() {
         const nKg = prod ? (parseFloat(prod.n) || 0) * usTotal / 100 : 0;
         const pKg = prod ? (parseFloat(prod.p) || 0) * usTotal / 100 : 0;
         const kKg = prod ? (parseFloat(prod.k) || 0) * usTotal / 100 : 0;
- 
         csv += [
             r.data,
             p ? (p.finca || '') : '',
@@ -4477,44 +4334,39 @@ async function exportarLlibreFertilitzacionsCSV() {
             r.operador || ''
         ].join(';') + '\n';
     });
- 
+
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'llibre_fertilitzacions_campanya_' + campanya + (finca ? '_' + finca : '') + '.csv';
+    a.download = 'llibre_fertilitzacions_' + any + (finca ? '_' + finca : '') + '.csv';
     a.click();
     URL.revokeObjectURL(url);
     mostrarNotificacio('✅ Exportació completada', 'success');
 }
- 
-// ============================================================
-// DAN
-// ============================================================
- 
+
 async function generarDAN() {
-    const campanya = parseInt(document.getElementById('informe-dan-any').value);
+    const any = document.getElementById('informe-dan-any').value;
     const container = document.getElementById('taula-dan');
-    const { dataInici, dataFinal } = getDatesCampanyaInformes(campanya);
- 
+    
     container.innerHTML = '<p>Carregant...</p>';
- 
+    
     try {
         const { data, error } = await supabaseClient
             .from('tractaments')
             .select('*')
-            .gte('data', dataInici)
-            .lte('data', dataFinal)
+            .gte('data', any + '-01-01')
+            .lte('data', any + '-12-31')
             .order('data');
         if (error) throw error;
- 
+
         const registres = data || [];
- 
+
         if (registres.length === 0) {
-            container.innerHTML = '<p style="color:#999;">No hi ha tractaments per la campanya ' + campanya + '</p>';
+            container.innerHTML = '<p style="color:#999;">No hi ha tractaments per aquest any</p>';
             return;
         }
- 
+
         let html = '<div class="table-container"><table class="data-table">';
         html += '<thead><tr>';
         html += '<th>Data</th><th>Finca</th><th>Parcel·la</th><th>SIGPAC</th><th>Cultiu</th><th>Varietat</th>';
@@ -4522,33 +4374,43 @@ async function generarDAN() {
         html += '<th>Tipus</th><th>Dosi</th><th>Unitat</th><th>Qtitat Total</th>';
         html += '<th>Data Límit</th><th>Operador</th><th>Maquinària</th>';
         html += '</tr></thead><tbody>';
- 
+
         let totalSup = 0;
- 
+
         registres.forEach(function(r) {
             const p = parcelles.find(function(pa) { return pa.id === r.parcella_id; });
             const prod = fitosanitaris.find(function(f) { return f.id === r.producte_id; });
- 
+            
+            const fincaNom = p ? (p.finca || '-') : '-';
+            const parcellaNom = p ? (p.nom || '-') : '-';
+            const sigpac = p ? (p.sigpac || '-') : '-';
+            const cultiu = p ? (p.cultiu || '-') : '-';
+            const varietat = p ? (p.varietat || '-') : '-';
             const sup = parseFloat(r.superficie_tractada) || 0;
             const dosi = parseFloat(r.dosi) || 0;
             const quantitatTotal = dosi * sup;
+            const nomProd = prod ? prod.nom : '-';
             const registreMAPA = prod ? (prod.registre || '⚠️ Pendent') : '-';
-            const registreStyle = (!prod || !prod.registre) ? 'color:red;font-weight:bold;' : '';
- 
+            const materiaActiva = prod ? (prod.materia_activa || '-') : '-';
+            const tipusProd = prod ? (prod.tipus || '-') : '-';
+
             totalSup += sup;
- 
+
+            // Alerta si falta nº registre
+            const registreStyle = (!prod || !prod.registre) ? 'color:red;font-weight:bold;' : '';
+
             html += '<tr>';
             html += '<td>' + formatData(r.data) + '</td>';
-            html += '<td>' + (p ? (p.finca || '-') : '-') + '</td>';
-            html += '<td>' + (p ? (p.nom || '-') : '-') + '</td>';
-            html += '<td>' + (p ? (p.sigpac || '-') : '-') + '</td>';
-            html += '<td>' + (p ? (p.cultiu || '-') : '-') + '</td>';
-            html += '<td>' + (p ? (p.varietat || '-') : '-') + '</td>';
+            html += '<td>' + fincaNom + '</td>';
+            html += '<td>' + parcellaNom + '</td>';
+            html += '<td>' + sigpac + '</td>';
+            html += '<td>' + cultiu + '</td>';
+            html += '<td>' + varietat + '</td>';
             html += '<td>' + sup.toFixed(2) + '</td>';
-            html += '<td>' + (prod ? prod.nom : '-') + '</td>';
+            html += '<td>' + nomProd + '</td>';
             html += '<td style="' + registreStyle + '">' + registreMAPA + '</td>';
-            html += '<td>' + (prod ? (prod.materia_activa || '-') : '-') + '</td>';
-            html += '<td>' + (prod ? (prod.tipus || '-') : '-') + '</td>';
+            html += '<td>' + materiaActiva + '</td>';
+            html += '<td>' + tipusProd + '</td>';
             html += '<td>' + dosi + '</td>';
             html += '<td>' + (r.unitat || '-') + '</td>';
             html += '<td>' + quantitatTotal.toFixed(2) + '</td>';
@@ -4557,54 +4419,55 @@ async function generarDAN() {
             html += '<td>' + (r.maquinaria || '-') + '</td>';
             html += '</tr>';
         });
- 
+
         html += '<tr style="background:#e8f5e9;font-weight:bold;">';
         html += '<td colspan="6"><strong>TOTALS</strong></td>';
         html += '<td>' + totalSup.toFixed(2) + '</td>';
         html += '<td colspan="10"></td>';
         html += '</tr>';
+
         html += '</tbody></table></div>';
- 
+        
+        // Avisar si hi ha productes sense nº registre
         const senseRegistre = registres.filter(function(r) {
             const prod = fitosanitaris.find(function(f) { return f.id === r.producte_id; });
             return !prod || !prod.registre;
         });
         if (senseRegistre.length > 0) {
-            html += '<p style="color:red;font-weight:bold;">⚠️ ' + senseRegistre.length + ' registre/s sense nº de registre MAPA</p>';
+            html += '<p style="color:red;font-weight:bold;">⚠️ ' + senseRegistre.length + ' registre/s sense nº de registre MAPA — cal completar abans de presentar la DAN</p>';
         }
- 
-        html += '<p style="color:#999;font-size:12px;margin-top:8px;">' + registres.length + ' registres — Campanya ' + campanya + ' (' + dataInici + ' → ' + dataFinal + ')</p>';
+        
+        html += '<p style="color:#999;font-size:12px;margin-top:8px;">' + registres.length + ' registres — Any ' + any + '</p>';
         container.innerHTML = html;
- 
+
     } catch (error) {
         container.innerHTML = '<p style="color:red;">Error: ' + error.message + '</p>';
     }
 }
- 
+
 async function exportarDANCSV() {
-    const campanya = parseInt(document.getElementById('informe-dan-any').value);
-    const { dataInici, dataFinal } = getDatesCampanyaInformes(campanya);
- 
+    const any = document.getElementById('informe-dan-any').value;
+
     const { data, error } = await supabaseClient
         .from('tractaments')
         .select('*')
-        .gte('data', dataInici)
-        .lte('data', dataFinal)
+        .gte('data', any + '-01-01')
+        .lte('data', any + '-12-31')
         .order('data');
     if (error) { mostrarNotificacio('Error: ' + error.message, 'error'); return; }
- 
+
     const registres = data || [];
     if (registres.length === 0) { mostrarNotificacio('No hi ha dades per exportar', 'error'); return; }
- 
+
     let csv = 'Data;Finca;Parcel·la;SIGPAC;Cultiu;Varietat;Superfície (Ha);Producte;Nº Registre MAPA;Matèria Activa;Tipus;Dosi;Unitat;Quantitat Total;Data Límit PLAC;Operador;Maquinària\n';
- 
+
     registres.forEach(function(r) {
         const p = parcelles.find(function(pa) { return pa.id === r.parcella_id; });
         const prod = fitosanitaris.find(function(f) { return f.id === r.producte_id; });
         const sup = parseFloat(r.superficie_tractada) || 0;
         const dosi = parseFloat(r.dosi) || 0;
         const quantitatTotal = dosi * sup;
- 
+
         csv += [
             r.data,
             p ? (p.finca || '') : '',
@@ -4625,12 +4488,12 @@ async function exportarDANCSV() {
             r.maquinaria || ''
         ].join(';') + '\n';
     });
- 
+
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'DAN_campanya_' + campanya + '.csv';
+    a.download = 'DAN_tractaments_' + any + '.csv';
     a.click();
     URL.revokeObjectURL(url);
     mostrarNotificacio('✅ DAN exportada correctament', 'success');
@@ -5311,317 +5174,6 @@ async function eliminarGasoil(id) {
     }
 }
 
-async function carregarVistaReg() {
-    const container = document.getElementById('view-container');
-    
-    let html = '<div class="view-reg">';
-    html += '<div style="display:flex;justify-content:space-between;margin-bottom:20px;">';
-    html += '<h2>💧 Reg — Consums</h2>';
-    html += '<button class="btn btn-primary" onclick="document.getElementById(\'input-excel-reg\').click()">📥 Importar Excel</button>';
-    html += '<button class="btn btn-secondary" onclick="obrirModalRegManual()">➕ Nou Registre</button>';
-    html += '<button class="btn btn-info" onclick="mostrarRecomanacionsReg()">🌡️ Recomanacions</button>';
-    html += '<input type="file" id="input-excel-reg" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importarExcelReg(event)">';
-    html += '</div>';
-
-    // ✅ RECOMANACIONS AQUÍ - just després dels botons
-    html += '<div id="reg-recomanacions" style="display:none; margin-bottom:20px;"></div>';
-    
-    html += '<div style="background:#e3f2fd;padding:15px;border-radius:8px;margin-bottom:20px;">';
-    html += '<p style="margin:0;font-size:13px;">📋 Format Excel esperat: <strong>EXPLOTACIÓ | DATA | CONSUM (m3)</strong></p>';
-    html += '</div>';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;margin-bottom:20px;">';
-    html += '<div><label>Any</label><select id="reg-filtre-any" onchange="carregarTaulaReg()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">';
-    const anyActual = new Date().getFullYear();
-    for (let a = anyActual; a >= anyActual - 3; a--) {
-        html += '<option value="' + a + '">' + a + '</option>';
-    }
-    html += '</select></div>';
-    html += '<div><label>Mes</label><select id="reg-filtre-mes" onchange="carregarTaulaReg()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">';
-    html += '<option value="">Tots</option>';
-    const mesos = ['Gener','Febrer','Març','Abril','Maig','Juny','Juliol','Agost','Setembre','Octubre','Novembre','Desembre'];
-    mesos.forEach(function(m, i) {
-        html += '<option value="' + String(i+1).padStart(2,'0') + '">' + m + '</option>';
-    });
-    html += '</select></div>';
-    html += '<div><label>Explotació</label><select id="reg-filtre-explotacio" onchange="carregarTaulaReg()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"><option value="">Totes</option></select></div>';
-    html += '</div>';
-    html += '<div id="resum-reg" style="margin-bottom:20px;"></div>';
-    html += '<div class="table-container"><table class="data-table">';
-    html += '<thead><tr><th>Data</th><th>Explotació</th><th>Finca</th><th>Consum (m3)</th><th>Accions</th></tr></thead>';
-    html += '<tbody id="tbody-reg"><tr><td colspan="5">Carregant...</td></tr></tbody>';
-    html += '</table></div></div>';
-    
-    container.innerHTML = html;
-    await carregarFiltreExplotacions();
-    await carregarTaulaReg();
-}
-
-
-
-async function carregarFiltreExplotacions() {
-    const select = document.getElementById('reg-filtre-explotacio');
-    if (!select) return;
-    const explotsUniques = parcelles.filter(function(p) { return p.num_explotacio; });
-    const vistes = {};
-    explotsUniques.forEach(function(p) {
-        if (!vistes[p.num_explotacio]) {
-            vistes[p.num_explotacio] = p.finca || p.num_explotacio;
-        }
-    });
-    Object.keys(vistes).sort().forEach(function(e) {
-        select.innerHTML += '<option value="' + e + '">' + e + ' — ' + vistes[e] + '</option>';
-    });
-}
-
-let regConfigCache = null;
-
-async function carregarTaulaReg() {
-    const tbody = document.getElementById('tbody-reg');
-    if (!tbody) return;
-    
-    if (!regConfigCache) {
-        regConfigCache = await getRegConfiguracio();
-    }
-    const regConfig = regConfigCache;
-	const any = parseInt(document.getElementById('reg-filtre-any')?.value) || null;
-    const mes = parseInt(document.getElementById('reg-filtre-mes')?.value) || null;
-    const explotacio = document.getElementById('reg-filtre-explotacio')?.value || null;
-
-    try {
-        const { data, error } = await supabaseClient
-            .rpc('resum_reg_mensual', { 
-                p_any: any, 
-                p_mes: mes, 
-                p_explotacio: explotacio 
-            });
-        if (error) throw error;
-
-        const registres = data || [];
-
-        if (registres.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No hi ha registres</td></tr>';
-            document.getElementById('resum-reg').innerHTML = '';
-            return;
-        }
-
-        // Resum total
-        const totalM3 = registres.reduce(function(sum, r) { return sum + (parseFloat(r.total_m3) || 0); }, 0);
-        document.getElementById('resum-reg').innerHTML = 
-            '<div style="background:#e3f2fd;padding:12px;border-radius:8px;display:inline-block;">' +
-            '💧 Total consum: <strong>' + totalM3.toFixed(2) + ' m³</strong>' +
-            '</div>';
-
-        // Actualitzar capçalera taula
-        document.querySelector('#tbody-reg').closest('table').querySelector('thead tr').innerHTML = 
-            '<th>Mes</th><th>Explotació</th><th>Finca</th><th>Total m³</th><th>Dies amb consum</th><th>Detall</th>';
-
-        tbody.innerHTML = registres.map(function(r) {
-            const configFinca = regConfig.find(function(c) { return c.num_explotacio === r.num_explotacio; });
-			const nomFinca = configFinca ? configFinca.nom_finca : r.num_explotacio;	
-            const data = new Date(r.mes);
-            const mesNom = data.toLocaleString('ca-ES', { month: 'long', year: 'numeric' });
-            
-            return '<tr>' +
-                '<td><strong>' + mesNom + '</strong></td>' +
-                '<td>' + r.num_explotacio + '</td>' +
-                '<td>' + nomFinca + '</td>' +
-                '<td><strong>' + parseFloat(r.total_m3).toFixed(2) + ' m³</strong></td>' +
-                '<td>' + r.dies_amb_consum + ' / ' + r.dies_totals + ' dies</td>' +
-                '<td><button class="btn btn-sm btn-primary" onclick="veurDetallReg(\'' + r.num_explotacio + '\',\'' + r.mes + '\')">👁️</button></td>' +
-                '</tr>';
-        }).join('');
-
-    } catch (error) {
-        tbody.innerHTML = '<tr><td colspan="6">Error: ' + error.message + '</td></tr>';
-    }
-}
-
-async function veurDetallReg(numExplotacio, mes) {
-    const dataInici = mes.split('T')[0].substring(0, 7) + '-01';
-    const ultimDia = new Date(new Date(mes).getFullYear(), new Date(mes).getMonth() + 1, 0).getDate();
-    const dataFi = mes.split('T')[0].substring(0, 7) + '-' + String(ultimDia).padStart(2, '0');
-
-    const { data, error } = await supabaseClient
-        .from('reg')
-        .select('*')
-        .eq('num_explotacio', numExplotacio)
-        .gte('data', dataInici)
-        .lte('data', dataFi)
-        .order('data');
-
-    if (error) { mostrarNotificacio('Error: ' + error.message, 'error'); return; }
-
-    const parcella = parcelles.find(function(p) { return p.num_explotacio === numExplotacio; });
-    const nomFinca = parcella ? parcella.finca : numExplotacio;
-
-    let html = '<div id="modal-detall-reg" class="modal" style="display:block;">';
-    html += '<div class="modal-content" style="max-width:600px;">';
-    html += '<span class="close" onclick="document.getElementById(\'modal-detall-reg\').remove()">&times;</span>';
-    html += '<h2>💧 Detall Reg — ' + nomFinca + '</h2>';
-    html += '<p style="color:#999;">' + numExplotacio + ' — ' + new Date(mes).toLocaleString('ca-ES', {month:'long', year:'numeric'}) + '</p>';
-    html += '<table class="data-table"><thead><tr><th>Data</th><th>Consum (m³)</th></tr></thead><tbody>';
-    
-    data.forEach(function(r) {
-        const estil = parseFloat(r.consum_m3) > 0 ? 'background:#e3f2fd;font-weight:bold;' : '';
-        html += '<tr style="' + estil + '"><td>' + formatData(r.data) + '</td><td>' + (parseFloat(r.consum_m3) || 0).toFixed(2) + '</td></tr>';
-    });
-    
-    html += '</tbody></table></div></div>';
-    document.body.insertAdjacentHTML('beforeend', html);
-}
-
-async function eliminarReg(id) {
-    if (!confirm('Segur que vols eliminar aquest registre?')) return;
-    try {
-        const { error } = await supabaseClient.from('reg').delete().eq('id', id);
-        if (error) throw error;
-        mostrarNotificacio('Registre eliminat', 'success');
-        await carregarTaulaReg();
-    } catch (error) {
-        mostrarNotificacio('Error: ' + error.message, 'error');
-    }
-}
-
-function obrirModalRegManual() {
-    let modal = document.getElementById('modal-reg-manual');
-    if (!modal) {
-        const div = document.createElement('div');
-        div.innerHTML = 
-            '<div id="modal-reg-manual" class="modal" style="display:none;">' +
-            '<div class="modal-content" style="max-width:450px;">' +
-            '<span class="close" onclick="tancarModal(\'modal-reg-manual\')">&times;</span>' +
-            '<h2>➕ Nou Registre Reg</h2>' +
-            '<form id="form-reg-manual" onsubmit="guardarRegManual(event)">' +
-            '<div class="form-group"><label>Explotació *</label>' +
-            '<select id="reg-manual-explotacio" required>' +
-            '<option value="">Seleccionar...</option>' +
-            (function() {
-                const vistes = {};
-                parcelles.filter(function(p) { return p.num_explotacio; }).forEach(function(p) {
-                    if (!vistes[p.num_explotacio]) vistes[p.num_explotacio] = p.finca || p.num_explotacio;
-                });
-                return Object.keys(vistes).sort().map(function(e) {
-                    return '<option value="' + e + '">' + e + ' — ' + vistes[e] + '</option>';
-                }).join('');
-            })() +
-            '</select></div>' +
-            '<div class="form-group"><label>Data *</label><input type="date" id="reg-manual-data" required value="' + new Date().toISOString().split('T')[0] + '"></div>' +
-            '<div class="form-group"><label>Consum (m³) *</label><input type="number" id="reg-manual-consum" required min="0" step="0.01"></div>' +
-            '<div class="form-actions">' +
-            '<button type="button" class="btn btn-secondary" onclick="tancarModal(\'modal-reg-manual\')">Cancel·lar</button>' +
-            '<button type="submit" class="btn btn-primary">Guardar</button>' +
-            '</div></form></div></div>';
-        document.body.appendChild(div.firstElementChild);
-        modal = document.getElementById('modal-reg-manual');
-    }
-    modal.style.display = 'block';
-}
-
-async function guardarRegManual(event) {
-    event.preventDefault();
-    const dades = {
-        num_explotacio: document.getElementById('reg-manual-explotacio').value,
-        data: document.getElementById('reg-manual-data').value,
-        consum_m3: parseFloat(document.getElementById('reg-manual-consum').value),
-        creat_per: currentUser ? currentUser.id : null
-    };
-    try {
-        const { error } = await supabaseClient.from('reg').insert([dades]);
-        if (error) throw error;
-        mostrarNotificacio('✅ Registre afegit correctament', 'success');
-        tancarModal('modal-reg-manual');
-        await carregarTaulaReg();
-    } catch (error) {
-        mostrarNotificacio('Error: ' + error.message, 'error');
-    }
-}
-
-async function importarExcelReg(event) {
-    const fitxer = event.target.files[0];
-    if (!fitxer) return;
-
-    mostrarNotificacio('📥 Llegint fitxer...', 'info');
-
-const reader = new FileReader();
-reader.onload = async function(e) {
-    try {
-        const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        
-        // Forçar rang complet
-        const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1:C1000');
-        range.e.r = 10000;
-        sheet['!ref'] = XLSX.utils.encode_range(range);
-        
-        const files = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
-
-            // Saltar capçalera
-            const registres = [];
-            for (let i = 1; i < files.length; i++) {
-                const fila = files[i];
-                if (!fila || fila.length < 3) continue;
-
-                const numExplotacio = String(fila[0] || '').trim();
-                let data = fila[1];
-                const consumM3 = parseFloat(fila[2]) || 0;
-
-                if (!numExplotacio) { console.log('Saltant fila ' + i + ' - sense explotació:', fila); continue; }
-				if (!data) { console.log('Saltant fila ' + i + ' - sense data:', fila); continue; }
-
-                // Convertir data
-                if (data instanceof Date) {
-                    data = data.toISOString().split('T')[0];
-                } else if (typeof data === 'string') {
-                    // Format DD/MM/YYYY
-                    const parts = data.split('/');
-                    if (parts.length === 3) {
-                        data = parts[2] + '-' + parts[1].padStart(2,'0') + '-' + parts[0].padStart(2,'0');
-                    }
-                } else if (typeof data === 'number') {
-                    // Excel serial date
-                    const d = new Date((data - 25569) * 86400 * 1000);
-                    data = d.toISOString().split('T')[0];
-                }
-
-                registres.push({
-                    num_explotacio: numExplotacio,
-                    data: data,
-                    consum_m3: consumM3,
-                    creat_per: currentUser ? currentUser.id : null
-                });
-            }
-
-            if (registres.length === 0) {
-                mostrarNotificacio('No s\'han trobat registres al fitxer', 'error');
-                return;
-            }
-
-            // Insertar a BD
-            // Esborrar registres existents per les mateixes dates i explotació
-			const numExplotacio = registres[0].num_explotacio;
-			const dataMin = registres.reduce((min, r) => r.data < min ? r.data : min, registres[0].data);
-			const dataMax = registres.reduce((max, r) => r.data > max ? r.data : max, registres[0].data);
-			
-			await supabaseClient.from('reg')
-				.delete()
-				.eq('num_explotacio', numExplotacio)
-				.gte('data', dataMin)
-				.lte('data', dataMax);
-
-			const { error } = await supabaseClient.from('reg').insert(registres);
-            if (error) throw error;
-
-            mostrarNotificacio('✅ Importats ' + registres.length + ' registres correctament', 'success');
-            event.target.value = '';
-            await carregarTaulaReg();
-
-        } catch (error) {
-            console.error('Error importació:', error);
-            mostrarNotificacio('Error: ' + error.message, 'error');
-        }
-    };
-    reader.readAsArrayBuffer(fitxer);
-}
 
 async function guardarFitxatgeTreballador(event) {
     event.preventDefault();

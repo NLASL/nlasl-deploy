@@ -8,7 +8,6 @@
 
     <link rel="icon" type="image/png" href="/logo-nlasl.png">
     <link rel="stylesheet" href="/styles.css">
-	<link rel="stylesheet" href="/agroseguro-styles.css">
 </head>
 
 <body>
@@ -88,40 +87,25 @@
     </div>
 
     <div class="nav-group">
-    <button class="nav-btn nav-group-btn" onclick="toggleSubmenu('consums')">📦 Consums ▾</button>
-    <div id="submenu-consums" class="submenu" style="display:none;">
-        
-        <!-- COLLITA SUBMENU -->
-        <!-- VOLVER A BOTÓN SIMPLE -->
-		<button class="nav-btn submenu-btn" onclick="canviarVista('collita'); tancarSubmenus();" data-view="collita">🍎 Collita</button>
-        
-        <button class="nav-btn submenu-btn" onclick="canviarVista('reg');tancarSubmenus();" data-view="reg">💧 Reg</button>
-        <button class="nav-btn submenu-btn" onclick="canviarVista('gasoil');tancarSubmenus();" data-view="gasoil">⛽ Gasoil</button>
-        <button class="nav-btn submenu-btn" onclick="canviarVista('compres');tancarSubmenus();" data-view="compres">🛒 Compres</button>
-        <button class="nav-btn submenu-btn" onclick="canviarVista('existencies');tancarSubmenus();" data-view="existencies">📦 Existències</button>
-		<button class="nav-btn submenu-btn" onclick="canviarVista('assegurances');tancarSubmenus();" data-view="assegurances">🛡️ Assegurances</button>
-    </div>
-</div>
-
-   <div class="nav-group">
-    <button class="nav-btn nav-group-btn" onclick="toggleSubmenu('gestio')">⚙️ Gestió ▾</button>
-    <div id="submenu-gestio" class="submenu" style="display:none;">
-        <button class="nav-btn submenu-btn" onclick="canviarVista('treballadors');tancarSubmenus();" data-view="treballadors">👥 Treballadors</button>
-        <button class="nav-btn submenu-btn" onclick="canviarVista('productes');tancarSubmenus();" data-view="productes">📦 Productes</button>
-        <button class="nav-btn submenu-btn" onclick="canviarVista('parcelles');tancarSubmenus();" data-view="parcelles">🗺️ Parcel·les</button>
-        <button class="nav-btn submenu-btn" onclick="canviarVista('informes');tancarSubmenus();" data-view="informes">📊 Informes</button>
-		<button class="nav-btn submenu-btn" onclick="canviarVista('contactes');tancarSubmenus();" data-view="contactes">📞 Contactes</button>
-        
-        <!-- ✅ SUBMENU ADMIN -->
-        <div class="nav-group" style="border-top: 1px solid #ddd; padding-top: 10px; margin-top: 10px;">
-            <button class="nav-btn nav-group-btn submenu-btn" style="font-size: 12px;" onclick="toggleSubmenu('admin')">🔧 Admin ▾</button>
-            <div id="submenu-admin" class="submenu" style="display:none; margin-left: 10px;">
-                <button class="nav-btn submenu-btn" onclick="mostrarVistaBestreta();tancarSubmenus();" data-view="bestreta">💰 Gestió Bestretes</button>
-                <button class="nav-btn submenu-btn" onclick="obrirModalGestioAccessos();tancarSubmenus();" data-view="accessos">🔐 Gestió d'Accessos</button>
-            </div>
+        <button class="nav-btn nav-group-btn" onclick="toggleSubmenu('consums')">📦 Consums ▾</button>
+        <div id="submenu-consums" class="submenu" style="display:none;">
+            <button class="nav-btn submenu-btn" onclick="canviarVista('collita');tancarSubmenus();" data-view="collita">🍎 Collita</button>
+            <button class="nav-btn submenu-btn" onclick="canviarVista('reg');tancarSubmenus();" data-view="reg">💧 Reg</button>
+            <button class="nav-btn submenu-btn" onclick="canviarVista('gasoil');tancarSubmenus();" data-view="gasoil">⛽ Gasoil</button>
+            <button class="nav-btn submenu-btn" onclick="canviarVista('compres');tancarSubmenus();" data-view="compres">🛒 Compres</button>
+			<button class="nav-btn submenu-btn" onclick="canviarVista('existencies');tancarSubmenus();" data-view="existencies">📦 Existències</button>
         </div>
     </div>
-</div>
+
+    <div class="nav-group">
+        <button class="nav-btn nav-group-btn" onclick="toggleSubmenu('gestio')">⚙️ Gestió ▾</button>
+        <div id="submenu-gestio" class="submenu" style="display:none;">
+            <button class="nav-btn submenu-btn" onclick="canviarVista('treballadors');tancarSubmenus();" data-view="treballadors">👥 Treballadors</button>
+            <button class="nav-btn submenu-btn" onclick="canviarVista('productes');tancarSubmenus();" data-view="productes">📦 Productes</button>
+            <button class="nav-btn submenu-btn" onclick="canviarVista('parcelles');tancarSubmenus();" data-view="parcelles">🗺️ Parcel·les</button>
+			<button class="nav-btn submenu-btn" onclick="canviarVista('informes');tancarSubmenus();" data-view="informes">📊 Informes</button>
+        </div>
+    </div>
 </nav>
         
         <main class="main-content">
@@ -138,37 +122,25 @@
     <!-- SCRIPTS -->
     <!-- ============================================ -->
     <!-- Supabase JS v2 -->
-	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-	<!-- Llibreries externes -->
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.0.0/fuse.min.js"></script>
-
-	<!-- Client Supabase -->
-	<script src="/supabase-client.v5.js"></script>
-
-	<!-- Mòduls (independents entre ells) -->
-	<script src="/collita.v1.js"></script>
-	<script src="/collita-ui.v1.js"></script>
-	<script src="/horari-extensions.v1.js"></script>
-	<script src="/admin-panel.v1.js"></script>
-	<script src="/admin-panel-bestreta-extension.js"></script>
-	<script src="/preus.v1.js"></script>
-	<script src="/veu.v1.js"></script>
-	<script src="/reg_v1.js"></script>
-	<script src="/existencies.v1.js"></script>
-	<script src="/fertilitzants_v1.js"></script>
-	<script src="/fertilitzants-ui_v1.js"></script>
-	<script src="/fertilitzants-tecnics-ui_v1.js"></script>
-	<script src="/agroseguro-ui_v1.js"></script>
-	<script src="/agroseguro-modals_v1.js"></script> 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 	
 
-	<!-- App principal AL FINAL (depèn de tots els anteriors) -->
-	<script src="/app_v8.js"></script>
-	<script src="/contactes.v1.js"></script>
-	<!-- Auth sempre al final -->
-	<script src="/auth.v3.js"></script>
+    <!-- Els teus scripts -->
+		<script src="/supabase-client.v5.js"></script>
+		<script>
+    // Verificar que tot s'ha carregat
+		console.log('📍 getUserProfile exists?', typeof getUserProfile !== 'undefined');
+		console.log('📍 supabaseClient exists?', typeof supabaseClient !== 'undefined');
+		</script>
+		<script src="/auth.v3.js"></script>
+		<script src="/app_v8.js"></script>
+		<script src="/collita.v1.js"></script>
+		<script src="/collita-ui.v1.js"></script>
+		<script src="/horari-extensions.v1.js"></script>
+		<script src="/admin-panel.v1.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+		<script src="/veu.v1.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.0.0/fuse.min.js"></script>
 		
     <!-- Service Worker -->
     <script>
@@ -184,6 +156,7 @@
     // Event listener login
     document.getElementById('login-form').addEventListener('submit', login);
 </script>
-
+<script src="/reg_v2.js"></script>
+<script src="/existencies.v1.js"></script>
 </body>
 </html>
