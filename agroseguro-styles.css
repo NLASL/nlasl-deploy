@@ -317,8 +317,8 @@
     background-color: rgba(0, 0, 0, 0.5);
     display: flex;
     justify-content: center;
-    align-items: flex-start;
-    padding-top: 50px;
+    align-items: center;
+    padding-top: 0;
     z-index: 9999;
     overflow-y: auto;
 }
