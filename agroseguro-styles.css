@@ -317,7 +317,7 @@
     background-color: rgba(0, 0, 0, 0.5);
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
     padding-top: 0;
     z-index: 9999;
     overflow-y: auto;
@@ -330,10 +330,12 @@
     max-width: 500px;
     width: 90%;
     animation: slideUp 0.3s ease;
+	margin-top: 100ox;
 }
 
 .modal-content.modal-gran {
     max-width: 800px;
+	margin-top: 80px;
 }
 
 @keyframes slideUp {
