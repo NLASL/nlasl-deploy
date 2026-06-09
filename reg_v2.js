@@ -20,6 +20,7 @@ async function carregarVistaReg() {
     html += '<button class="btn btn-secondary" onclick="obrirModalRegManual()">➕ Nou Registre</button>';
     html += '<button class="btn btn-primary" onclick="document.getElementById(\'input-excel-reg\').click()">📥 Importar Excel</button>';
     html += '<input type="file" id="input-excel-reg" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importarExcelReg(event)">';
+    html += '<button class="btn btn-secondary" onclick="mostrarRecomanacionsReg()" style="background:#9c27b0;">🌡️ Recomanacions</button>';
     html += '</div></div>';
 
     // Bloc alertes fenològiques (es carrega async)
@@ -54,7 +55,9 @@ async function carregarVistaReg() {
     html += '<div class="table-container"><table class="data-table">';
     html += '<thead id="thead-reg"><tr><th>Mes</th><th>Explotació</th><th>Finca</th><th>Total m³</th><th>Dies amb consum</th><th>Fase</th><th>Detall</th></tr></thead>';
     html += '<tbody id="tbody-reg"><tr><td colspan="7">Carregant...</td></tr></tbody>';
-    html += '</table></div></div>';
+    html += '</table></div>';
+    html += '<div id="reg-recomanacions" style="display:none;margin-top:20px;"></div>';
+    html += '</div>';
 
     container.innerHTML = html;
 
@@ -240,10 +243,13 @@ async function carregarTaulaReg() {
             const data    = new Date(r.mes);
             const mesNom  = data.toLocaleString('ca-ES', { month: 'long', year: 'numeric' });
 
-            // Badge de fase
+            // Badge de fase — només per al mes actual
+            const avui = new Date();
+            const esMesActual = data.getFullYear() === avui.getFullYear() &&
+                                data.getMonth()    === avui.getMonth();
             const faseInfo = fasePerExplotacio[r.num_explotacio];
             let faseBadge = '-';
-            if (faseInfo) {
+            if (faseInfo && esMesActual) {
                 const colorFactor = faseInfo.factor_reg <= 0.50 ? '#f44336'
                                   : faseInfo.factor_reg <= 0.75 ? '#ff9800'
                                   : faseInfo.factor_reg <= 0.35 ? '#9c27b0'

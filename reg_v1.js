@@ -368,10 +368,18 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
             <th style="text-align:right;">Consum real (m³)</th>
             <th style="text-align:right;">Diferència (m³)</th>
             <th>Estat</th>
+            <th>Fase</th>
             <th style="text-align:right;">Rec. prop. setmana (m³)</th>
         </tr></thead><tbody>`;
 
-        let totalNecessitat = 0, totalConsum = 0, totalRec = 0;
+        let totalNecessitat = 0, totalC        // Carregar fases fenològiques (una sola consulta per totes les finques)
+        const fasesFenologiques = {};
+        try {
+            const { data: fases } = await supabaseClient
+                .from('reg_factor_explotacio')
+                .select('num_explotacio, fase, factor_reg, alerta_reg');
+            if (fases) fases.forEach(f => { fasesFenologiques[f.num_explotacio] = f; });
+        } catch(e) { /* vista opcional */ }
 
         for (let finca of finques) {
             const meteo = finca.num_explotacio === '122H165VH02'
@@ -383,7 +391,18 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
             const consumReal = registresConsum.reduce((s, r) => s + (parseFloat(r.consum_m3) || 0), 0);
 
             const calc = calcularNecessitatReg(meteo.etoPassat, kc, finca.superficie_ha, meteo.plujaPassat);
-            const calcFutur = calcularNecessitatReg(meteo.etoFutur, kc, finca.superficie_ha, meteo.plujaFutur);
+            const calcFuturBrut = calcularNecessitatReg(meteo.etoFutur, kc, finca.superficie_ha, meteo.plujaFutur);
+
+            // Aplicar factor fenològic a la recomanació futura
+            const faseInfo   = fasesFenologiques[finca.num_explotacio];
+            const factorReg  = faseInfo ? faseInfo.factor_reg : 1.00;
+            const fase       = faseInfo ? faseInfo.fase : 'creixement';
+            const recFuturAjustada = +(calcFuturBrut.necessitatM3 * factorReg).toFixed(1);
+
+            // Badge fase per a la columna
+            const colorFase = {'collita':'#f44336','precollita':'#ff9800','postcollita':'#9c27b0','creixement':'#4caf50'}[fase]||'#4caf50';
+            const textFase  = {'collita':'🍑 Collita','precollita':'⚠️ Precollita','postcollita':'🍂 Postcollita','creixement':'🌱 Creixement'}[fase]||fase;
+            const faseBadge = `<span style="background:${colorFase};color:white;padding:2px 8px;border-radius:10px;font-size:11px;">${textFase} ×${factorReg.toFixed(2)}</span>`;
 
             // CORRECCIÓ: Obtenir ratio de l'avaluació per alinear colors
             const avaluacio = avaluarConsum(consumReal, calc.necessitatM3);
@@ -394,7 +413,7 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
 
             totalNecessitat += calc.necessitatM3;
             totalConsum += consumReal;
-            totalRec += calcFutur.necessitatM3;
+            totalRec += recFuturAjustada;
 
             const cultiuText =
                 finca.cultiu === 'pressec_juny' ? 'Préssec Pla (Juny)' :
@@ -412,8 +431,11 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
                 <td style="text-align:right;">${consumReal.toLocaleString('ca-ES',{maximumFractionDigits:1})}</td>
                 <td style="text-align:right; color:${colorDif}; font-weight:bold;">${diferencia>=0?'+':''}${diferencia.toLocaleString('ca-ES',{maximumFractionDigits:1})}</td>
                 <td><span style="color:${avaluacio.color}; font-weight:bold;">${avaluacio.icon} ${avaluacio.text}</span></td>
-                <td style="text-align:right; font-weight:bold; color:#2980b9;">${calcFutur.necessitatM3.toLocaleString('ca-ES')} m³</td>
+                <td style="text-align:center;">${faseBadge}</td>
+                <td style="text-align:right; font-weight:bold; color:#2980b9;">${recFuturAjustada.toLocaleString('ca-ES')} m³</td>
             </tr>`;
+        }
+        </tr>`;
         }
 
         const difTotal = totalConsum - totalNecessitat;
@@ -425,6 +447,7 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
         html += `
         <tr style="border-top:3px solid #333; background:#f5f5f5; font-weight:bold;">
             <td colspan="3">TOTAL</td>
+            <td></td>
             <td></td>
             <td></td>
             <td style="text-align:right;">${totalNecessitat.toLocaleString('ca-ES',{maximumFractionDigits:1})}</td>
