@@ -435,9 +435,7 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
                 <td style="text-align:right; font-weight:bold; color:#2980b9;">${recFuturAjustada.toLocaleString('ca-ES')} m³</td>
             </tr>`;
         }
-        </tr>`;
-        }
-
+        
         const difTotal = totalConsum - totalNecessitat;
 
         // CORRECCIÓ: Color del total basat en el ratio (alineat amb l'estat)
