@@ -372,7 +372,8 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
             <th style="text-align:right;">Rec. prop. setmana (m³)</th>
         </tr></thead><tbody>`;
 
-        let totalNecessitat = 0, totalC        // Carregar fases fenològiques (una sola consulta per totes les finques)
+        let totalNecessitat = 0, totalConsum = 0, totalRec = 0;
+
         const fasesFenologiques = {};
         try {
             const { data: fases } = await supabaseClient
@@ -435,7 +436,7 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
                 <td style="text-align:right; font-weight:bold; color:#2980b9;">${recFuturAjustada.toLocaleString('ca-ES')} m³</td>
             </tr>`;
         }
-        
+
         const difTotal = totalConsum - totalNecessitat;
 
         // CORRECCIÓ: Color del total basat en el ratio (alineat amb l'estat)
