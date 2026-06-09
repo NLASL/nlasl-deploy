@@ -67,7 +67,7 @@ async function carregarVistaReg() {
 }
 
 // ============================================================
-// BLOC ALERTES FENOLÒGIQUES
+// BLOC RECOMANACIONS DE REG (totes les explotacions)
 // ============================================================
 
 async function carregarAlertesReg() {
@@ -78,10 +78,9 @@ async function carregarAlertesReg() {
         const { data, error } = await supabaseClient
             .from('reg_factor_explotacio')
             .select('*')
-            .order('factor_reg', { ascending: true }); // les més crítiques primer
+            .order('factor_reg', { ascending: true });
 
         if (error) {
-            // La vista pot no existir encara — mostrar avís discret
             console.warn('Vista reg_factor_explotacio no disponible:', error.message);
             container.innerHTML = '';
             return;
@@ -92,56 +91,78 @@ async function carregarAlertesReg() {
             return;
         }
 
-        // Filtrar les que necessiten acció: factor < 1 o avís proper (<=14 dies)
-        const actives = data.filter(function(f) {
-            return f.factor_reg < 1.00 || (f.dies_per_precollita >= 0 && f.dies_per_precollita <= 14);
-        });
+        const colorPerFase = {
+            'collita':     '#f44336',
+            'precollita':  '#ff9800',
+            'postcollita': '#9c27b0',
+            'creixement':  '#4caf50'
+        };
 
-        if (actives.length === 0) {
-            container.innerHTML = '';
-            return;
-        }
+        const badgePerFase = {
+            'collita':     '🍑 Collita',
+            'precollita':  '⚠️ Precollita',
+            'postcollita': '🍂 Postcollita',
+            'creixement':  '🌱 Creixement'
+        };
 
-        let html = '<div style="margin-bottom:8px;font-weight:600;color:#333;">🔔 Alertes de reg per fase fenològica</div>';
-        html += '<div style="display:flex;flex-direction:column;gap:8px;">';
+        const nomCultiu = {
+            'albercoc':      'Albercoc',
+            'pressec_juny':  'Préssec (juny)',
+            'pressec_agost': 'Préssec (agost)'
+        };
 
-        actives.forEach(function(f) {
-            const colorFactor = f.factor_reg <= 0.50 ? '#f44336'
-                              : f.factor_reg <= 0.75 ? '#ff9800'
-                              : '#4caf50';
+        let html = '<div style="font-weight:600;color:#333;margin-bottom:10px;">💧 Recomanacions de reg per fase fenològica</div>';
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px;">';
 
-            const badgeFase = {
-                'collita':     '<span style="background:#f44336;color:white;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">🍑 Collita</span>',
-                'precollita':  '<span style="background:#ff9800;color:white;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">⚠️ Precollita</span>',
-                'postcollita': '<span style="background:#9c27b0;color:white;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">🍂 Postcollita</span>',
-                'creixement':  '<span style="background:#4caf50;color:white;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">🌱 Creixement</span>'
-            }[f.fase] || '';
+        data.forEach(function(f) {
+            const color   = colorPerFase[f.fase] || '#4caf50';
+            const nomFase = badgePerFase[f.fase]  || f.fase;
+            const cultiu  = nomCultiu[f.cultiu]   || f.cultiu;
+            const supHa   = parseFloat(f.superficie_ha) || 0;
 
-            html += '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:white;border-left:4px solid ' + colorFactor + ';border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.08);">';
-            html += '<div style="flex:1;">';
-            html += '<div style="font-weight:600;color:#333;">' + f.finca + ' — ' + (f.varietat || f.cultiu) + '</div>';
-            html += '<div style="font-size:13px;color:#666;margin-top:3px;">' + f.alerta_reg + '</div>';
+            let infoExtra = '';
+            if (f.fase === 'precollita') {
+                const diesCollita = parseInt(f.dies_per_collita) || 0;
+                infoExtra = '<div style="font-size:12px;color:#e65100;margin-top:4px;font-weight:500;">⏳ Collita en ' + diesCollita + ' dies — no augmentar dosi!</div>';
+            } else if (f.fase === 'creixement' && f.dies_per_precollita !== null) {
+                const diesPre = parseInt(f.dies_per_precollita) || 0;
+                if (diesPre <= 30) {
+                    infoExtra = '<div style="font-size:12px;color:#f57c00;margin-top:4px;">🔔 Precollita en ' + diesPre + ' dies</div>';
+                }
+            } else if (f.fase === 'collita') {
+                infoExtra = '<div style="font-size:12px;color:#b71c1c;margin-top:4px;font-weight:500;">🚫 No augmentar reg ni nitrats</div>';
+            }
+
+            html += '<div style="background:white;border-left:4px solid ' + color + ';border-radius:8px;padding:14px 16px;box-shadow:0 2px 6px rgba(0,0,0,0.08);">';
+
+            html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">';
+            html += '<div>';
+            html += '<div style="font-weight:700;color:#222;font-size:14px;">' + f.finca + '</div>';
+            html += '<div style="font-size:12px;color:#888;margin-top:2px;">' + cultiu + ' · ' + supHa.toFixed(2) + ' Ha</div>';
             html += '</div>';
-            html += badgeFase;
-            html += '<div style="text-align:right;min-width:80px;">';
-            html += '<div style="font-size:22px;font-weight:700;color:' + colorFactor + ';">×' + f.factor_reg.toFixed(2) + '</div>';
-            html += '<div style="font-size:11px;color:#999;">factor reg</div>';
+            html += '<span style="background:' + color + ';color:white;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap;">' + nomFase + '</span>';
             html += '</div>';
+
+            html += '<div style="display:flex;align-items:center;gap:16px;">';
+            html += '<div style="text-align:center;background:' + color + '18;border-radius:8px;padding:8px 14px;">';
+            html += '<div style="font-size:26px;font-weight:800;color:' + color + ';">×' + f.factor_reg.toFixed(2) + '</div>';
+            html += '<div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;">factor reg</div>';
+            html += '</div>';
+            html += '<div style="flex:1;font-size:12px;color:#555;">';
+            html += '<div>📅 Collita: <strong>' + formatData(f.data_inici_collita) + ' – ' + formatData(f.data_fi_collita) + '</strong></div>';
+            html += '<div style="margin-top:3px;">🔔 Precollita des de: <strong>' + formatData(f.data_inici_precollita) + '</strong></div>';
+            html += infoExtra;
+            html += '</div>';
+            html += '</div>';
+
             html += '</div>';
         });
 
         html += '</div>';
-
-        // Resum dels que estan en creixement normal (sense alerta)
-        const normals = data.filter(function(f) { return f.factor_reg === 1.00 && (f.dies_per_precollita === null || f.dies_per_precollita > 14); });
-        if (normals.length > 0) {
-            html += '<div style="margin-top:8px;font-size:12px;color:#999;">✅ ' + normals.length + ' explotació/ns en creixement normal (×1.00)</div>';
-        }
-
         container.innerHTML = html;
 
     } catch (error) {
-        console.warn('Error carregant alertes reg:', error.message);
+        console.warn('Error carregant recomanacions reg:', error.message);
         container.innerHTML = '';
     }
 }
