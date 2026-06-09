@@ -610,7 +610,7 @@ const _regObserver = new MutationObserver(function() {
             const btn = document.createElement('button');
             btn.id        = 'btn-dates-fenologiques';
             btn.className = 'btn btn-secondary';
-            btn.innerHTML = '📅 Dates Collita';
+            btn.innerHTML = '💧 Reg Dates Collita';
             btn.onclick   = obrirGestioDatesFenologiques;
             capçalera.querySelector('div').appendChild(btn);
         }
