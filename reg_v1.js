@@ -244,6 +244,7 @@ function generarCardMeteo(titolZona, meteo) {
 // ============================================================
 
 async function mostrarRecomanacionsReg() {
+	console.log(">>> mostrarRecomanacionsReg()");
     const container = document.getElementById('reg-recomanacions');
     if (!container) return;
 
@@ -296,7 +297,8 @@ async function actualitzarRecomanacions() {
 // ============================================================
 
 async function carregarDadesReg(finques, dataInici, dataFi) {
-    const container = document.getElementById('reg-finques-container');
+	console.log(">>> carregarDadesReg()", { finques, dataInici, dataFi });
+	const container = document.getElementById('reg-finques-container');
     if (!container) return;
 
     try {
@@ -461,6 +463,7 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
         container.innerHTML = html;
 
     } catch (error) {
+		alert("ERROR carregarDadesReg: " + error);
         console.error('❌ Error carregant recomanacions reg:', error);
         container.innerHTML = `<p>❌ Error: ${error.message}</p>`;
     }
