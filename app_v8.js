@@ -890,7 +890,7 @@ async function guardarTractament(event) {
                 maquinaria,
                 condicions_meteo: meteo,
                 observacions,
-                estat: 'actiu'
+                estat: 'actiu',
 				campanya: obtenirCampanya(data),
             };
 
