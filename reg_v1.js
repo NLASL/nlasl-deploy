@@ -102,16 +102,25 @@ async function getMeteoData(lat, lon, diesPassats, diesFuturs) {
         `&daily=et0_fao_evapotranspiration,precipitation_sum` +
         `&timezone=Europe/Madrid`;
 
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("Error obtenint dades meteo");
+    // Timeout de 10 segons per evitar quedar-se penjat
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
 
-    const data = await res.json();
-
-    return {
-        dates: data.daily.time,
-        eto: data.daily.et0_fao_evapotranspiration,
-        pluja: data.daily.precipitation_sum
-    };
+    try {
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeout);
+        if (!res.ok) throw new Error('Error HTTP ' + res.status + ' obtenint dades meteo');
+        const data = await res.json();
+        return {
+            dates: data.daily.time,
+            eto: data.daily.et0_fao_evapotranspiration,
+            pluja: data.daily.precipitation_sum
+        };
+    } catch (err) {
+        clearTimeout(timeout);
+        if (err.name === 'AbortError') throw new Error('Timeout: Open-Meteo no respon (>10s)');
+        throw err;
+    }
 }
 
 // ============================================================
@@ -269,13 +278,23 @@ async function mostrarRecomanacionsReg() {
     </div>`;
     document.body.appendChild(div.firstElementChild);
 
-    const finques = await getRegConfiguracio();
-    await carregarDadesReg(finques, dataInici, dataFi);
+    // Esperar un tick perquè el DOM estigui llest abans de buscar reg-finques-container
+    await new Promise(r => setTimeout(r, 0));
+
+    try {
+        const fincesReg = await getRegConfiguracio();
+        console.log('✅ Finques reg carregades:', fincesReg.length);
+        await carregarDadesReg(fincesReg, dataInici, dataFi);
+    } catch(err) {
+        console.error('❌ Error mostrarRecomanacionsReg:', err);
+        const cont = document.getElementById('reg-finques-container');
+        if (cont) cont.innerHTML = '<p style="color:red;">❌ Error: ' + err.message + '</p>';
+    }
 }
 
 async function actualitzarRecomanacions() {
     const dataInici = document.getElementById('rec-data-inici').value;
-    const dataFi = document.getElementById('rec-data-fi').value;
+    const dataFi    = document.getElementById('rec-data-fi').value;
 
     if (!dataInici || !dataFi) {
         mostrarNotificacio('⚠️ Selecciona les dates', 'warning');
@@ -284,8 +303,13 @@ async function actualitzarRecomanacions() {
 
     document.getElementById('reg-finques-container').innerHTML = '<p>⏳ Actualitzant...</p>';
 
-    const finques = await getRegConfiguracio();
-    await carregarDadesReg(finques, dataInici, dataFi);
+    try {
+        const fincesReg = await getRegConfiguracio();
+        await carregarDadesReg(fincesReg, dataInici, dataFi);
+    } catch(err) {
+        console.error('❌ Error actualitzarRecomanacions:', err);
+        mostrarNotificacio('Error: ' + err.message, 'error');
+    }
 }
 
 
@@ -294,7 +318,7 @@ async function actualitzarRecomanacions() {
 // CARREGAR DADES I GENERAR TAULA (CORREGIT DEFINITIU)
 // ============================================================
 
-async function carregarDadesReg(finques, dataInici, dataFi) {
+async function carregarDadesReg(fincesReg, dataInici, dataFi) {
     const container = document.getElementById('reg-finques-container');
     if (!container) return;
 
@@ -381,7 +405,7 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
             if (fases) fases.forEach(f => { fasesFenologiques[f.num_explotacio] = f; });
         } catch(e) { /* vista opcional */ }
 
-        for (let finca of finques) {
+        for (let finca of fincesReg) {
             const meteo = finca.num_explotacio === '122H165VH02'
                 ? meteoZones.alcano
                 : meteoZones.altes;
