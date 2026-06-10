@@ -89,7 +89,7 @@ async function getParcellesAgroseguro(polissaId) {
         .from('agroseguro_parcelles')
         .select('*')
         .eq('polissa_id', polissaId)  // ← Filtre primer
-        .order('num_parcella');        // ← Ordenació després
+        .order('num_par');        // ← Ordenació després
     if (error) throw error;
     return data || [];
 }
