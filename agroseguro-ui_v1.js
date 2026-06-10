@@ -89,7 +89,7 @@ async function getParcellesAgroseguro(polissaId) {
         .from('agroseguro_parcelles')
         .select('*')
         .eq('polissa_id', polissaId)  // ← Filtre primer
-        .order('num_parcella');        // ← Ordenació després
+        .order('num_par');        // ← Ordenació després
     if (error) throw error;
     return data || [];
 }
@@ -549,7 +549,7 @@ function renderizarTaulaParcelles(parcelles) {
     parcelles.forEach(p => {
         html += `
             <tr>
-                <td>${p.num_parcella || '—'}</td>
+                <td>${p.num_par || '—'}</td>
                 <td>${p.parcelles?.nom || '—'}</td>
                 <td>${p.produccio_kg ? p.produccio_kg.toLocaleString('ca-ES') : '—'}</td>
                 <td>${p.produccio_complementaria_kg ? p.produccio_complementaria_kg.toLocaleString('ca-ES') : '—'}</td>
