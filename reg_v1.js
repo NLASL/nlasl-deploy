@@ -491,7 +491,14 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
 
         html += '</tbody></table></div>';
 
-        container.innerHTML = html;
+        // Tornar a buscar el container per si el DOM ha canviat durant els awaits
+        const containerFinal = document.getElementById('reg-finques-container');
+        console.log('✅ HTML generat, container:', containerFinal ? 'trobat' : 'NO TROBAT');
+        if (containerFinal) {
+            containerFinal.innerHTML = html;
+        } else {
+            console.error('❌ reg-finques-container no existeix al DOM');
+        }
 
     } catch (error) {
         console.error('❌ Error carregant recomanacions reg:', error);
