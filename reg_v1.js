@@ -264,9 +264,17 @@ async function mostrarRecomanacionsReg() {
     // Crear modal
     const div = document.createElement('div');
     div.innerHTML = `
-    <div id="modal-recomanacions-reg" class="modal" style="display:block;">
-        <div class="modal-content" style="max-width:1100px;">
-            <span class="close" onclick="document.getElementById('modal-recomanacions-reg').remove()">&times;</span>
+    <div id="modal-recomanacions-reg" style="
+        position:fixed; top:0; left:0; width:100%; height:100%;
+        background:rgba(0,0,0,0.5); z-index:999999;
+        overflow-y:auto; padding:20px; box-sizing:border-box;">
+        <div style="
+            background:white; border-radius:8px; padding:30px;
+            max-width:1100px; margin:0 auto; position:relative;
+            box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+            <span onclick="document.getElementById('modal-recomanacions-reg').remove()"
+                style="position:absolute;right:20px;top:20px;font-size:28px;
+                cursor:pointer;color:#999;font-weight:bold;line-height:1;">&times;</span>
             <h2 style="color:#2980b9; margin-bottom:20px;">🌡️ Recomanacions de Reg</h2>
             <div style="display:flex; gap:15px; align-items:center; flex-wrap:wrap; margin-bottom:20px;">
                 <div><label><strong>Des de:</strong></label> <input type="date" id="rec-data-inici" value="${dataInici}" style="padding:5px; border-radius:4px; border:1px solid #ddd;"></div>
@@ -496,6 +504,7 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
         console.log('✅ HTML generat, container:', containerFinal ? 'trobat' : 'NO TROBAT');
         if (containerFinal) {
             containerFinal.innerHTML = html;
+            console.log('✅ innerHTML assignat, childNodes:', containerFinal.childNodes.length);
         } else {
             console.error('❌ reg-finques-container no existeix al DOM');
         }
