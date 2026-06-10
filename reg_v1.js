@@ -489,10 +489,10 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
             <td colspan="3">TOTAL</td>
             <td></td>
             <td></td>
-            <td></td>
             <td style="text-align:right;">${totalNecessitat.toLocaleString('ca-ES',{maximumFractionDigits:1})}</td>
             <td style="text-align:right;">${totalConsum.toLocaleString('ca-ES',{maximumFractionDigits:1})}</td>
             <td style="text-align:right; color:${colorDifTotal};">${difTotal>=0?'+':''}${difTotal.toLocaleString('ca-ES',{maximumFractionDigits:1})}</td>
+            <td></td>
             <td></td>
             <td style="text-align:right; color:#2980b9;">${totalRec.toLocaleString('ca-ES',{maximumFractionDigits:1})} m³</td>
         </tr>`;
