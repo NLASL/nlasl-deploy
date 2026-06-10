@@ -244,32 +244,30 @@ function generarCardMeteo(titolZona, meteo) {
 // ============================================================
 
 async function mostrarRecomanacionsReg() {
-	console.log(">>> mostrarRecomanacionsReg()");
-    const container = document.getElementById('reg-recomanacions');
-    if (!container) return;
-
-    if (container.dataset.carregat === 'true') {
-        container.style.display = container.style.display === 'none' ? 'block' : 'none';
-        return;
-    }
-
-    container.style.display = 'block';
-    container.dataset.carregat = 'true';
+    // Eliminar modal anterior si existeix
+    const anterior = document.getElementById('modal-recomanacions-reg');
+    if (anterior) { anterior.remove(); return; }
 
     const avui = new Date();
-    const dataFi = avui.toISOString().split('T')[0];
+    const dataFi    = avui.toISOString().split('T')[0];
     const dataInici = new Date(avui - 7 * 86400000).toISOString().split('T')[0];
 
-    container.innerHTML = `
-    <div style="background:#f0f8ff; border-radius:8px; padding:15px; margin-top:20px;">
-        <h3 style="margin:0 0 15px 0; color:#2980b9;">🌡️ Recomanacions de Reg</h3>
-        <div style="display:flex; gap:15px; align-items:center; flex-wrap:wrap; margin-bottom:15px;">
-            <div><label><strong>Des de:</strong></label> <input type="date" id="rec-data-inici" value="${dataInici}" style="padding:5px; border-radius:4px; border:1px solid #ddd;"></div>
-            <div><label><strong>Fins a:</strong></label> <input type="date" id="rec-data-fi" value="${dataFi}" style="padding:5px; border-radius:4px; border:1px solid #ddd;"></div>
-            <button class="btn btn-primary" onclick="actualitzarRecomanacions()">🔄 Actualitzar</button>
+    // Crear modal
+    const div = document.createElement('div');
+    div.innerHTML = `
+    <div id="modal-recomanacions-reg" class="modal" style="display:block;">
+        <div class="modal-content" style="max-width:1100px;">
+            <span class="close" onclick="document.getElementById('modal-recomanacions-reg').remove()">&times;</span>
+            <h2 style="color:#2980b9; margin-bottom:20px;">🌡️ Recomanacions de Reg</h2>
+            <div style="display:flex; gap:15px; align-items:center; flex-wrap:wrap; margin-bottom:20px;">
+                <div><label><strong>Des de:</strong></label> <input type="date" id="rec-data-inici" value="${dataInici}" style="padding:5px; border-radius:4px; border:1px solid #ddd;"></div>
+                <div><label><strong>Fins a:</strong></label> <input type="date" id="rec-data-fi" value="${dataFi}" style="padding:5px; border-radius:4px; border:1px solid #ddd;"></div>
+                <button class="btn btn-primary" onclick="actualitzarRecomanacions()">🔄 Actualitzar</button>
+            </div>
+            <div id="reg-finques-container"><p>⏳ Carregant dades meteorològiques...</p></div>
         </div>
-        <div id="reg-finques-container"><p>⏳ Carregant dades meteorològiques...</p></div>
     </div>`;
+    document.body.appendChild(div.firstElementChild);
 
     const finques = await getRegConfiguracio();
     await carregarDadesReg(finques, dataInici, dataFi);
@@ -297,8 +295,7 @@ async function actualitzarRecomanacions() {
 // ============================================================
 
 async function carregarDadesReg(finques, dataInici, dataFi) {
-	console.log(">>> carregarDadesReg()", { finques, dataInici, dataFi });
-	const container = document.getElementById('reg-finques-container');
+    const container = document.getElementById('reg-finques-container');
     if (!container) return;
 
     try {
@@ -463,7 +460,6 @@ async function carregarDadesReg(finques, dataInici, dataFi) {
         container.innerHTML = html;
 
     } catch (error) {
-		alert("ERROR carregarDadesReg: " + error);
         console.error('❌ Error carregant recomanacions reg:', error);
         container.innerHTML = `<p>❌ Error: ${error.message}</p>`;
     }
