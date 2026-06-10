@@ -87,7 +87,7 @@ async function deletePolissa(id) {
 async function getParcellesAgroseguro(polissaId) {
     const { data, error } = await supabaseClient
         .from('agroseguro_parcelles')
-        .select('*')  ← SIN LA RELACIÓN
+        .select('*')  
         .eq('polissa_id', polissaId)
         .order('num_parcella');
     if (error) throw error;
