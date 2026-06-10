@@ -89,7 +89,7 @@ async function getParcellesAgroseguro(polissaId) {
         .from('agroseguro_parcelles')
         .select('*')
         .eq('polissa_id', polissaId)  // ← Filtre primer
-        .order('num_par');        // ← Ordenació després
+        .order('num_parcella');        // ← Ordenació després
     if (error) throw error;
     return data || [];
 }
@@ -112,7 +112,7 @@ async function getSinistresAgroseguro(polissaId) {
         .from('agroseguro_sinistres')
         .select('*')
         .eq('polissa_id', polissaId)
-        .order('data_sinistra', { ascending: false });
+        .order('data_sinistre', { ascending: false });
     if (error) throw error;
     return data || [];
 }
@@ -579,7 +579,7 @@ function renderizarTaulaSinistres(sinistres) {
     `;
     
     sinistres.forEach(s => {
-        const dataSinistra = formatData(s.data_sinistra);
+        const dataSinistra = formatData(s.data_sinistre);
         const import_reclamat = (s.import_reclamat || 0).toLocaleString('ca-ES', { 
             style: 'currency', 
             currency: 'EUR' 
