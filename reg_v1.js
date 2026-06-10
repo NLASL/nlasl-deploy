@@ -397,6 +397,7 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
 
         let totalNecessitat = 0, totalConsum = 0, totalRec = 0;
 
+        // Carregar fases fenològiques
         const fasesFenologiques = {};
         try {
             const { data: fases } = await supabaseClient
@@ -405,13 +406,22 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
             if (fases) fases.forEach(f => { fasesFenologiques[f.num_explotacio] = f; });
         } catch(e) { /* vista opcional */ }
 
-        for (let finca of fincesReg) {
+        console.log('✅ Fases carregades, iniciant càrrega dades per finca...');
+
+        // Carregar kc i consums en paral·lel per totes les finques
+        const dadesFinques = await Promise.all(fincesReg.map(async (finca) => {
+            const kc = await getRegKc(finca.cultiu, mes);
+            const registresConsum = await getRegConsum(finca.num_explotacio, dataInici, dataFi);
+            return { finca, kc, registresConsum };
+        }));
+
+        console.log('✅ Dades finques carregades:', dadesFinques.length);
+
+        for (let { finca, kc, registresConsum } of dadesFinques) {
             const meteo = finca.num_explotacio === '122H165VH02'
                 ? meteoZones.alcano
                 : meteoZones.altes;
 
-            const kc = await getRegKc(finca.cultiu, mes);
-            const registresConsum = await getRegConsum(finca.num_explotacio, dataInici, dataFi);
             const consumReal = registresConsum.reduce((s, r) => s + (parseFloat(r.consum_m3) || 0), 0);
 
             const calc = calcularNecessitatReg(meteo.etoPassat, kc, finca.superficie_ha, meteo.plujaPassat);
