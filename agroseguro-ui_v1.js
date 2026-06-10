@@ -87,9 +87,9 @@ async function deletePolissa(id) {
 async function getParcellesAgroseguro(polissaId) {
     const { data, error } = await supabaseClient
         .from('agroseguro_parcelles')
-        .select('*')  
-        .eq('polissa_id', polissaId)
-        .order('num_parcella');
+        .select('*')
+        .order('num_parcella')     
+        .eq('polissa_id', polissaId);
     if (error) throw error;
     return data || [];
 }
