@@ -281,7 +281,7 @@ async function mostrarRecomanacionsReg() {
                 <div><label><strong>Fins a:</strong></label> <input type="date" id="rec-data-fi" value="${dataFi}" style="padding:5px; border-radius:4px; border:1px solid #ddd;"></div>
                 <button class="btn btn-primary" onclick="actualitzarRecomanacions()">🔄 Actualitzar</button>
             </div>
-            <div id="reg-finques-container"><p>⏳ Carregant dades meteorològiques...</p></div>
+            <div id="modal-reg-finques-container" style="border:3px solid red;min-height:50px;"><p>⏳ Carregant dades meteorològiques...</p></div>
         </div>
     </div>`;
     document.body.appendChild(div.firstElementChild);
@@ -295,7 +295,7 @@ async function mostrarRecomanacionsReg() {
         await carregarDadesReg(fincesReg, dataInici, dataFi);
     } catch(err) {
         console.error('❌ Error mostrarRecomanacionsReg:', err);
-        const cont = document.getElementById('reg-finques-container');
+        const cont = document.getElementById('modal-reg-finques-container');
         if (cont) cont.innerHTML = '<p style="color:red;">❌ Error: ' + err.message + '</p>';
     }
 }
@@ -309,7 +309,7 @@ async function actualitzarRecomanacions() {
         return;
     }
 
-    document.getElementById('reg-finques-container').innerHTML = '<p>⏳ Actualitzant...</p>';
+    document.getElementById('modal-reg-finques-container').innerHTML = '<p>⏳ Actualitzant...</p>';
 
     try {
         const fincesReg = await getRegConfiguracio();
@@ -327,7 +327,7 @@ async function actualitzarRecomanacions() {
 // ============================================================
 
 async function carregarDadesReg(fincesReg, dataInici, dataFi) {
-    const container = document.getElementById('reg-finques-container');
+    const container = document.getElementById('modal-reg-finques-container');
     if (!container) return;
 
     try {
@@ -500,7 +500,7 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
         html += '</tbody></table></div>';
 
         // Tornar a buscar el container per si el DOM ha canviat durant els awaits
-        const containerFinal = document.getElementById('reg-finques-container');
+        const containerFinal = document.getElementById('modal-reg-finques-container');
         console.log('✅ HTML generat, container:', containerFinal ? 'trobat' : 'NO TROBAT');
         if (containerFinal) {
             containerFinal.innerHTML = html;
