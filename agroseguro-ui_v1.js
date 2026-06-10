@@ -87,7 +87,7 @@ async function deletePolissa(id) {
 async function getParcellesAgroseguro(polissaId) {
     const { data, error } = await supabaseClient
         .from('agroseguro_parcelles')
-        .select('*, parcelles(nom, finca)')
+        .select('*')  ← SIN LA RELACIÓN
         .eq('polissa_id', polissaId)
         .order('num_parcella');
     if (error) throw error;
@@ -602,21 +602,6 @@ function renderizarTaulaSinistres(sinistres) {
     return html;
 }
 
-// ============================================================
-// MODALS — NOVA/EDITAR PÒLISSA (placeholders)
-// ============================================================
-
-function obrirModalNovaPolissa() {
-    mostrarNotificacio('Modal nova pòlissa — A implementar', 'info');
-}
-
-function obrirModalEditarPolissa(polissaId) {
-    mostrarNotificacio('Modal editar pòlissa — A implementar', 'info');
-}
-
-function obrirModalNovaAsseguranca() {
-    mostrarNotificacio('Modal nova assegurança — A implementar', 'info');
-}
 
 // ============================================================
 // ELIMINAR PÒLISSA (amb confirmació)
