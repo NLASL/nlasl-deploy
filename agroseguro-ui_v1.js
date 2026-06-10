@@ -88,8 +88,8 @@ async function getParcellesAgroseguro(polissaId) {
     const { data, error } = await supabaseClient
         .from('agroseguro_parcelles')
         .select('*')
-        .order('num_parcella')     
-        .eq('polissa_id', polissaId);
+        .eq('polissa_id', polissaId)  // ← Filtre primer
+        .order('num_parcella');        // ← Ordenació després
     if (error) throw error;
     return data || [];
 }
