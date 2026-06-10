@@ -243,34 +243,58 @@ function generarCardMeteo(titolZona, meteo) {
 // MOSTRAR RECOMANACIONS (botó dins carregarVistaReg)
 // ============================================================
 
+// ============================================================
+// MOSTRAR RECOMANACIONS EN MODAL A PANTALLA COMPLETA
+// ============================================================
+
 async function mostrarRecomanacionsReg() {
-	console.log(">>> mostrarRecomanacionsReg()");
-    const container = document.getElementById('reg-recomanacions');
-    if (!container) return;
+    console.log(">>> mostrarRecomanacionsReg()");
 
-    if (container.dataset.carregat === 'true') {
-        container.style.display = container.style.display === 'none' ? 'block' : 'none';
-        return;
-    }
+    // Amagar el contenidor inline del v2 (no el fem servir)
+    const containerInline = document.getElementById('reg-recomanacions');
+    if (containerInline) containerInline.style.display = 'none';
 
-    container.style.display = 'block';
-    container.dataset.carregat = 'true';
+    // Eliminar modal anterior si existeix
+    let modalExistent = document.getElementById('modal-recomanacions-reg');
+    if (modalExistent) modalExistent.remove();
 
     const avui = new Date();
     const dataFi = avui.toISOString().split('T')[0];
     const dataInici = new Date(avui - 7 * 86400000).toISOString().split('T')[0];
 
-    container.innerHTML = `
-    <div style="background:#f0f8ff; border-radius:8px; padding:15px; margin-top:20px;">
-        <h3 style="margin:0 0 15px 0; color:#2980b9;">🌡️ Recomanacions de Reg</h3>
-        <div style="display:flex; gap:15px; align-items:center; flex-wrap:wrap; margin-bottom:15px;">
-            <div><label><strong>Des de:</strong></label> <input type="date" id="rec-data-inici" value="${dataInici}" style="padding:5px; border-radius:4px; border:1px solid #ddd;"></div>
-            <div><label><strong>Fins a:</strong></label> <input type="date" id="rec-data-fi" value="${dataFi}" style="padding:5px; border-radius:4px; border:1px solid #ddd;"></div>
-            <button class="btn btn-primary" onclick="actualitzarRecomanacions()">🔄 Actualitzar</button>
-        </div>
-        <div id="reg-finques-container"><p>⏳ Carregant dades meteorològiques...</p></div>
-    </div>`;
+    // Crear modal
+    let html = '<div id="modal-recomanacions-reg" class="modal" style="display:block; z-index:9999;">';
+    html += '<div class="modal-content" style="max-width:95vw; width:1200px; max-height:92vh; overflow-y:auto; padding:0;">';
+    
+    // Capçalera fixa amb controls
+    html += '<div style="position:sticky; top:0; background:#fff; border-bottom:1px solid #ddd; padding:20px 24px; display:flex; justify-content:space-between; align-items:center; z-index:10;">';
+    html += '<div>';
+    html += '<h2 style="margin:0; color:#2980b9;">🌡️ Recomanacions de Reg</h2>';
+    html += '<p style="margin:4px 0 0 0; color:#888; font-size:13px;">ETc = ETo × Kc × Ha × 10 | Pluja ef. = Pluja × 0.8 × Ha × 10</p>';
+    html += '</div>';
+    html += '<span class="close" onclick="document.getElementById(\'modal-recomanacions-reg\').remove()" style="font-size:28px; cursor:pointer; color:#999;">&times;</span>';
+    html += '</div>';
 
+    // Controls de filtre
+    html += '<div style="padding:20px 24px; background:#f8f9fa; border-bottom:1px solid #eee;">';
+    html += '<div style="display:flex; gap:15px; align-items:flex-end; flex-wrap:wrap;">';
+    html += '<div><label style="display:block; font-size:12px; color:#666; margin-bottom:4px;"><strong>Des de:</strong></label>';
+    html += '<input type="date" id="rec-data-inici" value="' + dataInici + '" style="padding:8px 12px; border-radius:6px; border:1px solid #ddd; font-size:14px;"></div>';
+    html += '<div><label style="display:block; font-size:12px; color:#666; margin-bottom:4px;"><strong>Fins a:</strong></label>';
+    html += '<input type="date" id="rec-data-fi" value="' + dataFi + '" style="padding:8px 12px; border-radius:6px; border:1px solid #ddd; font-size:14px;"></div>';
+    html += '<button class="btn btn-primary" onclick="actualitzarRecomanacions()" style="margin-left:auto;">🔄 Actualitzar</button>';
+    html += '<button class="btn btn-secondary" onclick="document.getElementById(\'modal-recomanacions-reg\').remove()">❌ Sortir</button>';
+    html += '</div></div>';
+
+    // Contingut
+    html += '<div style="padding:20px 24px;">';
+    html += '<div id="reg-finques-container"><p>⏳ Carregant dades meteorològiques...</p></div>';
+    html += '</div>';
+
+    html += '</div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+
+    // Carregar dades
     const finques = await getRegConfiguracio();
     await carregarDadesReg(finques, dataInici, dataFi);
 }
@@ -284,7 +308,13 @@ async function actualitzarRecomanacions() {
         return;
     }
 
-    document.getElementById('reg-finques-container').innerHTML = '<p>⏳ Actualitzant...</p>';
+    const container = document.getElementById('reg-finques-container');
+    if (!container) {
+        mostrarNotificacio('Error: recarrega el modal', 'error');
+        return;
+    }
+
+    container.innerHTML = '<p>⏳ Actualitzant...</p>';
 
     const finques = await getRegConfiguracio();
     await carregarDadesReg(finques, dataInici, dataFi);
