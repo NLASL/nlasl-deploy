@@ -4135,45 +4135,55 @@ document.getElementById('fitxatge-tasca').required = false;
 
 async function carregarVistaInformes() {
     const container = document.getElementById('view-container');
-    
-    const anyActual = new Date().getFullYear();
-    
+ 
+    const ara = new Date();
+    const mes = ara.getMonth() + 1;
+    const campanyadefecte = mes >= 10 ? ara.getFullYear() + 1 : ara.getFullYear();
+ 
     let html = '<div class="view-informes">';
     html += '<h2>📊 Informes</h2>';
-    
+ 
     // BLOC LLIBRE FERTILITZACIONS
     html += '<div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,0.1);margin-bottom:20px;">';
     html += '<h3 style="margin-top:0;">📗 Llibre de Fertilitzacions</h3>';
     html += '<div style="display:flex;gap:15px;align-items:flex-end;flex-wrap:wrap;">';
-    html += '<div><label>Any</label><select id="informe-fert-any" style="padding:8px;border:1px solid #ddd;border-radius:4px;">';
-    for (let a = anyActual; a >= anyActual - 3; a--) {
-        html += '<option value="' + a + '">' + a + '</option>';
-    }
+ 
+    // Selector campanya
+    html += '<div><label>Campanya</label><select id="informe-fert-any" style="padding:8px;border:1px solid #ddd;border-radius:4px;">';
+    [2024, 2025, 2026, 2027].forEach(function(c) {
+        html += '<option value="' + c + '"' + (c === campanyadefecte ? ' selected' : '') + '>' + c + '</option>';
+    });
     html += '</select></div>';
+ 
+    // Selector finca
     html += '<div><label>Finca</label><select id="informe-fert-finca" style="padding:8px;border:1px solid #ddd;border-radius:4px;min-width:200px;"><option value="">Totes</option>';
     finques.forEach(function(f) { html += '<option value="' + f + '">' + f + '</option>'; });
     html += '</select></div>';
+ 
     html += '<button class="btn btn-primary" onclick="generarLlibreFertilitzacions()">📗 Generar Llibre</button>';
     html += '<button class="btn btn-secondary" onclick="exportarLlibreFertilitzacionsCSV()">⬇️ Exportar CSV</button>';
     html += '</div>';
     html += '<div id="taula-llibre-fertilitzacions" style="margin-top:20px;"></div>';
     html += '</div>';
-
+ 
     // BLOC DAN
     html += '<div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,0.1);margin-bottom:20px;">';
     html += '<h3 style="margin-top:0;">📋 DAN — Declaració Activitat Notificable</h3>';
     html += '<div style="display:flex;gap:15px;align-items:flex-end;flex-wrap:wrap;">';
-    html += '<div><label>Any</label><select id="informe-dan-any" style="padding:8px;border:1px solid #ddd;border-radius:4px;">';
-    for (let a = anyActual; a >= anyActual - 3; a--) {
-        html += '<option value="' + a + '">' + a + '</option>';
-    }
+ 
+    // Selector campanya
+    html += '<div><label>Campanya</label><select id="informe-dan-any" style="padding:8px;border:1px solid #ddd;border-radius:4px;">';
+    [2024, 2025, 2026, 2027].forEach(function(c) {
+        html += '<option value="' + c + '"' + (c === campanyadefecte ? ' selected' : '') + '>' + c + '</option>';
+    });
     html += '</select></div>';
+ 
     html += '<button class="btn btn-primary" onclick="generarDAN()">📋 Generar DAN</button>';
     html += '<button class="btn btn-secondary" onclick="exportarDANCSV()">⬇️ Exportar CSV</button>';
     html += '</div>';
     html += '<div id="taula-dan" style="margin-top:20px;"></div>';
     html += '</div>';
-
+ 
     // BLOC CONTROL HORARI
     html += '<div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">';
     html += '<h3 style="margin-top:0;">⏱️ Control Horari</h3>';
@@ -4181,13 +4191,25 @@ async function carregarVistaInformes() {
     html += '<div><label>Data Inici</label><input type="date" id="informe-horari-inici" style="padding:8px;border:1px solid #ddd;border-radius:4px;"></div>';
     html += '<div><label>Data Fi</label><input type="date" id="informe-horari-fi" style="padding:8px;border:1px solid #ddd;border-radius:4px;"></div>';
     html += '<button class="btn btn-secondary" onclick="exportarControlHorariLaboral()">📋 Exportar Laboral</button>';
-	html += '<button class="btn btn-secondary" onclick="exportarControlHorariGestio()">📊 Exportar Gestió</button>';
+    html += '<button class="btn btn-secondary" onclick="exportarControlHorariGestio()">📊 Exportar Gestió</button>';
     html += '</div>';
     html += '</div>';
-
+ 
     html += '</div>';
     container.innerHTML = html;
 }
+
+// ============================================================
+// HELPER - Dates per campanya
+// ============================================================
+ 
+function getDatesCampanyaInformes(campanya) {
+    return {
+        dataInici: (campanya - 1) + '-10-01',
+        dataFinal: campanya + '-09-30'
+    };
+}
+ 
 
 async function generarLlibreFertilitzacions() {
     const any = document.getElementById('informe-fert-any').value;
