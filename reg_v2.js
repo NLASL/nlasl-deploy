@@ -23,18 +23,15 @@ async function carregarVistaReg() {
     html += '<button class="btn btn-secondary" onclick="mostrarRecomanacionsReg()" style="background:#9c27b0;">🌡️ Recomanacions</button>';
     html += '</div></div>';
 
-    // Bloc alertes fenològiques
+    // Bloc alertes fenològiques (es carrega async)
     html += '<div id="reg-alertes-fenologiques" style="margin-bottom:20px;"></div>';
 
-    // Info Excel
     html += '<div style="background:#e3f2fd;padding:12px;border-radius:8px;margin-bottom:20px;font-size:13px;">';
     html += '📋 Format Excel esperat: <strong>EXPLOTACIÓ | DATA | CONSUM (m³)</strong>';
     html += '</div>';
 
     // Filtres
     html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;margin-bottom:20px;">';
-
-    // Any
     html += '<div><label>Any</label><select id="reg-filtre-any" onchange="carregarTaulaReg()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">';
     const anyActual = new Date().getFullYear();
     for (let a = anyActual; a >= anyActual - 3; a--) {
@@ -42,7 +39,6 @@ async function carregarVistaReg() {
     }
     html += '</select></div>';
 
-    // Mes
     html += '<div><label>Mes</label><select id="reg-filtre-mes" onchange="carregarTaulaReg()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">';
     html += '<option value="">Tots</option>';
     const mesos = ['Gener','Febrer','Març','Abril','Maig','Juny','Juliol','Agost','Setembre','Octubre','Novembre','Desembre'];
@@ -51,9 +47,7 @@ async function carregarVistaReg() {
     });
     html += '</select></div>';
 
-    // Explotació
     html += '<div><label>Explotació</label><select id="reg-filtre-explotacio" onchange="carregarTaulaReg()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"><option value="">Totes</option></select></div>';
-
     html += '</div>';
 
     // Resum i taula
@@ -62,26 +56,24 @@ async function carregarVistaReg() {
     html += '<thead id="thead-reg"><tr><th>Mes</th><th>Explotació</th><th>Finca</th><th>Total m³</th><th>Dies amb consum</th><th>Fase</th><th>Detall</th></tr></thead>';
     html += '<tbody id="tbody-reg"><tr><td colspan="7">Carregant...</td></tr></tbody>';
     html += '</table></div>';
-
-    // ⭐⭐⭐ CONTENIDOR CORRECTE PER A RECOMANACIONS ⭐⭐⭐
-    html += `
-        <div id="reg-recomanacions" style="display:none;margin-top:20px;">
-            <div id="reg-finques-container"></div>
-        </div>
-    `;
-
-    html += '</div>'; // fi view-reg
+    html += '<div id="reg-recomanacions" style="display:none;margin-top:20px;"></div>';
+    html += '</div>';
 
     container.innerHTML = html;
 
-    // Carregar filtres i taula
+    // Carregar en paral·lel
+    // Carregar reg_configuracio en cache global per usar a tota la vista
+    try {
+        const { data: regConf } = await supabaseClient.from('reg_configuracio').select('*').eq('actiu', true);
+        window._regConfiguracio = regConf || [];
+    } catch(e) { window._regConfiguracio = []; }
+
     await carregarFiltreExplotacions();
     await Promise.all([
         carregarTaulaReg(),
         carregarAlertesReg()
     ]);
 }
-
 
 // ============================================================
 // BLOC RECOMANACIONS DE REG (totes les explotacions)
@@ -252,8 +244,10 @@ async function carregarTaulaReg() {
             '</div>';
 
         tbody.innerHTML = registres.map(function(r) {
-            const parcella = parcelles.find(function(p) { return p.num_explotacio === r.num_explotacio; });
-            const nomFinca = parcella ? parcella.finca : '-';
+            // Buscar nom finca a reg_configuracio (font principal) o parcelles (fallback)
+            const confFinca = (window._regConfiguracio || []).find(function(rc) { return rc.num_explotacio === r.num_explotacio; });
+            const parcella  = !confFinca ? parcelles.find(function(p) { return p.num_explotacio === r.num_explotacio; }) : null;
+            const nomFinca  = confFinca ? confFinca.nom_finca : (parcella ? parcella.finca : r.num_explotacio);
             const data    = new Date(r.mes);
             const mesNom  = data.toLocaleString('ca-ES', { month: 'long', year: 'numeric' });
 
