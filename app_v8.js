@@ -222,26 +222,40 @@ async function carregarDashboard() {
         return;
     }
     
-    let parcellesFiltrades = parcelles;
-    if (fincaSeleccionada) {
-        parcellesFiltrades = parcelles.filter(function(p) {
-            return p.finca === fincaSeleccionada;
-        });
-    }
+     let parcellesFiltrades = parcelles.filter(function(p) {
+    return p.campanya === 2026;  // ← FILTRO CAMPANYA
+});
+
+	if (fincaSeleccionada) {
+		parcellesFiltrades = parcellesFiltrades.filter(function(p) {
+        return p.finca === fincaSeleccionada;
+    });
+}
     
     const totalSuperficie = parcellesFiltrades.reduce(function(sum, p) {
         return sum + (parseFloat(p.superficie) || 0);
     }, 0);
     
-    const cultius = {};
-    parcellesFiltrades.forEach(function(p) {
-        const cultiu = p.cultiu || 'Sense especificar';
-        if (!cultius[cultiu]) {
-            cultius[cultiu] = { count: 0, superficie: 0 };
-        }
-        cultius[cultiu].count++;
-        cultius[cultiu].superficie += parseFloat(p.superficie) || 0;
-    });
+ // Calcular distribució cultius
+const cultius = {};
+parcellesFiltrades.forEach(function(p) {
+    const cultiu = p.cultiu || 'Sense especificar';
+    if (!cultius[cultiu]) {
+        cultius[cultiu] = { count: 0, superficie: 0 };
+    }
+    cultius[cultiu].count++;
+    cultius[cultiu].superficie += parseFloat(p.superficie) || 0;
+});
+
+	// También filtrar les altres taules per campanya 2026
+		tractaments = tractaments.filter(function(t) {
+    return t.campanya === '2026' || t.campanya === 2026;
+});
+
+		fertilitzacions = fertilitzacions.filter(function(f) {
+    return f.campanya === '2026' || f.campanya === 2026;
+});
+    
     
     let html = '<div class="dashboard">';
     html += '<h2>📊 ' + (fincaSeleccionada ? 'Finca: ' + fincaSeleccionada : 'Resum General') + '</h2>';
