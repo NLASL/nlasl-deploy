@@ -115,7 +115,7 @@ function canviarVista(vista) {
     
     const container = document.getElementById('view-container');
     
-    switch(vista) {
+ switch(vista) {
         case 'dashboard':
             carregarDashboard();
             break;
@@ -152,29 +152,46 @@ function canviarVista(vista) {
 		case 'collita':
 			carregarVistaCollita();
 			break;
-		case 'control-horari':
-			const role = currentUserProfile ? currentUserProfile.role : 'visor';
-			const treballadorActiu = treballadors.find(function(t) { 
-			return t.auth_user_id === currentUser.id; 
+		case 'collita-registres':
+			canviarVistaCollita('registres');
+			carregarVistaCollita();
+			break;
+		case 'assegurances':
+            carregarVistaAssegurances();
+            break;
+		case 'contactes':
+			carregarVistaContactes();
+			break;
+		case 'fertilitzants':
+			carregarVistaFertilitzants();
+			break;
+		case 'fertilitzants-tecnics':
+			carregarVistaFertilitzantsTecnics();
+			break;
+		case 'control-horari': {
+    const role = currentUserProfile ? currentUserProfile.role : 'visor';
+    const treballadorActiu = treballadors.find(function(t) {
+        return t.auth_user_id === currentUser.id;
     });
-    if (treballadorActiu && role === 'visor') {
-        carregarVistaControlHorariTreballador();
+    if (role === 'visor') {
+        carregarVistaControlHorariTreballador(treballadorActiu);
     } else {
         carregarVistaControlHorari();
     }
     break;
-        case 'incidencies':
-            carregarVistaIncidencies();
-            break;
-        case 'absencies':
-            carregarVistaAbsencies();
-            break;
-		case 'alertes':
-            carregarVistaAlertes();
-            break;
-		default:
-            container.innerHTML = '<p>Vista no trobada</p>';
-    }
+}
+case 'incidencies':
+    carregarVistaIncidencies();
+    break;
+case 'absencies':
+    carregarVistaAbsencies();
+    break;
+case 'alertes':
+    carregarVistaAlertes();
+    break;
+default:
+    container.innerHTML = '<p>Vista no trobada</p>';
+}
 }
 
 // DASHBOARD (mantenir codi anterior - copiat de app.v5.js)
