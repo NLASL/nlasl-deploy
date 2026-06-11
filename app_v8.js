@@ -169,6 +169,9 @@ function canviarVista(vista) {
 		case 'assegurances':
             carregarVistaAssegurances();
             break;
+		case 'altres-assegurances':
+			carregarVistaAltresAssegurances();
+			break;	
 		case 'contactes':
 			carregarVistaContactes();
 			break;
