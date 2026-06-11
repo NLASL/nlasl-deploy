@@ -204,10 +204,10 @@ function avaluarConsum(consumReal, necessitat) {
 
     const ratio = consumReal / necessitat;
 
-    if (ratio > 1.25) return { text: `Rega MASSA (${Math.round((ratio - 1) * 100)}% excés)`, color: '#e74c3c', icon: '🔴', ratio };
-    if (ratio > 1.10) return { text: 'Lleugerament alt', color: '#e67e22', icon: '🟠', ratio };
-    if (ratio >= 0.85) return { text: 'Consum correcte', color: '#27ae60', icon: '🟢', ratio };
-    if (ratio >= 0.70) return { text: 'Lleugerament baix', color: '#f39c12', icon: '🟡', ratio };
+    if (ratio > 1.20) return { text: `Rega MASSA (${Math.round((ratio - 1) * 100)}% excés)`, color: '#e74c3c', icon: '🔴', ratio };
+    if (ratio > 1.08) return { text: 'Lleugerament alt', color: '#e67e22', icon: '🟠', ratio };
+    if (ratio >= 0.92) return { text: 'Consum correcte', color: '#27ae60', icon: '🟢', ratio };
+    if (ratio >= 0.80) return { text: 'Lleugerament baix', color: '#f39c12', icon: '🟡', ratio };
 
     return { text: `Rega POC (${Math.round((1 - ratio) * 100)}% dèficit)`, color: '#e74c3c', icon: '🔴', ratio };
 }
@@ -476,7 +476,9 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
 
             // CORRECCIÓ: Color de la diferència basat en el mateix ratio que l'estat
             const colorDif = colorDiferencia(avaluacio.ratio);
-
+			
+			console.log(`Finca: ${finca.nom_finca} | Necessitat calculada: ${calc.necessitatM3} m³`);
+			
             totalNecessitat += calc.necessitatM3;
             totalConsum += consumReal;
             totalRec += recFuturAjustada;
@@ -488,18 +490,18 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
 
             html += `
             <tr>
-                <td><strong>${finca.nom_finca}</strong></td>
-                <td>${cultiuText}</td>
-                <td style="text-align:right;">${finca.superficie_ha}</td>
-                <td style="text-align:right;">${calc.etcM3.toLocaleString('ca-ES')}</td>
-                <td style="text-align:right; color:#3498db;">${calc.plujaEfectivaM3.toLocaleString('ca-ES')}</td>
-                <td style="text-align:right; font-weight:bold;">${calc.necessitatM3.toLocaleString('ca-ES')}</td>
-                <td style="text-align:right;">${consumReal.toLocaleString('ca-ES',{maximumFractionDigits:1})}</td>
-                <td style="text-align:right; color:${colorDif}; font-weight:bold;">${diferencia>=0?'+':''}${diferencia.toLocaleString('ca-ES',{maximumFractionDigits:1})}</td>
-                <td><span style="color:${avaluacio.color}; font-weight:bold;">${avaluacio.icon} ${avaluacio.text}</span></td>
-                <td style="text-align:center;">${faseBadge}</td>
-                <td style="text-align:right; font-weight:bold; color:#2980b9;">${recFuturAjustada.toLocaleString('ca-ES')} m³</td>
-            </tr>`;
+				<td><strong>${finca.nom_finca}</strong></td>
+				<td>${cultiuText}</td>
+				<td style="text-align:right;">${finca.superficie_ha}</td>
+				<td style="text-align:right;">${calc.etcM3.toLocaleString('ca-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
+				<td style="text-align:right; color:#3498db;">${calc.plujaEfectivaM3.toLocaleString('ca-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
+				<td style="text-align:right; font-weight:bold;">${calc.necessitatM3.toLocaleString('ca-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
+				<td style="text-align:right;">${consumReal.toLocaleString('ca-ES',{minimumFractionDigits: 1, maximumFractionDigits:1})}</td>
+				<td style="text-align:right; color:${colorDif}; font-weight:bold;">${diferencia>=0?'+':''}${diferencia.toLocaleString('ca-ES',{minimumFractionDigits: 1, maximumFractionDigits:1})}</td>
+				<td><span style="color:${avaluacio.color}; font-weight:bold;">${avaluacio.icon} ${avaluacio.text}</span></td>
+				<td style="text-align:center;">${faseBadge}</td>
+				<td style="text-align:right; font-weight:bold; color:#2980b9;">${recFuturAjustada.toLocaleString('ca-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})} m³</td>
+			</tr>`;
         }
 
         const difTotal = totalConsum - totalNecessitat;
