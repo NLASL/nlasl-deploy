@@ -44,28 +44,18 @@ async function getPolisses(filtres = {}) {
 }
 
 async function createPolissa(polissa) {
-    const polissaAudit = {
-        ...polissa,
-        created_by: currentUser ? currentUser.id : null,
-        created_at: new Date().toISOString()
-    };
     const { data, error } = await supabaseClient
         .from('agroseguro_polisses')
-        .insert([polissaAudit])
+        .insert([polissa])
         .select();
     if (error) throw error;
     return data[0];
 }
 
 async function updatePolissa(id, polissa) {
-    const polissaAudit = {
-        ...polissa,
-        updated_by: currentUser ? currentUser.id : null,
-        updated_at: new Date().toISOString()
-    };
     const { data, error } = await supabaseClient
         .from('agroseguro_polisses')
-        .update(polissaAudit)
+        .update(polissa)  ← SIN created_by/created_at
         .eq('id', id)
         .select();
     if (error) throw error;
