@@ -258,10 +258,10 @@ async function carregarTaulaReg() {
             const faseInfo = fasePerExplotacio[r.num_explotacio];
             let faseBadge = '-';
             if (faseInfo && esMesActual) {
-                const colorFactor = faseInfo.factor_reg <= 0.50 ? '#f44336'
-                                  : faseInfo.factor_reg <= 0.75 ? '#ff9800'
-                                  : faseInfo.factor_reg <= 0.35 ? '#9c27b0'
-                                  : '#4caf50';
+                const colorFactor = faseInfo.factor_reg <= 0.35 ? '#9c27b0'
+								  : faseInfo.factor_reg <= 0.50 ? '#f44336'
+								  : faseInfo.factor_reg <= 0.75 ? '#ff9800'
+								  : '#4caf50';
                 const nomFase = {
                     'collita':     '🍑 Collita',
                     'precollita':  '⚠️ Precollita',
@@ -335,10 +335,10 @@ async function veurDetallReg(numExplotacio, mes) {
 
     // Bloc fase fenològica
     if (infoFase) {
-        const colorFactor = infoFase.factor_reg <= 0.50 ? '#f44336'
-                          : infoFase.factor_reg <= 0.75 ? '#ff9800'
-                          : infoFase.factor_reg <= 0.35 ? '#9c27b0'
-                          : '#4caf50';
+        const colorFactor = infoFase.factor_reg <= 0.35 ? '#9c27b0'
+						  : infoFase.factor_reg <= 0.50 ? '#f44336'
+						  : infoFase.factor_reg <= 0.75 ? '#ff9800'
+						  : '#4caf50';
         html += '<div style="background:' + colorFactor + '15;border-left:4px solid ' + colorFactor + ';padding:12px;border-radius:6px;margin-bottom:16px;">';
         html += '<strong style="color:' + colorFactor + ';">' + infoFase.alerta_reg + '</strong><br>';
         html += '<span style="font-size:12px;color:#666;">Collita prevista: ' +
