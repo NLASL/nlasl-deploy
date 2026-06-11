@@ -55,7 +55,7 @@ async function createPolissa(polissa) {
 async function updatePolissa(id, polissa) {
     const { data, error } = await supabaseClient
         .from('agroseguro_polisses')
-        .update(polissa)  ← SIN created_by/created_at
+        .update(polissa) 
         .eq('id', id)
         .select();
     if (error) throw error;
