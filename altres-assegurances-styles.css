@@ -1,0 +1,288 @@
+/* ============================================================
+   ALTRES ASSEGURANCES — STYLES v1
+   ============================================================ */
+
+.altres-assegurances-container {
+    padding: 20px;
+}
+
+/* TABS */
+.assegurances-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid var(--gris-mitja);
+}
+
+.tab-btn {
+    padding: 10px 16px;
+    border: none;
+    background-color: transparent;
+    color: var(--gris-fosc);
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+    font-size: 14px;
+}
+
+.tab-btn:hover {
+    color: var(--verde-principal);
+}
+
+.tab-btn.active {
+    color: var(--verde-principal);
+    border-bottom-color: var(--verde-principal);
+}
+
+.tab-content {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* HEADER VISTA */
+.assegurances-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--gris-mitja);
+}
+
+.assegurances-header h2 {
+    margin: 0;
+    color: var(--verde-principal);
+    font-size: 18px;
+}
+
+.assegurances-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.selector-campanya {
+    padding: 8px 12px;
+    border: 1px solid var(--gris-mitja);
+    border-radius: 4px;
+    font-size: 13px;
+    background-color: var(--blanco);
+    cursor: pointer;
+}
+
+.selector-campanya:focus {
+    outline: none;
+    border-color: var(--verde-principal);
+    box-shadow: 0 0 0 3px rgba(45, 80, 22, 0.1);
+}
+
+.btn-nova-polissa {
+    padding: 8px 14px;
+    background-color: var(--verde-principal);
+    color: var(--blanco);
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background-color 0.3s ease;
+    white-space: nowrap;
+}
+
+.btn-nova-polissa:hover {
+    background-color: #1f3a0d;
+}
+
+/* TAULES */
+.taula-standard {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: var(--blanco);
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.taula-standard thead {
+    background-color: #f5f5f5;
+    border-bottom: 2px solid var(--gris-mitja);
+}
+
+.taula-standard th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--gris-fosc);
+    font-size: 12px;
+    text-transform: uppercase;
+}
+
+.taula-standard td {
+    padding: 12px;
+    border-bottom: 1px solid var(--gris-clar);
+    font-size: 13px;
+}
+
+.taula-standard tbody tr:hover {
+    background-color: #fafafa;
+}
+
+.taula-standard tr:last-child td {
+    border-bottom: none;
+}
+
+/* ACCIONS */
+.accions-cell {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+}
+
+.btn-small {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.btn-editar {
+    background-color: #e3f2fd;
+    color: #1976d2;
+}
+
+.btn-editar:hover {
+    background-color: #bbdefb;
+}
+
+.btn-eliminar {
+    background-color: #ffebee;
+    color: #d32f2f;
+}
+
+.btn-eliminar:hover {
+    background-color: #ffcdd2;
+}
+
+/* BADGES */
+.badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge-actiu {
+    background-color: #c8e6c9;
+    color: #1b5e20;
+}
+
+.badge-vençut {
+    background-color: #ffccbc;
+    color: #bf360c;
+}
+
+.badge-suspes {
+    background-color: #fff9c4;
+    color: #f57f17;
+}
+
+/* NO DATA */
+.no-data {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--gris-mitja);
+    font-size: 14px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    margin-top: 20px;
+}
+
+.error-message {
+    padding: 20px;
+    background-color: #ffebee;
+    color: #d32f2f;
+    border-radius: 4px;
+    margin-top: 20px;
+    font-size: 13px;
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+    .assegurances-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .assegurances-controls {
+        width: 100%;
+        flex-direction: column;
+    }
+    
+    .selector-campanya,
+    .btn-nova-polissa {
+        width: 100%;
+    }
+    
+    .assegurances-tabs {
+        flex-wrap: wrap;
+    }
+    
+    .tab-btn {
+        font-size: 12px;
+        padding: 8px 12px;
+    }
+    
+    .taula-standard {
+        font-size: 12px;
+    }
+    
+    .taula-standard th,
+    .taula-standard td {
+        padding: 8px;
+    }
+    
+    .accions-cell {
+        flex-direction: column;
+    }
+    
+    .btn-small {
+        width: 100%;
+        padding: 8px 6px;
+    }
+}
+
+/* PRINT */
+@media print {
+    .assegurances-header,
+    .tab-btn,
+    .assegurances-controls,
+    .btn-nova-polissa,
+    .btn-small {
+        display: none;
+    }
+    
+    .taula-standard {
+        page-break-inside: avoid;
+    }
+}
