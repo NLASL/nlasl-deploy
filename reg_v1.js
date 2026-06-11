@@ -405,16 +405,33 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
 
         let totalNecessitat = 0, totalConsum = 0, totalRec = 0;
 
-        // Carregar fases fenològiques
+        // Calcular data mitjana del període per determinar la fase correcta
+        const dataMitjana = new Date(
+            (new Date(dataInici).getTime() + new Date(dataFi).getTime()) / 2
+        ).toISOString().split('T')[0];
+
+        // Obtenir factor fenològic per a la data mitjana del període (auditoria correcta)
         const fasesFenologiques = {};
         try {
-            const { data: fases } = await supabaseClient
-                .from('reg_factor_explotacio')
-                .select('num_explotacio, fase, factor_reg, alerta_reg');
-            if (fases) fases.forEach(f => { fasesFenologiques[f.num_explotacio] = f; });
-        } catch(e) { /* vista opcional */ }
+            const resultatsFases = await Promise.all(
+                fincesReg.map(async (finca) => {
+                    const { data } = await supabaseClient
+                        .rpc('get_factor_reg_per_data', {
+                            p_num_explotacio: finca.num_explotacio,
+                            p_data: dataMitjana
+                        });
+                    return { num_explotacio: finca.num_explotacio, fase: data?.[0] };
+                })
+            );
+            resultatsFases.forEach(function(r) {
+                if (r.fase) fasesFenologiques[r.num_explotacio] = r.fase;
+            });
+        } catch(e) {
+            console.warn('get_factor_reg_per_data no disponible:', e.message);
+        }
 
-        console.log('✅ Fases carregades, iniciant càrrega dades per finca...');
+        console.log('✅ Fases per data ' + dataMitjana + ' carregades');
+
 
         // Carregar kc i consums en paral·lel per totes les finques
         const dadesFinques = await Promise.all(fincesReg.map(async (finca) => {
@@ -432,13 +449,20 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
 
             const consumReal = registresConsum.reduce((s, r) => s + (parseFloat(r.consum_m3) || 0), 0);
 
-            const calc = calcularNecessitatReg(meteo.etoPassat, kc, finca.superficie_ha, meteo.plujaPassat);
+            const calcBrut = calcularNecessitatReg(meteo.etoPassat, kc, finca.superficie_ha, meteo.plujaPassat);
             const calcFuturBrut = calcularNecessitatReg(meteo.etoFutur, kc, finca.superficie_ha, meteo.plujaFutur);
 
-            // Aplicar factor fenològic a la recomanació futura
+            // Aplicar factor fenològic tant al passat com al futur
             const faseInfo   = fasesFenologiques[finca.num_explotacio];
             const factorReg  = faseInfo ? faseInfo.factor_reg : 1.00;
             const fase       = faseInfo ? faseInfo.fase : 'creixement';
+
+            // Ajustar necessitat passada i futura pel factor fenològic
+            const calc = {
+                ...calcBrut,
+                necessitatM3:   +(calcBrut.necessitatM3   * factorReg).toFixed(1),
+                etcM3:          +(calcBrut.etcM3           * factorReg).toFixed(1)
+            };
             const recFuturAjustada = +(calcFuturBrut.necessitatM3 * factorReg).toFixed(1);
 
             // Badge fase per a la columna
