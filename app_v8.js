@@ -2520,6 +2520,21 @@ async function guardarFertilitzant(event) {
     };
     
     try {
+        // Validació duplicats — només en crear (no en editar)
+        if (!id) {
+            const { data: similars } = await supabaseClient
+                .from('fertilitzants')
+                .select('id, nom')
+                .ilike('nom', '%' + dades.nom + '%');
+
+            if (similars && similars.length > 0) {
+                const llista = similars.map(function(f) { return '• ' + f.nom; }).join('\n');
+                if (!confirm('⚠️ Ja existeixen fertilitzants amb nom similar:\n\n' + llista + '\n\nVols crear-ne un de nou igualment?')) {
+                    return;
+                }
+            }
+        }
+
         if (id) {
             await updateFertilitzant(id, dades);
             mostrarNotificacio('Fertilitzant actualitzat correctament', 'success');
