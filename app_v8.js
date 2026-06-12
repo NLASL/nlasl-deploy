@@ -34,12 +34,15 @@ const CULTIUS_VARIETATS = {
     'TRITICALE': []
 };
 
-function toggleSubmenu(id) {
+ffunction toggleSubmenu(id) {
     const submenu = document.getElementById('submenu-' + id);
+    if (!submenu) return;
+
     const visible = submenu.style.display === 'block';
     tancarSubmenus();
-    if (!visible) submenu.style.display = 'block';
+    submenu.style.display = visible ? 'none' : 'block';
 }
+
 
 function tancarSubmenus() {
     document.querySelectorAll('.submenu').forEach(function(s) {
