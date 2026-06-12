@@ -70,7 +70,7 @@ async function mostrarVistaBestreta() {
             html += '<tr>';
             html += '<td>' + bestreta.campanya + '</td>';
             html += '<td>' + (fruita ? fruita.nom : '-') + '</td>';
-            html += '<td>' + arrodonirPreu(bestreta.bestreta_preu_unitari) + '</td>';
+            html += '<td>' + arrodonarPreu(bestreta.bestreta_preu_unitari) + '</td>';
             html += '<td>' + formatData(bestreta.bestreta_data_inici) + '</td>';
             html += '<td>' + formatData(bestreta.bestreta_data_final) + '</td>';
             html += '<td>';
