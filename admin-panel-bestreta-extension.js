@@ -36,12 +36,10 @@ async function mostrarVistaBestreta() {
         html += '<tr><td colspan="6" style="text-align: center; padding: 20px;">No hi ha bestretes creades</td></tr>';
     } else {
         preusAnuals.forEach(bestreta => {
-            const varietat = varietats.find(v => v.id === bestreta.fruita_varietat_id);
-            const fruita = fruites.find(f => f.id === varietat?.fruita_id);
+           const fruita = fruites.find(f => f.id === bestreta.fruita_id);
             
             html += '<tr>';
             html += '<td>' + (fruita ? fruita.nom : '-') + '</td>';
-            html += '<td>' + (varietat ? varietat.varietat : '-') + '</td>';
             html += '<td>' + arrodonarPreu(bestreta.bestreta_preu_unitari) + '</td>';
             html += '<td>' + formatData(bestreta.bestreta_data_inici) + '</td>';
             html += '<td>' + formatData(bestreta.bestreta_data_final) + '</td>';
@@ -113,20 +111,19 @@ function obrirModalNovabestreta() {
     
     // Omplir select de fruita-varietat
     const select = document.getElementById('bestreta-fruita-varietat');
-    varietats.forEach(v => {
-        const fruita = fruites.find(f => f.id === v.fruita_id);
-        const option = document.createElement('option');
-        option.value = v.id;
-        option.textContent = (fruita ? fruita.nom : '-') + ' / ' + v.varietat;
-        select.appendChild(option);
-    });
+	fruites.forEach(f => {
+		const option = document.createElement('option');
+		option.value = f.id;
+		option.textContent = f.nom;
+		select.appendChild(option);
+		});
 }
 
 async function guardarNovabestreta(event) {
     event.preventDefault();
     
     try {
-        const fruitaVarietatId = document.getElementById('bestreta-fruita-varietat').value;
+        const fruitaId = document.getElementById('bestreta-fruita-varietat').value;
         const preu = parseFloat(document.getElementById('bestreta-preu').value);
         const dataInici = document.getElementById('bestreta-data-inici').value;
         const dataFinal = document.getElementById('bestreta-data-final').value;
@@ -138,7 +135,7 @@ async function guardarNovabestreta(event) {
         
         const bestreta = await crearPreuBestreta({
             campanya: 2026,
-            fruita_varietat_id: fruitaVarietatId,
+            fruita_id: fruitaId,
             bestreta_preu_unitari: preu,
             bestreta_data_inici: dataInici,
             bestreta_data_final: dataFinal,
@@ -214,14 +211,13 @@ async function obrirModalEditarBestreta(id) {
     
     // Omplir selects
     const select = document.getElementById('edit-bestreta-fruita-varietat');
-    varietats.forEach(v => {
-        const fruita = fruites.find(f => f.id === v.fruita_id);
-        const option = document.createElement('option');
-        option.value = v.id;
-        option.textContent = (fruita ? fruita.nom : '-') + ' / ' + v.varietat;
-        if (v.id === bestreta.fruita_varietat_id) option.selected = true;
-        select.appendChild(option);
-    });
+    fruites.forEach(f => {
+		const option = document.createElement('option');
+		option.value = f.id;
+		option.textContent = f.nom;
+		if (f.id === bestreta.fruita_id) option.selected = true;
+		select.appendChild(option);
+	});
     
     document.getElementById('edit-bestreta-preu').value = bestreta.bestreta_preu_unitari;
     document.getElementById('edit-bestreta-data-inici').value = bestreta.bestreta_data_inici;

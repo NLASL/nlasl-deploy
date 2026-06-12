@@ -198,6 +198,9 @@ function canviarVista(vista) {
 		case 'contactes':
 			carregarVistaContactes();
 			break;
+		case 'bestreta':
+			mostrarVistaBestreta();
+			break;	
 		case 'fertilitzants':
 			carregarVistaFertilitzants();
 			break;
