@@ -39,7 +39,21 @@ function toggleSubmenu(id) {
     if (!submenu) return;
 
     const visible = submenu.style.display === 'block';
-    tancarSubmenus();
+    
+    // Si és un sub-submenu, no tanquem TOT, només els germans
+    const esSubSubmenu = submenu.parentElement.closest('.submenu') !== null;
+    
+    if (esSubSubmenu) {
+        // Tanquem només sub-submenus germans
+        const pare = submenu.parentElement.parentElement;
+        pare.querySelectorAll('.submenu').forEach(s => {
+            if (s !== submenu) s.style.display = 'none';
+        });
+    } else {
+        // És nivell 1, tanquem tot
+        tancarSubmenus();
+    }
+    
     submenu.style.display = visible ? 'none' : 'block';
 }
 
