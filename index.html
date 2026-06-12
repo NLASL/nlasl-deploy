@@ -100,15 +100,16 @@
         <button class="nav-btn submenu-btn" onclick="canviarVista('gasoil');tancarSubmenus();" data-view="gasoil">⛽ Gasoil</button>
         <button class="nav-btn submenu-btn" onclick="canviarVista('compres');tancarSubmenus();" data-view="compres">🛒 Compres</button>
         <button class="nav-btn submenu-btn" onclick="canviarVista('existencies');tancarSubmenus();" data-view="existencies">📦 Existències</button>
-		<button class="nav-btn submenu-btn" onclick="canviarVista('assegurances');tancarSubmenus();" data-view="assegurances">🛡️ Assegurances</button>
-			<div id="submenu-assegurances" class="submenu" style="display:none;">
+		<div class="nav-section">
+    <button class="nav-btn" onclick="toggleSubmenu(this)">🛡️ Assegurances</button>
+    <div class="submenu">
         <button class="nav-btn submenu-btn" onclick="canviarVista('agroseguro');tancarSubmenus();" data-view="agroseguro">🍑 Agroseguro</button>
         <button class="nav-btn submenu-btn" onclick="canviarVista('altres-assegurances');tancarSubmenus();" data-view="altres-assegurances">🛡️ Altres Assegurances</button>
-		</div>
-		</div>
-		
-   <div class="nav-group">
-    <button class="nav-btn nav-group-btn" onclick="toggleSubmenu('gestio')">⚙️ Gestió ▾</button>
+    </div>
+	</div>
+	<div class="nav-group">
+    
+	<button class="nav-btn nav-group-btn" onclick="toggleSubmenu('gestio')">⚙️ Gestió ▾</button>
     <div id="submenu-gestio" class="submenu" style="display:none;">
         <button class="nav-btn submenu-btn" onclick="canviarVista('treballadors');tancarSubmenus();" data-view="treballadors">👥 Treballadors</button>
         <button class="nav-btn submenu-btn" onclick="canviarVista('productes');tancarSubmenus();" data-view="productes">📦 Productes</button>
