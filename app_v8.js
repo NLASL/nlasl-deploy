@@ -186,12 +186,15 @@ function canviarVista(vista) {
 		case 'assegurances':
             carregarVistaAssegurances();
             break;
+		case 'agroseguro':
+			carregarVistaAssegurances();  // Existeix
+			break;
 		case 'altres-assegurances':
-			carregarVistaAltresAssegurances();
+			carregarVistaAltresAssegurances();  // Nova funció
 			break;
 		case 'immobilitzat':
 			mostrarVistaImmobilitzat();  // Existent (de altres-assegurances-ui_v1.js)
-			break;		
+			break;
 		case 'contactes':
 			carregarVistaContactes();
 			break;
