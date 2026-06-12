@@ -16,6 +16,11 @@ async function mostrarVistaBestreta() {
     const container = document.getElementById('view-container');
     const campanyaActual = obtenirCampanyaActual();
 
+    // 🔧 LLEGIR EL FILTRE ABANS de regenerar el DOM
+    // Si ja existeix el select, agafem el valor seleccionat. Si no, usem l'actual.
+    const selectExistent = document.getElementById('filtre-campanya-bestreta');
+    const campanyaFiltre = selectExistent ? selectExistent.value : String(campanyaActual);
+
     let html = '<div class="vista-bestreta">';
     html += '<h2>💰 Gestió de Bestretes</h2>';
 
@@ -24,18 +29,24 @@ async function mostrarVistaBestreta() {
     html += '<button class="btn btn-success" onclick="obrirModalNovabestreta()">➕ Nova Bestreta</button>';
     html += '<label style="font-weight:500;">Campanya:</label>';
     html += '<select id="filtre-campanya-bestreta" onchange="mostrarVistaBestreta()" style="padding:8px;border:1px solid #ddd;border-radius:4px;">';
+    
     [2024, 2025, 2026, 2027].forEach(function(c) {
-        const sel = c === campanyaActual ? ' selected' : '';
+        // 🔧 Comparar com a strings per coherència
+        const sel = String(c) === campanyaFiltre ? ' selected' : '';
         html += '<option value="' + c + '"' + sel + '>' + c + '</option>';
     });
-    html += '<option value="">Totes</option>';
+    
+    // 🔧 Opció "Totes" seleccionada només si campanyaFiltre està buit
+    const selTotes = campanyaFiltre === '' ? ' selected' : '';
+    html += '<option value=""' + selTotes + '>Totes</option>';
     html += '</select>';
     html += '</div>';
 
-    // Filtre
-    const campanyaFiltre = document.getElementById('filtre-campanya-bestreta')?.value;
-    const bestrestesFiltrades = campanyaFiltre
-        ? preusAnuals.filter(function(b) { return b.campanya == campanyaFiltre; })
+    // 🔧 FILTRE: comparar convertint ambdós a string per evitar problemes de tipus
+    const bestrestesFiltrades = campanyaFiltre !== ''
+        ? preusAnuals.filter(function(b) { 
+            return String(b.campanya) === String(campanyaFiltre); 
+          })
         : preusAnuals;
 
     // Taula bestretes
@@ -59,7 +70,7 @@ async function mostrarVistaBestreta() {
             html += '<tr>';
             html += '<td>' + bestreta.campanya + '</td>';
             html += '<td>' + (fruita ? fruita.nom : '-') + '</td>';
-            html += '<td>' + arrodonarPreu(bestreta.bestreta_preu_unitari) + '</td>';
+            html += '<td>' + arrodonirPreu(bestreta.bestreta_preu_unitari) + '</td>';
             html += '<td>' + formatData(bestreta.bestreta_data_inici) + '</td>';
             html += '<td>' + formatData(bestreta.bestreta_data_final) + '</td>';
             html += '<td>';
