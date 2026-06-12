@@ -34,7 +34,7 @@ const CULTIUS_VARIETATS = {
     'TRITICALE': []
 };
 
-ffunction toggleSubmenu(id) {
+function toggleSubmenu(id) {
     const submenu = document.getElementById('submenu-' + id);
     if (!submenu) return;
 
