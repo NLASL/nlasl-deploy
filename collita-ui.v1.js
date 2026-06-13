@@ -46,6 +46,7 @@ async function mostrarVista_Entrades() {
     html += '<button class="btn btn-primary" onclick="mostrarFormulariAlbaraEntrada()" style="margin-right:10px;">➕ Nova Entrada</button>';
     html += '<button class="btn btn-info" onclick="mostrarResumEntrades()" style="margin-right:10px;">📊 Resum</button>';
     html += '<button class="btn btn-info" onclick="canviarVistaCollita(\'analisi\')" style="margin-right:10px;">📊 Anàlisi</button>';
+    html += '<button class="btn btn-success" onclick="mostrarCalculBestreta()" style="margin-right:10px;">💰 Bestreta</button>';
     html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'escandalls\')" style="margin-right:10px;">→ Escandalls</button>';
     html += '</div>';
  
@@ -2443,4 +2444,145 @@ window.imprimirAnalisi = function() {
         if (el) el.remove();
     }, 1500);
 };
+}
+
+// ============================================================
+// CÀLCUL BESTRETA
+// ============================================================
+
+async function mostrarCalculBestreta() {
+    const content = document.getElementById('collita-content');
+    if (!content) return;
+
+    content.innerHTML = '<p>⏳ Calculant bestreta...</p>';
+
+    // Detectar campanya actual
+    const ara = new Date();
+    const mes = ara.getMonth() + 1;
+    const campanya = mes >= 10 ? ara.getFullYear() + 1 : ara.getFullYear();
+
+    // Data de tall = avui
+    const dataTall = ara.toISOString().split('T')[0];
+    const dataTallFormat = ara.toLocaleDateString('ca-ES');
+
+    try {
+        // 1. Carregar preus bestreta de la campanya
+        if (!fruites || fruites.length === 0) await carregarDadesCollita();
+        await carregarDadesPreus();
+
+        const preusActuals = preusAnuals.filter(function(p) {
+            return p.campanya === campanya;
+        });
+
+        if (preusActuals.length === 0) {
+            content.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;">⚠️ No hi ha preus de bestreta configurats per la campanya ' + campanya + '</div>';
+            return;
+        }
+
+        // 2. Consultar kg nets per fruita fins a data de tall
+        const { data: dadesRpc, error } = await supabaseClient.rpc('calcular_bestreta', {
+            p_campanya: campanya,
+            p_data_tall: dataTall
+        });
+
+        // Si no existeix la funció RPC, fer consulta directa
+        let kgPerFruita = {};
+        if (error) {
+            // Consulta directa
+            const { data: entrades } = await supabaseClient
+                .from('collita_entrada')
+                .select('pes_net, fruita_varietat_id(fruita_id)')
+                .eq('estat', 'actiu')
+                .lte('data', dataTall);
+
+            (entrades || []).forEach(function(e) {
+                const fruitaId = e.fruita_varietat_id?.fruita_id;
+                if (!fruitaId) return;
+                if (!kgPerFruita[fruitaId]) kgPerFruita[fruitaId] = 0;
+                kgPerFruita[fruitaId] += parseFloat(e.pes_net) || 0;
+            });
+        } else {
+            (dadesRpc || []).forEach(function(r) {
+                kgPerFruita[r.fruita_id] = parseFloat(r.kg_nets) || 0;
+            });
+        }
+
+        // 3. Calcular import per fruita
+        let totalBestreta = 0;
+        const linies = preusActuals.map(function(p) {
+            const fruita = fruites.find(function(f) { return f.id === p.fruita_id; });
+            const kgNets = kgPerFruita[p.fruita_id] || 0;
+            const import_ = kgNets * p.bestreta_preu_unitari;
+            totalBestreta += import_;
+            return {
+                fruita: fruita ? fruita.nom : '-',
+                kgNets: kgNets,
+                preu: p.bestreta_preu_unitari,
+                import_: import_,
+                dataInici: p.bestreta_data_inici,
+                dataFinal: p.bestreta_data_final
+            };
+        });
+
+        // 4. Indicador provisional/definitiu
+        const dia21 = new Date(ara.getFullYear(), ara.getMonth(), 21);
+        const esDefinitiu = ara >= dia21;
+        const estatBadge = esDefinitiu
+            ? '<span style="background:#27ae60;color:white;padding:4px 12px;border-radius:4px;font-size:13px;">✅ Càlcul definitiu</span>'
+            : '<span style="background:#ff9800;color:white;padding:4px 12px;border-radius:4px;font-size:13px;">⏳ Càlcul provisional — pendent albarans fins al 20/' + (ara.getMonth()+1) + '</span>';
+
+        // 5. Renderitzar
+        let html = '<div class="calcul-bestreta">';
+
+        // Capçalera
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+        html += '<h3 style="margin:0;">💰 Bestreta Campanya ' + campanya + '</h3>';
+        html += '<button class="btn btn-secondary" onclick="mostrarTaulaEntrades()">← Tornar</button>';
+        html += '</div>';
+
+        // Estat + data tall
+        html += '<div style="margin-bottom:15px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">';
+        html += estatBadge;
+        html += '<span style="color:#666;font-size:13px;">Data de tall: <strong>' + dataTallFormat + '</strong></span>';
+        html += '</div>';
+
+        // Taula per fruita
+        html += '<div class="table-container"><table class="data-table" style="width:100%;">';
+        html += '<thead><tr>';
+        html += '<th>Fruita</th>';
+        html += '<th style="text-align:right;">Kg nets collits</th>';
+        html += '<th style="text-align:right;">Preu (€/kg)</th>';
+        html += '<th style="text-align:right;">Import bestreta (€)</th>';
+        html += '<th>Període</th>';
+        html += '</tr></thead><tbody>';
+
+        linies.forEach(function(l) {
+            const colorFruita = l.fruita === 'Albercoc' ? '#f39c12' :
+                                l.fruita === 'Nectarina' ? '#e74c3c' :
+                                l.fruita === 'Préssec Pla' ? '#e91e8c' : '#27ae60';
+            html += '<tr>';
+            html += '<td><strong style="color:' + colorFruita + ';">' + l.fruita + '</strong></td>';
+            html += '<td style="text-align:right;">' + l.kgNets.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</td>';
+            html += '<td style="text-align:right;">' + l.preu.toFixed(3) + '</td>';
+            html += '<td style="text-align:right;"><strong>' + l.import_.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €</strong></td>';
+            html += '<td style="font-size:12px;color:#666;">' + formatData(l.dataInici) + ' — ' + formatData(l.dataFinal) + '</td>';
+            html += '</tr>';
+        });
+
+        // Total
+        html += '<tr style="border-top:3px solid #333;background:#f5f5f5;font-weight:bold;">';
+        html += '<td colspan="3">TOTAL BESTRETA</td>';
+        html += '<td style="text-align:right;font-size:1.2em;color:#27ae60;">' + totalBestreta.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €</td>';
+        html += '<td></td>';
+        html += '</tr>';
+
+        html += '</tbody></table></div>';
+        html += '</div>';
+
+        content.innerHTML = html;
+
+    } catch (error) {
+        console.error('Error calculant bestreta:', error);
+        content.innerHTML = '<div style="color:red;padding:20px;">Error: ' + error.message + '</div>';
+    }
 }
