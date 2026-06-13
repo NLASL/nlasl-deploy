@@ -2452,9 +2452,13 @@ window.imprimirAnalisi = function() {
 // ============================================================
 
 async function mostrarCalculBestreta() {
+    const content = document.getElementById('collita-content');
+    if (!content) return;
+
+    const blocFiltres = document.getElementById('bloc-filtres-entrades');
+    if (blocFiltres) blocFiltres.style.display = 'none';
+
     content.innerHTML = '<p>⏳ Calculant bestreta...</p>';
-	const blocFiltres = document.getElementById('bloc-filtres-entrades');
-	if (blocFiltres) blocFiltres.style.display = 'none';
 
     // Detectar campanya actual
     const ara = new Date();
