@@ -52,7 +52,8 @@ async function mostrarVista_Entrades() {
  
     // Filtres
     html += '<div style="display:flex; gap:15px; align-items:flex-end; margin-bottom:15px; flex-wrap:wrap; background:#f5f5f5; padding:12px; border-radius:8px;">';
- 
+	html += '<div id="bloc-filtres-entrades" style="display:flex; gap:15px; ...">';
+	
     // Campanya
     html += '<div><label style="display:block; font-size:0.85em; margin-bottom:3px;"><strong>Campanya</strong></label>';
     html += '<select id="filtre-campanya-entrades" onchange="mostrarTaulaEntrades()" style="padding:6px; border-radius:4px; border:1px solid #ddd;">';
@@ -317,7 +318,7 @@ async function mostrarResumEntrades(campanya) {
         html += '<option value="' + c + '"' + (c === campanya ? ' selected' : '') + '>' + c + '</option>';
     });
     html += '</select>';
-    html += '<button class="btn btn-secondary" onclick="mostrarTaulaEntrades()">← Tornar</button>';
+    html += '<button class="btn btn-secondary" onclick="document.getElementById(\'bloc-filtres-entrades\').style.display=\'flex\'; mostrarTaulaEntrades()">← Tornar</button>';
     html += '</div>';
     html += '</div>';
  
@@ -2451,8 +2452,8 @@ window.imprimirAnalisi = function() {
 // ============================================================
 
 async function mostrarCalculBestreta() {
-    const content = document.getElementById('collita-content');
-    if (!content) return;
+    const blocFiltres = document.getElementById('bloc-filtres-entrades');
+	if (blocFiltres) blocFiltres.style.display = 'none';
 
     content.innerHTML = '<p>⏳ Calculant bestreta...</p>';
 
@@ -2488,24 +2489,30 @@ async function mostrarCalculBestreta() {
         // Si no existeix la funció RPC, fer consulta directa
         let kgPerFruita = {};
         if (error) {
-            // Consulta directa
-            const { data: entrades } = await supabaseClient
-                .from('collita_entrada')
-                .select('pes_net, fruita_varietat_id(fruita_id)')
-                .eq('estat', 'actiu')
-                .lte('data', dataTall);
+    for (let i = 0; i < preusActuals.length; i++) {
+        const p = preusActuals[i];
+        const { data: entrades } = await supabaseClient
+            .from('collita_entrada')
+            .select('pes_net, fruita_varietat_id')
+            .eq('estat', 'actiu')
+            .gte('data', p.bestreta_data_inici)
+            .lte('data', p.bestreta_data_final);
 
-            (entrades || []).forEach(function(e) {
-                const fruitaId = e.fruita_varietat_id?.fruita_id;
-                if (!fruitaId) return;
-                if (!kgPerFruita[fruitaId]) kgPerFruita[fruitaId] = 0;
-                kgPerFruita[fruitaId] += parseFloat(e.pes_net) || 0;
-            });
-        } else {
-            (dadesRpc || []).forEach(function(r) {
-                kgPerFruita[r.fruita_id] = parseFloat(r.kg_nets) || 0;
-            });
-        }
+        (entrades || []).forEach(function(e) {
+            // fruita_varietat_id aquí és un UUID, no un objecte
+            const fvId = typeof e.fruita_varietat_id === 'string' 
+                ? e.fruita_varietat_id 
+                : e.fruita_varietat_id?.id;
+            
+            // Buscar a varietats per obtenir fruita_id
+            const varObj = varietats.find(function(v) { return v.id === fvId; });
+            if (!varObj || varObj.fruita_id !== p.fruita_id) return;
+            
+            if (!kgPerFruita[p.fruita_id]) kgPerFruita[p.fruita_id] = 0;
+            kgPerFruita[p.fruita_id] += parseFloat(e.pes_net) || 0;
+        });
+    }
+}
 
         // 3. Calcular import per fruita
         let totalBestreta = 0;
@@ -2525,13 +2532,12 @@ async function mostrarCalculBestreta() {
         });
 
         // 4. Indicador provisional/definitiu
-        const dia21 = new Date(ara.getFullYear(), ara.getMonth(), 21);
-        const esDefinitiu = ara >= dia21;
+        const esDefinitiu = ara.getDate() >= 21;
         const estatBadge = esDefinitiu
-            ? '<span style="background:#27ae60;color:white;padding:4px 12px;border-radius:4px;font-size:13px;">✅ Càlcul definitiu</span>'
-            : '<span style="background:#ff9800;color:white;padding:4px 12px;border-radius:4px;font-size:13px;">⏳ Càlcul provisional — pendent albarans fins al 20/' + (ara.getMonth()+1) + '</span>';
-
-        // 5. Renderitzar
+            ? '<span style="background:#27ae60;color:white;padding:4px 12px;border-radius:4px;font-size:13px;">✅ Càlcul definitiu — data tall 20/' + String(ara.getMonth()+1).padStart(2,'0') + '/' + ara.getFullYear() + '</span>'
+            : '<span style="background:#ff9800;color:white;padding:4px 12px;border-radius:4px;font-size:13px;">⏳ Provisional — falten albarans fins al 20/' + String(ara.getMonth()+1).padStart(2,'0') + '</span>';
+   
+		// 5. Renderitzar
         let html = '<div class="calcul-bestreta">';
 
         // Capçalera
