@@ -189,6 +189,9 @@ function canviarVista(vista) {
 		case 'agroseguro':
 			carregarVistaAssegurances();  // Existeix
 			break;
+		case 'agroseguro':
+			carregarVistaAssegurances();  // Compatible amb codi antic
+			break;	
 		case 'immobilitzat':
 			mostrarVistaImmobilitzat();  // Existent (de altres-assegurances-ui_v1.js)
 			break;
