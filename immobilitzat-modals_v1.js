@@ -767,20 +767,126 @@ async function confirmarEliminarImmobilitzat(id) {
 }
 
 // ============================================================
-// OVERRIDE PLACEHOLDERS DEL FITXER PRINCIPAL
+// OVERRIDE PLACEHOLDERS + VISTA IMMOBILITZAT MILLORADA
 // ============================================================
 
-function obrirModalNouImmobilitzatOverride() {
-    obrirModalNouImmobilitzat();
-}
-
-// La funció obrirModalEditarImmobilitzat ja substitueix directament
-// el placeholder del fitxer principal pel mateix nom de funció ✅
-
-// Override detall — des de la taula es crida amb botó 👁️
-// Afegim també la funció de detall per si es crida des d'altres llocs
+// Override detall
 function mostrarDetallImmobilitzat(id) {
     obrirModalDetallImmobilitzat(id);
+}
+
+// Override vista llistat — substitueix la del fitxer principal
+// afegint botó detall + columnes ITV i ITEAF
+async function mostrarVistaImmobilitzat() {
+    try {
+        const container = document.getElementById('immobilitzat-view');
+        if (!container) return;
+
+        let html = `
+            <div class="assegurances-header">
+                <h3>🏗️ Immobilitzat material</h3>
+                <button class="btn-nova" onclick="obrirModalNouImmobilitzat()">
+                    ➕ Nou immobilitzat
+                </button>
+            </div>
+        `;
+
+        const immobilitzat = await supabaseClient
+            .from('immobilitzat_material')
+            .select('*')
+            .order('tipus')
+            .order('descripció');
+
+        if (immobilitzat.error) throw immobilitzat.error;
+        const llista = immobilitzat.data || [];
+
+        // Actualitzar cache global si existeix
+        if (typeof immobilizatCache !== 'undefined') immobilizatCache = llista;
+
+        if (llista.length === 0) {
+            html += `<div class="no-data">Sense immobilitzat registrat</div>`;
+        } else {
+            html += `
+                <div style="overflow-x:auto;">
+                <table class="taula-standard">
+                    <thead>
+                        <tr>
+                            <th>Tipus</th>
+                            <th>Descripció</th>
+                            <th>Marca / Model</th>
+                            <th>Matrícula</th>
+                            <th>Valor actual</th>
+                            <th>ITV</th>
+                            <th>ITEAF</th>
+                            <th>Accions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            llista.forEach(imm => {
+                const valor = (imm.valor_actual || 0).toLocaleString('ca-ES', { style: 'currency', currency: 'EUR' });
+                const marca = imm.marca ? `${imm.marca} ${imm.model || ''}`.trim() : imm.model || '—';
+
+                // Badge ITV
+                const itvBadge = badgeDataProperaImm(imm.itv_data_propera, 'ITV');
+                // Badge ITEAF
+                const iteafBadge = badgeDataProperaImm(imm.iteaf_data_propera, 'ITEAF');
+
+                html += `
+                    <tr>
+                        <td><strong>${getTipusIconImm(imm.tipus)} ${imm.tipus}</strong></td>
+                        <td>${imm.descripció}</td>
+                        <td>${marca}</td>
+                        <td>${imm.matrícula || '—'}</td>
+                        <td>${valor}</td>
+                        <td>${itvBadge}</td>
+                        <td>${iteafBadge}</td>
+                        <td class="accions-cell" style="white-space:nowrap;">
+                            <button class="btn-small btn-veure"   onclick="obrirModalDetallImmobilitzat('${imm.id}')">👁️</button>
+                            <button class="btn-small btn-editar"  onclick="obrirModalEditarImmobilitzat('${imm.id}')">✏️</button>
+                            <button class="btn-small btn-eliminar" onclick="confirmarEliminarImmobilitzat('${imm.id}')">🗑️</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table></div>`;
+        }
+
+        container.innerHTML = html;
+
+    } catch (error) {
+        console.error('Error mostrarVistaImmobilitzat:', error);
+        const container = document.getElementById('immobilitzat-view');
+        if (container) container.innerHTML = `<div class="error-message">Error: ${error.message}</div>`;
+    }
+}
+
+// Badge compacte per a la taula (semàfor de dates)
+function badgeDataProperaImm(dataStr, etiqueta) {
+    if (!dataStr) return '<span style="color:#ccc;font-size:12px;">—</span>';
+
+    const avui = new Date();
+    const data = new Date(dataStr);
+    const dies = Math.ceil((data - avui) / (1000 * 60 * 60 * 24));
+
+    let color, bg, text;
+    if (dies < 0) {
+        color = '#c62828'; bg = '#ffebee';
+        text = `⚠️ Vençuda`;
+    } else if (dies <= 30) {
+        color = '#e65100'; bg = '#fff3e0';
+        text = `⏰ ${dies}d`;
+    } else if (dies <= 90) {
+        color = '#f57f17'; bg = '#fffde7';
+        text = `📅 ${dies}d`;
+    } else {
+        color = '#2d7a2d'; bg = '#e8f5e9';
+        text = `✅ ${formatDataImm(dataStr)}`;
+    }
+
+    return `<span style="background:${bg};color:${color};padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap;">${text}</span>`;
 }
 
 // ============================================================
