@@ -1,17 +1,13 @@
 /* ============================================================
-   ASSEGURANCES UNIFICAT — STYLES v2 — HARMONITZAT
-   Tabs principals + secundaris, Cards, Badges
-   Coherent amb styles.css global
+   ASSEGURANCES UNIFICAT — STYLES v2 CLEAN
+   Usa variables globals de styles.css
    ============================================================ */
 
 .assegurances-container {
     padding: 20px;
 }
 
-/* ============================================================
-   TABS PRINCIPALS
-   ============================================================ */
-
+/* TABS PRINCIPALS */
 .assegurances-tabs-main {
     display: flex;
     gap: 10px;
@@ -40,24 +36,20 @@
     border-bottom-color: var(--color-primary);
 }
 
-
-/* ============================================================
-   TABS SECUNDARIS
-   ============================================================ */
-
+/* TABS SECUNDARIS */
 .assegurances-tabs-sub {
     display: flex;
     gap: 8px;
     margin: 20px 0 15px 0;
     padding-bottom: 10px;
-    border-bottom: 1px solid var(--gris-clar);
+    border-bottom: 1px solid var(--color-border);
 }
 
 .tab-btn-sub {
     padding: 8px 14px;
     border: none;
     background-color: transparent;
-    color: var(--gris-mitja);
+    color: var(--color-text-light);
     font-weight: 500;
     cursor: pointer;
     border-bottom: 2px solid transparent;
@@ -66,18 +58,15 @@
 }
 
 .tab-btn-sub:hover {
-    color: var(--verde-principal);
+    color: var(--color-primary);
 }
 
 .tab-btn-sub.active {
-    color: var(--verde-principal);
-    border-bottom-color: var(--verde-principal);
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
 }
 
-/* ============================================================
-   ANIMACIONS
-   ============================================================ */
-
+/* ANIMACIONS */
 .tab-content-main,
 .subtab-content {
     display: none;
@@ -100,30 +89,24 @@
     }
 }
 
-/* ============================================================
-   HEADERS DE SECCIÓ
-   ============================================================ */
-
+/* HEADERS */
 .assegurances-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
     padding-bottom: 15px;
-    border-bottom: 1px solid var(--gris-clar);
+    border-bottom: 1px solid var(--color-border);
 }
 
 .assegurances-header h3 {
     margin: 0;
-    color: var(--verde-principal);
+    color: var(--color-primary);
     font-size: 18px;
     font-weight: 600;
 }
 
-/* ============================================================
-   CONTROLS I SELECTORS
-   ============================================================ */
-
+/* CONTROLS */
 .assegurances-controls {
     display: flex;
     gap: 12px;
@@ -136,7 +119,7 @@
     gap: 6px;
     font-size: 13px;
     cursor: pointer;
-    color: var(--gris-fosc);
+    color: var(--color-text);
 }
 
 .assegurances-controls input[type="checkbox"] {
@@ -146,28 +129,25 @@
 .selector-campanya,
 .selector-exercici {
     padding: 8px 12px;
-    border: 1px solid var(--gris-clar);
+    border: 1px solid var(--color-border);
     border-radius: 4px;
     font-size: 13px;
-    background-color: var(--blanco);
+    background-color: var(--color-bg-card);
     cursor: pointer;
 }
 
 .selector-campanya:focus,
 .selector-exercici:focus {
     outline: none;
-    border-color: var(--verde-principal);
+    border-color: var(--color-primary);
     box-shadow: 0 0 0 3px rgba(45, 80, 22, 0.1);
 }
 
-/* ============================================================
-   BOTONS
-   ============================================================ */
-
+/* BOTONS */
 .btn-nova {
     padding: 10px 16px;
-    background-color: var(--verde-principal);
-    color: var(--blanco);
+    background-color: var(--color-primary);
+    color: white;
     border: none;
     border-radius: 4px;
     font-weight: 600;
@@ -178,13 +158,10 @@
 }
 
 .btn-nova:hover {
-    background-color: var(--verde-accent);
+    background-color: var(--color-primary-light);
 }
 
-/* ============================================================
-   CARDS PÒLISSES
-   ============================================================ */
-
+/* CARDS */
 .cards-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -193,8 +170,8 @@
 }
 
 .card-polissa {
-    background-color: var(--blanco);
-    border: 1px solid var(--gris-clar);
+    background-color: var(--color-bg-card);
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     overflow: hidden;
     box-shadow: var(--shadow-sm);
@@ -203,7 +180,7 @@
 
 .card-polissa:hover {
     box-shadow: var(--shadow-md);
-    border-color: var(--verde-principal);
+    border-color: var(--color-primary);
 }
 
 .card-header {
@@ -211,13 +188,13 @@
     justify-content: space-between;
     align-items: flex-start;
     padding: 12px;
-    background-color: #f9f9f9;
-    border-bottom: 1px solid var(--gris-clar);
+    background-color: var(--color-bg);
+    border-bottom: 1px solid var(--color-border);
 }
 
 .card-header h4 {
     margin: 0;
-    color: var(--verde-principal);
+    color: var(--color-primary);
     font-size: 14px;
     font-weight: 600;
 }
@@ -229,8 +206,8 @@
     font-size: 11px;
     font-weight: 600;
     white-space: nowrap;
-    background-color: #c8e6c9;
-    color: #1b5e20;
+    background-color: var(--color-success);
+    color: white;
 }
 
 .card-body {
@@ -244,22 +221,19 @@
 }
 
 .card-body strong {
-    color: var(--gris-fosc);
+    color: var(--color-text);
 }
 
 .card-footer {
     display: flex;
     gap: 6px;
     padding: 10px;
-    background-color: #f9f9f9;
-    border-top: 1px solid var(--gris-clar);
+    background-color: var(--color-bg);
+    border-top: 1px solid var(--color-border);
     justify-content: center;
 }
 
-/* ============================================================
-   BOTONS PETITS
-   ============================================================ */
-
+/* BOTONS PETITS */
 .btn-small {
     padding: 8px 12px;
     border: none;
@@ -291,21 +265,18 @@
 
 .btn-eliminar {
     background-color: #ffebee;
-    color: #dc3545;
+    color: var(--color-error);
 }
 
 .btn-eliminar:hover {
     background-color: #ffcdd2;
 }
 
-/* ============================================================
-   TAULA ESTÀNDARD (Immobilitzat)
-   ============================================================ */
-
+/* TAULA */
 .taula-standard {
     width: 100%;
     border-collapse: collapse;
-    background-color: var(--blanco);
+    background-color: var(--color-bg-card);
     border-radius: 4px;
     overflow: hidden;
     box-shadow: var(--shadow-sm);
@@ -314,21 +285,21 @@
 
 .taula-standard thead {
     background-color: var(--color-bg);
-    border-bottom: 2px solid var(--gris-clar);
+    border-bottom: 2px solid var(--color-border);
 }
 
 .taula-standard th {
     padding: 12px;
     text-align: left;
     font-weight: 600;
-    color: var(--gris-fosc);
+    color: var(--color-text);
     font-size: 12px;
     text-transform: uppercase;
 }
 
 .taula-standard td {
     padding: 12px;
-    border-bottom: 1px solid var(--gris-clar);
+    border-bottom: 1px solid var(--color-border);
     font-size: 13px;
 }
 
@@ -346,14 +317,11 @@
     justify-content: center;
 }
 
-/* ============================================================
-   MISSATGES I ERRORS
-   ============================================================ */
-
+/* MISSATGES */
 .no-data {
     padding: 40px 20px;
     text-align: center;
-    color: var(--gris-mitja);
+    color: var(--color-text-light);
     font-size: 14px;
     background-color: var(--color-bg);
     border-radius: 4px;
@@ -363,15 +331,11 @@
 .error-message {
     padding: 20px;
     background-color: #ffebee;
-    color: #dc3545;
+    color: var(--color-error);
     border-radius: 4px;
     margin-top: 20px;
     font-size: 13px;
 }
-
-/* ============================================================
-   RESPONSIVE MOBILE
-   ============================================================ */
 
 /* RESPONSIVE */
 @media (max-width: 768px) {
@@ -386,10 +350,8 @@
         flex-direction: column;
     }
     
-    .assegurances-controls label {
-        width: 100%;
-    }
-    
+    .selector-campanya,
+    .selector-exercici,
     .btn-nova {
         width: 100%;
     }
@@ -424,7 +386,6 @@
     
     .btn-small {
         width: 100%;
-        padding: 8px 6px;
     }
 }
 
