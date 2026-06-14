@@ -1,8 +1,3 @@
-/* ============================================================
-   ASSEGURANCES UNIFICAT — STYLES v2 CLEAN
-   Usa variables globals de styles.css
-   ============================================================ */
-
 .assegurances-container {
     padding: 20px;
 }
