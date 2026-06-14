@@ -328,8 +328,7 @@ async function obrirModalDetallAltres(polissaId) {
 // MODAL NOVA PÒLISSA ALTRES
 // ============================================================
 
-function obrirModalNovaAsseguranca() {obrirModalNovaAltres();
-}
+async function obrirModalNovaAltres() {
     try {
         const existent = document.getElementById('modal-nova-altres');
         if (existent) existent.remove();
@@ -1061,5 +1060,23 @@ async function confirmarEliminarQuotaAltres(quotaId, polissaId) {
     `;
     document.head.appendChild(style);
 })();
+
+// ============================================================
+// OVERRIDE PLACEHOLDERS DEL FITXER PRINCIPAL
+// Substitueix les funcions "A implementar" de assegurances-unificat_v2-FINAL.js
+// (aquest fitxer es carrega després, per tant sobreescriu automàticament)
+// ============================================================
+
+function obrirModalNovaAsseguranca() {
+    obrirModalNovaAltres();
+}
+
+function obrirModalDetallAsseguranca(assegurancaId) {
+    obrirModalDetallAltres(assegurancaId);
+}
+
+function obrirModalEditarAsseguranca(id) {
+    obrirModalEditarAltres(id);
+}
 
 console.log('✅ Assegurances Modals Altres v1 carregat');
