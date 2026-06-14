@@ -779,8 +779,16 @@ function mostrarDetallImmobilitzat(id) {
 // afegint botó detall + columnes ITV i ITEAF
 async function mostrarVistaImmobilitzat() {
     try {
-        const container = document.getElementById('immobilitzat-view');
-        if (!container) return;
+        let container = document.getElementById('immobilitzat-view');
+
+        // Si no existeix el container (accés des del menú Gestió),
+        // creem la vista directament al view-container
+        if (!container) {
+            const viewContainer = document.getElementById('view-container');
+            if (!viewContainer) return;
+            viewContainer.innerHTML = `<div id="immobilitzat-view"></div>`;
+            container = document.getElementById('immobilitzat-view');
+        }
 
         let html = `
             <div class="assegurances-header">
