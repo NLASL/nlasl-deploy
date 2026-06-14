@@ -4,19 +4,6 @@
    Coherent amb styles.css global
    ============================================================ */
 
-/* ============================================================
-   VARIABLES CSS HARMONITZADES (amb styles.css global)
-   ============================================================ */
-
-:root {
-    --verde-principal: #2d5016;
-    --verde-accent: #4a7c2a;
-    --gris-fosc: #333;
-    --gris-mitja: #666;
-    --gris-clar: #ddd;
-    --blanco: #ffffff;
-}
-
 .assegurances-container {
     padding: 20px;
 }
@@ -29,14 +16,14 @@
     display: flex;
     gap: 10px;
     margin-bottom: 20px;
-    border-bottom: 2px solid var(--gris-clar);
+    border-bottom: 2px solid var(--color-border);
 }
 
 .tab-btn-main {
     padding: 12px 18px;
     border: none;
     background-color: transparent;
-    color: var(--gris-mitja);
+    color: var(--color-text-light);
     font-weight: 600;
     cursor: pointer;
     border-bottom: 3px solid transparent;
@@ -45,13 +32,14 @@
 }
 
 .tab-btn-main:hover {
-    color: var(--verde-principal);
+    color: var(--color-primary);
 }
 
 .tab-btn-main.active {
-    color: var(--verde-principal);
-    border-bottom-color: var(--verde-principal);
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
 }
+
 
 /* ============================================================
    TABS SECUNDARIS
