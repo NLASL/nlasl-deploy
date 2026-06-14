@@ -9,12 +9,12 @@
    ============================================================ */
 
 :root {
-    --verde-principal: var(--color-primary, #2d5016);
-    --verde-accent: var(--color-primary-light, #4a7c2a);
-    --gris-fosc: var(--color-text, #333);
-    --gris-mitja: var(--color-text-light, #666);
-    --gris-clar: var(--color-border, #ddd);
-    --blanco: var(--color-bg-card, #ffffff);
+    --verde-principal: #2d5016;
+    --verde-accent: #4a7c2a;
+    --gris-fosc: #333;
+    --gris-mitja: #666;
+    --gris-clar: #ddd;
+    --blanco: #ffffff;
 }
 
 .assegurances-container {
