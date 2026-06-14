@@ -4,6 +4,7 @@
 
 // Variable de control
 let vistaColltitaActual = 'entrades';
+let tipusCollitaActual = 'fruita'; // 'fruita' o 'cereal'
 
 // ============================================================
 // 0. DISPATCHER (canviar entre vistes)
@@ -39,9 +40,21 @@ async function mostrarVista_Entrades() {
     const campanyadefecte = mes >= 10 ? ara.getFullYear() + 1 : ara.getFullYear();
  
     let html = '<div class="vista-entrades">';
-    html += '<h2>🍎 Collita - Entrades</h2>';
- 
-    // Navegació - botons
+    html += '<h2>' + (tipusCollitaActual === 'cereal' ? '🌾' : '🍎') + ' Collita - Entrades</h2>';
+
+    // Tabs Fruita / Cereal
+    html += '<div style="display:flex;gap:5px;margin-bottom:15px;">';
+    html += '<button onclick="tipusCollitaActual=\'fruita\';mostrarVista_Entrades();" style="padding:8px 20px;border:none;border-radius:6px 6px 0 0;cursor:pointer;font-weight:600;' + (tipusCollitaActual === 'fruita' ? 'background:#2d5016;color:white;' : 'background:#e0e0e0;color:#555;') + '">🍎 Fruita</button>';
+    html += '<button onclick="tipusCollitaActual=\'cereal\';mostrarVista_Entrades();" style="padding:8px 20px;border:none;border-radius:6px 6px 0 0;cursor:pointer;font-weight:600;' + (tipusCollitaActual === 'cereal' ? 'background:#2d5016;color:white;' : 'background:#e0e0e0;color:#555;') + '">🌾 Cereal</button>';
+    html += '</div>';
+
+    if (tipusCollitaActual === 'cereal') {
+        container.innerHTML = html + '</div>';
+        await mostrarVistaCereal(container, campanyadefecte);
+        return;
+    }
+
+    // Navegació - botons (fruita)
     html += '<div style="margin-bottom:15px; border-bottom:2px solid #ddd; padding-bottom:10px;">';
     html += '<button class="btn btn-primary" onclick="mostrarFormulariAlbaraEntrada()" style="margin-right:10px;">➕ Nova Entrada</button>';
     html += '<button class="btn btn-info" onclick="mostrarResumEntrades()" style="margin-right:10px;">📊 Resum</button>';
@@ -51,9 +64,8 @@ async function mostrarVista_Entrades() {
     html += '</div>';
  
     // Filtres
-    html += '<div style="display:flex; gap:15px; align-items:flex-end; margin-bottom:15px; flex-wrap:wrap; background:#f5f5f5; padding:12px; border-radius:8px;">';
-	html += '<div id="bloc-filtres-entrades" style="display:flex; gap:15px; ...">';
-	
+    html += '<div id="bloc-filtres-entrades" style="display:flex; gap:15px; align-items:flex-end; margin-bottom:15px; flex-wrap:wrap; background:#f5f5f5; padding:12px; border-radius:8px;">';
+ 
     // Campanya
     html += '<div><label style="display:block; font-size:0.85em; margin-bottom:3px;"><strong>Campanya</strong></label>';
     html += '<select id="filtre-campanya-entrades" onchange="mostrarTaulaEntrades()" style="padding:6px; border-radius:4px; border:1px solid #ddd;">';
@@ -318,7 +330,7 @@ async function mostrarResumEntrades(campanya) {
         html += '<option value="' + c + '"' + (c === campanya ? ' selected' : '') + '>' + c + '</option>';
     });
     html += '</select>';
-    html += '<button class="btn btn-secondary" onclick="document.getElementById(\'bloc-filtres-entrades\').style.display=\'flex\'; mostrarTaulaEntrades()">← Tornar</button>';
+    html += '<button class="btn btn-secondary" onclick="mostrarTaulaEntrades()">← Tornar</button>';
     html += '</div>';
     html += '</div>';
  
@@ -2460,138 +2472,565 @@ async function mostrarCalculBestreta() {
 
     content.innerHTML = '<p>⏳ Calculant bestreta...</p>';
 
-    // Detectar campanya actual
     const ara = new Date();
     const mes = ara.getMonth() + 1;
     const campanya = mes >= 10 ? ara.getFullYear() + 1 : ara.getFullYear();
-
-    // Data de tall = avui
-    const dataTall = ara.toISOString().split('T')[0];
     const dataTallFormat = ara.toLocaleDateString('ca-ES');
 
     try {
-        // 1. Carregar preus bestreta de la campanya
         if (!fruites || fruites.length === 0) await carregarDadesCollita();
         await carregarDadesPreus();
 
-        const preusActuals = preusAnuals.filter(function(p) {
-            return p.campanya === campanya;
-        });
+        // Bestretes de la campanya ordenades per fruita i num_bestreta
+        const preusActuals = preusAnuals
+            .filter(function(p) { return p.campanya === campanya; })
+            .sort(function(a, b) {
+                const fa = fruites.find(function(f) { return f.id === a.fruita_id; });
+                const fb = fruites.find(function(f) { return f.id === b.fruita_id; });
+                const nomA = fa ? fa.nom : '';
+                const nomB = fb ? fb.nom : '';
+                if (nomA !== nomB) return nomA.localeCompare(nomB);
+                return (a.num_bestreta || 1) - (b.num_bestreta || 1);
+            });
 
         if (preusActuals.length === 0) {
             content.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;">⚠️ No hi ha preus de bestreta configurats per la campanya ' + campanya + '</div>';
             return;
         }
 
-        // 2. Consultar kg nets per fruita fins a data de tall
-        const { data: dadesRpc, error } = await supabaseClient.rpc('calcular_bestreta', {
-            p_campanya: campanya,
-            p_data_tall: dataTall
-        });
+        // Calcular kg per cada bestreta (pel seu període específic)
+        const resultatPerBestreta = [];
+        let totalAcumulat = 0;
 
-        // Si no existeix la funció RPC, fer consulta directa
-        let kgPerFruita = {};
-        if (error) {
-    for (let i = 0; i < preusActuals.length; i++) {
-        const p = preusActuals[i];
-        const { data: entrades } = await supabaseClient
-            .from('collita_entrada')
-            .select('pes_net, fruita_varietat_id')
-            .eq('estat', 'actiu')
-            .gte('data', p.bestreta_data_inici)
-            .lte('data', p.bestreta_data_final);
-
-        (entrades || []).forEach(function(e) {
-            // fruita_varietat_id aquí és un UUID, no un objecte
-            const fvId = typeof e.fruita_varietat_id === 'string' 
-                ? e.fruita_varietat_id 
-                : e.fruita_varietat_id?.id;
-            
-            // Buscar a varietats per obtenir fruita_id
-            const varObj = varietats.find(function(v) { return v.id === fvId; });
-            if (!varObj || varObj.fruita_id !== p.fruita_id) return;
-            
-            if (!kgPerFruita[p.fruita_id]) kgPerFruita[p.fruita_id] = 0;
-            kgPerFruita[p.fruita_id] += parseFloat(e.pes_net) || 0;
-        });
-    }
-}
-
-        // 3. Calcular import per fruita
-        let totalBestreta = 0;
-        const linies = preusActuals.map(function(p) {
+        for (let i = 0; i < preusActuals.length; i++) {
+            const p = preusActuals[i];
             const fruita = fruites.find(function(f) { return f.id === p.fruita_id; });
-            const kgNets = kgPerFruita[p.fruita_id] || 0;
-            const import_ = kgNets * p.bestreta_preu_unitari;
-            totalBestreta += import_;
-            return {
+            const dataInici = p.bestreta_data_inici;
+            const dataFinal = p.bestreta_data_final;
+            const dataFinalDate = new Date(dataFinal);
+            const dataIniciDate = new Date(dataInici);
+
+            // Estat de la bestreta
+            let estat, estatBadge;
+            if (ara < dataIniciDate) {
+                estat = 'pendent';
+                estatBadge = '<span style="background:#9e9e9e;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">🔜 Pendent</span>';
+            } else if (ara > dataFinalDate) {
+                estat = 'tancada';
+                estatBadge = '<span style="background:#27ae60;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">✅ Tancada</span>';
+            } else {
+                estat = 'provisional';
+                estatBadge = '<span style="background:#ff9800;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">⏳ Provisional</span>';
+            }
+
+            // Consultar kg nets per aquest període i fruita
+            let kgNets = 0;
+            const { data: entrades } = await supabaseClient
+                .from('collita_entrada')
+                .select('pes_net, fruita_varietat_id')
+                .eq('estat', 'actiu')
+                .gte('data', dataInici)
+                .lte('data', estat === 'provisional' ? ara.toISOString().split('T')[0] : dataFinal);
+
+            (entrades || []).forEach(function(e) {
+                const fvId = typeof e.fruita_varietat_id === 'string'
+                    ? e.fruita_varietat_id
+                    : e.fruita_varietat_id?.id;
+                const varObj = varietats.find(function(v) { return v.id === fvId; });
+                if (!varObj || varObj.fruita_id !== p.fruita_id) return;
+                kgNets += parseFloat(e.pes_net) || 0;
+            });
+
+            const importBestreta = kgNets * p.bestreta_preu_unitari;
+            if (estat !== 'pendent') totalAcumulat += importBestreta;
+
+            resultatPerBestreta.push({
+                numBestreta: p.num_bestreta || i + 1,
                 fruita: fruita ? fruita.nom : '-',
+                fruitaId: p.fruita_id,
                 kgNets: kgNets,
                 preu: p.bestreta_preu_unitari,
-                import_: import_,
-                dataInici: p.bestreta_data_inici,
-                dataFinal: p.bestreta_data_final
-            };
-        });
+                import_: importBestreta,
+                dataInici: dataInici,
+                dataFinal: dataFinal,
+                estat: estat,
+                estatBadge: estatBadge
+            });
+        }
 
-        // 4. Indicador provisional/definitiu
-        const esDefinitiu = ara.getDate() >= 21;
-        const estatBadge = esDefinitiu
-            ? '<span style="background:#27ae60;color:white;padding:4px 12px;border-radius:4px;font-size:13px;">✅ Càlcul definitiu — data tall 20/' + String(ara.getMonth()+1).padStart(2,'0') + '/' + ara.getFullYear() + '</span>'
-            : '<span style="background:#ff9800;color:white;padding:4px 12px;border-radius:4px;font-size:13px;">⏳ Provisional — falten albarans fins al 20/' + String(ara.getMonth()+1).padStart(2,'0') + '</span>';
-   
-		// 5. Renderitzar
+        // Agrupar per fruita per mostrar subtotals
+        const fruitesUniqueIds = [...new Set(resultatPerBestreta.map(function(r) { return r.fruitaId; }))];
+
+        // Indicador global
+        const teProvisional = resultatPerBestreta.some(function(r) { return r.estat === 'provisional'; });
+        const badgeGlobal = teProvisional
+            ? '<span style="background:#ff9800;color:white;padding:4px 12px;border-radius:4px;font-size:13px;">⏳ Provisional — falten albarans fins al 20/' + String(mes).padStart(2,'0') + '</span>'
+            : '<span style="background:#27ae60;color:white;padding:4px 12px;border-radius:4px;font-size:13px;">✅ Tancada — data tall 20/' + String(mes-1 || 12).padStart(2,'0') + '/' + campanya + '</span>';
+
+        // Renderitzar
         let html = '<div class="calcul-bestreta">';
 
-        // Capçalera
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
         html += '<h3 style="margin:0;">💰 Bestreta Campanya ' + campanya + '</h3>';
-        html += '<button class="btn btn-secondary" onclick="mostrarTaulaEntrades()">← Tornar</button>';
+        html += '<button class="btn btn-secondary" onclick="document.getElementById(\'bloc-filtres-entrades\').style.display=\'flex\'; mostrarTaulaEntrades()">← Tornar</button>';
         html += '</div>';
 
-        // Estat + data tall
         html += '<div style="margin-bottom:15px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">';
-        html += estatBadge;
-        html += '<span style="color:#666;font-size:13px;">Data de tall: <strong>' + dataTallFormat + '</strong></span>';
+        html += badgeGlobal;
+        html += '<span style="color:#666;font-size:13px;">Data càlcul: <strong>' + dataTallFormat + '</strong></span>';
         html += '</div>';
 
         // Taula per fruita
-        html += '<div class="table-container"><table class="data-table" style="width:100%;">';
-        html += '<thead><tr>';
-        html += '<th>Fruita</th>';
-        html += '<th style="text-align:right;">Kg nets collits</th>';
-        html += '<th style="text-align:right;">Preu (€/kg)</th>';
-        html += '<th style="text-align:right;">Import bestreta (€)</th>';
-        html += '<th>Període</th>';
-        html += '</tr></thead><tbody>';
+        fruitesUniqueIds.forEach(function(fruitaId) {
+            const linesF = resultatPerBestreta.filter(function(r) { return r.fruitaId === fruitaId; });
+            const nomFruita = linesF[0].fruita;
+            const colorFruita = nomFruita === 'Albercoc' ? '#f39c12' :
+                                nomFruita === 'Nectarina' ? '#e74c3c' :
+                                nomFruita === 'Préssec Pla' ? '#e91e8c' : '#27ae60';
+            const subtotal = linesF.filter(function(r) { return r.estat !== 'pendent'; })
+                                   .reduce(function(s, r) { return s + r.import_; }, 0);
 
-        linies.forEach(function(l) {
-            const colorFruita = l.fruita === 'Albercoc' ? '#f39c12' :
-                                l.fruita === 'Nectarina' ? '#e74c3c' :
-                                l.fruita === 'Préssec Pla' ? '#e91e8c' : '#27ae60';
-            html += '<tr>';
-            html += '<td><strong style="color:' + colorFruita + ';">' + l.fruita + '</strong></td>';
-            html += '<td style="text-align:right;">' + l.kgNets.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</td>';
-            html += '<td style="text-align:right;">' + l.preu.toFixed(3) + '</td>';
-            html += '<td style="text-align:right;"><strong>' + l.import_.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €</strong></td>';
-            html += '<td style="font-size:12px;color:#666;">' + formatData(l.dataInici) + ' — ' + formatData(l.dataFinal) + '</td>';
+            html += '<div style="margin-bottom:20px;">';
+            html += '<h4 style="color:' + colorFruita + ';margin-bottom:8px;">' + nomFruita + '</h4>';
+            html += '<table class="data-table" style="width:100%;">';
+            html += '<thead><tr>';
+            html += '<th>Nº</th>';
+            html += '<th>Període</th>';
+            html += '<th style="text-align:right;">Kg nets</th>';
+            html += '<th style="text-align:right;">Preu (€/kg)</th>';
+            html += '<th style="text-align:right;">Import (€)</th>';
+            html += '<th>Estat</th>';
+            html += '</tr></thead><tbody>';
+
+            linesF.forEach(function(l) {
+                html += '<tr' + (l.estat === 'pendent' ? ' style="opacity:0.5;"' : '') + '>';
+                html += '<td><strong>' + l.numBestreta + 'ª</strong></td>';
+                html += '<td style="font-size:12px;">' + formatData(l.dataInici) + ' — ' + formatData(l.dataFinal) + '</td>';
+                html += '<td style="text-align:right;">' + (l.estat === 'pendent' ? '-' : l.kgNets.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2})) + '</td>';
+                html += '<td style="text-align:right;">' + l.preu.toFixed(3) + '</td>';
+                html += '<td style="text-align:right;"><strong>' + (l.estat === 'pendent' ? '-' : l.import_.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €') + '</strong></td>';
+                html += '<td>' + l.estatBadge + '</td>';
+                html += '</tr>';
+            });
+
+            // Subtotal fruita
+            html += '<tr style="border-top:2px solid ' + colorFruita + ';background:' + colorFruita + '15;font-weight:bold;">';
+            html += '<td colspan="4">Subtotal ' + nomFruita + '</td>';
+            html += '<td style="text-align:right;color:' + colorFruita + ';">' + subtotal.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €</td>';
+            html += '<td></td>';
             html += '</tr>';
+
+            html += '</tbody></table></div>';
         });
 
-        // Total
-        html += '<tr style="border-top:3px solid #333;background:#f5f5f5;font-weight:bold;">';
-        html += '<td colspan="3">TOTAL BESTRETA</td>';
-        html += '<td style="text-align:right;font-size:1.2em;color:#27ae60;">' + totalBestreta.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €</td>';
-        html += '<td></td>';
-        html += '</tr>';
+        // Total general
+        html += '<div style="background:#2d5016;color:white;padding:15px 20px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;">';
+        html += '<strong style="font-size:1.1em;">TOTAL BESTRETES CAMPANYA ' + campanya + '</strong>';
+        html += '<strong style="font-size:1.4em;">' + totalAcumulat.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €</strong>';
+        html += '</div>';
 
-        html += '</tbody></table></div>';
         html += '</div>';
 
         content.innerHTML = html;
 
     } catch (error) {
         console.error('Error calculant bestreta:', error);
+        content.innerHTML = '<div style="color:red;padding:20px;">Error: ' + error.message + '</div>';
+    }
+}
+// ============================================================
+// MÒDUL CEREAL
+// ============================================================
+
+async function mostrarVistaCereal(container, campanyadefecte) {
+    const ara = new Date();
+    const mes = ara.getMonth() + 1;
+    const campDef = campanyadefecte || (mes >= 10 ? ara.getFullYear() + 1 : ara.getFullYear());
+    const campanyaActual = parseInt(document.getElementById('filtre-campanya-cereal')?.value) || campDef;
+
+    const { data: entrades, error } = await supabaseClient
+        .from('collita_entrades_cereal')
+        .select('*')
+        .eq('campanya', campanyaActual)
+        .eq('estat', 'actiu')
+        .order('data', { ascending: false });
+
+    if (error) {
+        container.innerHTML += '<p style="color:red;">Error: ' + error.message + '</p>';
+        return;
+    }
+
+    const registres = entrades || [];
+
+    const totalsPerCultiu = {};
+    registres.forEach(function(r) {
+        if (!totalsPerCultiu[r.cultiu]) totalsPerCultiu[r.cultiu] = { albarans: 0, kg: 0 };
+        totalsPerCultiu[r.cultiu].albarans++;
+        totalsPerCultiu[r.cultiu].kg += parseFloat(r.pes_net) || 0;
+    });
+
+    let html = container.innerHTML;
+
+    html += '<div style="margin-bottom:15px;border-bottom:2px solid #ddd;padding-bottom:10px;">';
+    html += '<button class="btn btn-primary" onclick="obrirFormularICereal()" style="margin-right:10px;">➕ Nova Entrada</button>';
+    html += '<button class="btn btn-success" onclick="mostrarLiquidacioCereal()" style="margin-right:10px;">💰 Liquidació</button>';
+    html += '</div>';
+
+    html += '<div id="bloc-filtres-cereal" style="display:flex;gap:15px;align-items:flex-end;margin-bottom:15px;flex-wrap:wrap;background:#f5f5f5;padding:12px;border-radius:8px;">';
+    html += '<div><label style="display:block;font-size:0.85em;margin-bottom:3px;"><strong>Campanya</strong></label>';
+    html += '<select id="filtre-campanya-cereal" onchange="mostrarVista_Entrades()" style="padding:6px;border-radius:4px;border:1px solid #ddd;">';
+    [2024, 2025, 2026, 2027].forEach(function(c) {
+        html += '<option value="' + c + '"' + (c === campanyaActual ? ' selected' : '') + '>' + c + '</option>';
+    });
+    html += '</select></div></div>';
+
+    if (Object.keys(totalsPerCultiu).length > 0) {
+        html += '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:15px;">';
+        Object.keys(totalsPerCultiu).forEach(function(cultiu) {
+            const t = totalsPerCultiu[cultiu];
+            html += '<div style="background:#e8f5e9;padding:10px 16px;border-radius:8px;border-left:4px solid #2d5016;">';
+            html += '<strong>' + cultiu + '</strong><br>';
+            html += '<span style="font-size:0.85em;color:#555;">' + t.albarans + ' albarà' + (t.albarans > 1 ? 'ns' : '') + ' · ';
+            html += '<strong>' + t.kg.toLocaleString('ca-ES') + ' kg</strong></span>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    if (registres.length === 0) {
+        html += '<div style="text-align:center;padding:30px;color:#999;">No hi ha entrades de cereal per la campanya ' + campanyaActual + '</div>';
+    } else {
+        html += '<div class="table-container"><table class="data-table" style="width:100%;">';
+        html += '<thead><tr>';
+        html += '<th>Data</th><th>Num. Albarà</th><th>Cultiu</th><th>Finca</th>';
+        html += '<th style="text-align:right;">Pes Brut</th><th style="text-align:right;">Tara 1</th>';
+        html += '<th style="text-align:right;">F. Hum.</th><th style="text-align:right;">Pes Net (kg)</th>';
+        html += '<th style="text-align:right;">P. Esp.</th><th style="text-align:right;">% Rend.</th>';
+        html += '<th>Accions</th>';
+        html += '</tr></thead><tbody>';
+
+        registres.forEach(function(r) {
+            html += '<tr>';
+            html += '<td><strong>' + formatData(r.data) + '</strong></td>';
+            html += '<td>' + (r.num_albara || '<span style="color:#999;font-style:italic;">Resum</span>') + '</td>';
+            html += '<td><strong>' + r.cultiu + '</strong></td>';
+            html += '<td>' + (r.finca || '-') + '</td>';
+            html += '<td style="text-align:right;">' + (r.pes_brut ? parseFloat(r.pes_brut).toLocaleString('ca-ES') : '-') + '</td>';
+            html += '<td style="text-align:right;">' + (r.tara_1 ? parseFloat(r.tara_1).toLocaleString('ca-ES') : '-') + '</td>';
+            html += '<td style="text-align:right;">' + (r.factor_humitat || '0,00') + '</td>';
+            html += '<td style="text-align:right;"><strong>' + parseFloat(r.pes_net).toLocaleString('ca-ES') + '</strong></td>';
+            html += '<td style="text-align:right;">' + (r.pes_specific || '-') + '</td>';
+            html += '<td style="text-align:right;">' + (r.percentatge_rendiment || '0,00') + '</td>';
+            html += '<td>';
+            html += '<button class="btn btn-sm btn-primary" onclick="veureEntradaCereal(\'' + r.id + '\')">👁️</button> ';
+            html += '<button class="btn btn-sm btn-secondary" onclick="editarEntradaCereal(\'' + r.id + '\')">✏️</button> ';
+            html += '<button class="btn btn-sm btn-danger" onclick="eliminarEntradaCereal(\'' + r.id + '\')">🗑️</button>';
+            html += '</td>';
+            html += '</tr>';
+        });
+
+        html += '</tbody></table></div>';
+    }
+
+    container.innerHTML = html;
+}
+
+async function obrirFormularICereal() {
+    const ara = new Date();
+    const mes = ara.getMonth() + 1;
+    const campDef = mes >= 10 ? ara.getFullYear() + 1 : ara.getFullYear();
+    const campanyaActual = parseInt(document.getElementById('filtre-campanya-cereal')?.value) || campDef;
+
+    const { data: cultius } = await supabaseClient.from('cultius_cereal').select('*').eq('actiu', true).order('nom');
+    const { data: finquesData } = await supabaseClient.from('parcelles').select('finca').not('finca', 'is', null);
+    const finquesUniques = [...new Set((finquesData || []).map(function(p) { return p.finca; }))].sort();
+
+    const anterior = document.getElementById('modal-nova-entrada-cereal');
+    if (anterior) anterior.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'modal-nova-entrada-cereal';
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width:600px;">
+            <span class="close" onclick="tancarModal('modal-nova-entrada-cereal')">&times;</span>
+            <h2>🌾 Nova Entrada Cereal</h2>
+            <form id="form-nova-entrada-cereal" onsubmit="guardarEntradaCereal(event)">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+                    <div class="form-group">
+                        <label>Campanya *</label>
+                        <select id="cereal-campanya" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                            ${[2024,2025,2026,2027].map(function(c) { return '<option value="' + c + '"' + (c === campanyaActual ? ' selected' : '') + '>' + c + '</option>'; }).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Cultiu *</label>
+                        <select id="cereal-cultiu" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                            <option value="">Seleccionar...</option>
+                            ${(cultius || []).map(function(c) { return '<option value="' + c.nom + '">' + c.nom + '</option>'; }).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Data *</label>
+                        <input type="date" id="cereal-data" required value="${ara.toISOString().split('T')[0]}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                    </div>
+                    <div class="form-group">
+                        <label>Num. Albarà</label>
+                        <input type="text" id="cereal-num-albara" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" placeholder="0000416">
+                    </div>
+                    <div class="form-group">
+                        <label>Finca</label>
+                        <select id="cereal-finca" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                            <option value="">Seleccionar...</option>
+                            ${finquesUniques.map(function(f) { return '<option value="' + f + '">' + f + '</option>'; }).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Pes Brut (kg)</label>
+                        <input type="number" id="cereal-pes-brut" step="0.01" onchange="calcularPesNetCereal()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                    </div>
+                    <div class="form-group">
+                        <label>Tara 1 (kg)</label>
+                        <input type="number" id="cereal-tara-1" step="0.01" onchange="calcularPesNetCereal()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                    </div>
+                    <div class="form-group">
+                        <label>F. Humitat (kg)</label>
+                        <input type="number" id="cereal-factor-humitat" step="0.01" value="0" onchange="calcularPesNetCereal()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                    </div>
+                    <div class="form-group">
+                        <label>Tara 2 (kg)</label>
+                        <input type="number" id="cereal-tara-2" step="0.01" value="0" onchange="calcularPesNetCereal()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                    </div>
+                    <div class="form-group">
+                        <label>Pes Net (kg) *</label>
+                        <input type="number" id="cereal-pes-net" required step="0.01" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;background:#e8f5e9;">
+                    </div>
+                    <div class="form-group">
+                        <label>P. Bàscula</label>
+                        <input type="number" id="cereal-pes-bascula" step="0.01" value="0" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                    </div>
+                    <div class="form-group">
+                        <label>P. Específic</label>
+                        <input type="number" id="cereal-pes-specific" step="0.01" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" placeholder="75.00">
+                    </div>
+                    <div class="form-group">
+                        <label>% Rendiment</label>
+                        <input type="number" id="cereal-percentatge-rendiment" step="0.01" value="0" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                    </div>
+                    <div class="form-group" style="grid-column:1/-1;">
+                        <label>Observacions</label>
+                        <textarea id="cereal-observacions" rows="2" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"></textarea>
+                    </div>
+                </div>
+                <div style="margin-top:20px;display:flex;gap:10px;">
+                    <button type="submit" class="btn btn-success">💾 Guardar</button>
+                    <button type="button" class="btn btn-secondary" onclick="tancarModal('modal-nova-entrada-cereal')">Cancel·lar</button>
+                </div>
+            </form>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function calcularPesNetCereal() {
+    const brut = parseFloat(document.getElementById('cereal-pes-brut')?.value) || 0;
+    const tara1 = parseFloat(document.getElementById('cereal-tara-1')?.value) || 0;
+    const humitat = parseFloat(document.getElementById('cereal-factor-humitat')?.value) || 0;
+    const tara2 = parseFloat(document.getElementById('cereal-tara-2')?.value) || 0;
+    const net = brut - tara1 - humitat - tara2;
+    if (net > 0) document.getElementById('cereal-pes-net').value = net.toFixed(2);
+}
+
+async function guardarEntradaCereal(event) {
+    event.preventDefault();
+    try {
+        const dades = {
+            campanya: parseInt(document.getElementById('cereal-campanya').value),
+            cultiu: document.getElementById('cereal-cultiu').value,
+            data: document.getElementById('cereal-data').value,
+            num_albara: document.getElementById('cereal-num-albara').value.trim() || null,
+            finca: document.getElementById('cereal-finca').value || null,
+            pes_brut: parseFloat(document.getElementById('cereal-pes-brut').value) || null,
+            tara_1: parseFloat(document.getElementById('cereal-tara-1').value) || null,
+            factor_humitat: parseFloat(document.getElementById('cereal-factor-humitat').value) || 0,
+            tara_2: parseFloat(document.getElementById('cereal-tara-2').value) || 0,
+            pes_net: parseFloat(document.getElementById('cereal-pes-net').value),
+            pes_bascula: parseFloat(document.getElementById('cereal-pes-bascula').value) || 0,
+            pes_specific: parseFloat(document.getElementById('cereal-pes-specific').value) || null,
+            percentatge_rendiment: parseFloat(document.getElementById('cereal-percentatge-rendiment').value) || 0,
+            observacions: document.getElementById('cereal-observacions').value.trim() || null,
+            estat: 'actiu',
+            created_by: currentUser ? currentUser.id : null
+        };
+        const { error } = await supabaseClient.from('collita_entrades_cereal').insert([dades]);
+        if (error) throw error;
+        mostrarNotificacio('✅ Entrada de cereal guardada correctament', 'success');
+        tancarModal('modal-nova-entrada-cereal');
+        tipusCollitaActual = 'cereal';
+        await mostrarVista_Entrades();
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarNotificacio('❌ Error: ' + error.message, 'error');
+    }
+}
+
+async function eliminarEntradaCereal(id) {
+    if (!confirm('Segur que vols eliminar aquesta entrada?')) return;
+    try {
+        const { error } = await supabaseClient.from('collita_entrades_cereal').update({ estat: 'anulat' }).eq('id', id);
+        if (error) throw error;
+        mostrarNotificacio('✅ Entrada eliminada', 'success');
+        tipusCollitaActual = 'cereal';
+        await mostrarVista_Entrades();
+    } catch (error) {
+        mostrarNotificacio('❌ Error: ' + error.message, 'error');
+    }
+}
+
+async function veureEntradaCereal(id) {
+    await editarEntradaCereal(id, true);
+}
+
+async function editarEntradaCereal(id, solaLectura) {
+    const { data: r } = await supabaseClient.from('collita_entrades_cereal').select('*').eq('id', id).single();
+    if (!r) return;
+    await obrirFormularICereal();
+    document.getElementById('cereal-campanya').value = r.campanya;
+    document.getElementById('cereal-cultiu').value = r.cultiu;
+    document.getElementById('cereal-data').value = r.data;
+    document.getElementById('cereal-num-albara').value = r.num_albara || '';
+    document.getElementById('cereal-finca').value = r.finca || '';
+    document.getElementById('cereal-pes-brut').value = r.pes_brut || '';
+    document.getElementById('cereal-tara-1').value = r.tara_1 || '';
+    document.getElementById('cereal-factor-humitat').value = r.factor_humitat || 0;
+    document.getElementById('cereal-tara-2').value = r.tara_2 || 0;
+    document.getElementById('cereal-pes-net').value = r.pes_net;
+    document.getElementById('cereal-pes-bascula').value = r.pes_bascula || 0;
+    document.getElementById('cereal-pes-specific').value = r.pes_specific || '';
+    document.getElementById('cereal-percentatge-rendiment').value = r.percentatge_rendiment || 0;
+    document.getElementById('cereal-observacions').value = r.observacions || '';
+
+    if (solaLectura) {
+        document.querySelectorAll('#form-nova-entrada-cereal input, #form-nova-entrada-cereal select, #form-nova-entrada-cereal textarea').forEach(function(el) { el.disabled = true; });
+        document.querySelector('#form-nova-entrada-cereal button[type="submit"]').style.display = 'none';
+        document.getElementById('modal-nova-entrada-cereal').querySelector('h2').textContent = '🌾 Veure Entrada Cereal';
+    } else {
+        const form = document.getElementById('form-nova-entrada-cereal');
+        form.onsubmit = async function(event) {
+            event.preventDefault();
+            try {
+                const dades = {
+                    campanya: parseInt(document.getElementById('cereal-campanya').value),
+                    cultiu: document.getElementById('cereal-cultiu').value,
+                    data: document.getElementById('cereal-data').value,
+                    num_albara: document.getElementById('cereal-num-albara').value.trim() || null,
+                    finca: document.getElementById('cereal-finca').value || null,
+                    pes_brut: parseFloat(document.getElementById('cereal-pes-brut').value) || null,
+                    tara_1: parseFloat(document.getElementById('cereal-tara-1').value) || null,
+                    factor_humitat: parseFloat(document.getElementById('cereal-factor-humitat').value) || 0,
+                    tara_2: parseFloat(document.getElementById('cereal-tara-2').value) || 0,
+                    pes_net: parseFloat(document.getElementById('cereal-pes-net').value),
+                    pes_bascula: parseFloat(document.getElementById('cereal-pes-bascula').value) || 0,
+                    pes_specific: parseFloat(document.getElementById('cereal-pes-specific').value) || null,
+                    percentatge_rendiment: parseFloat(document.getElementById('cereal-percentatge-rendiment').value) || 0,
+                    observacions: document.getElementById('cereal-observacions').value.trim() || null
+                };
+                const { error } = await supabaseClient.from('collita_entrades_cereal').update(dades).eq('id', id);
+                if (error) throw error;
+                mostrarNotificacio('✅ Entrada actualitzada', 'success');
+                tancarModal('modal-nova-entrada-cereal');
+                tipusCollitaActual = 'cereal';
+                await mostrarVista_Entrades();
+            } catch (error) {
+                mostrarNotificacio('❌ Error: ' + error.message, 'error');
+            }
+        };
+        document.getElementById('modal-nova-entrada-cereal').querySelector('h2').textContent = '🌾 Editar Entrada Cereal';
+    }
+}
+
+async function mostrarLiquidacioCereal() {
+    const ara = new Date();
+    const mes = ara.getMonth() + 1;
+    const campDef = mes >= 10 ? ara.getFullYear() + 1 : ara.getFullYear();
+    const campanyaActual = parseInt(document.getElementById('filtre-campanya-cereal')?.value) || campDef;
+
+    const content = document.getElementById('view-container');
+    content.innerHTML = '<p>⏳ Calculant liquidació...</p>';
+
+    try {
+        const { data: entrades } = await supabaseClient.from('collita_entrades_cereal').select('*').eq('campanya', campanyaActual).eq('estat', 'actiu');
+        const { data: preus } = await supabaseClient.from('collita_preus_cereal').select('*').eq('campanya', campanyaActual);
+
+        const preusMap = {};
+        (preus || []).forEach(function(p) { preusMap[p.cultiu] = p; });
+
+        const perCultiu = {};
+        (entrades || []).forEach(function(e) {
+            if (!perCultiu[e.cultiu]) perCultiu[e.cultiu] = { albarans: 0, kgNets: 0 };
+            perCultiu[e.cultiu].albarans++;
+            perCultiu[e.cultiu].kgNets += parseFloat(e.pes_net) || 0;
+        });
+
+        let html = '<div class="vista-entrades">';
+        html += '<h2>🌾 Collita - Entrades</h2>';
+        html += '<div style="display:flex;gap:5px;margin-bottom:15px;">';
+        html += '<button onclick="tipusCollitaActual=\'fruita\';mostrarVista_Entrades();" style="padding:8px 20px;border:none;border-radius:6px 6px 0 0;cursor:pointer;font-weight:600;background:#e0e0e0;color:#555;">🍎 Fruita</button>';
+        html += '<button onclick="tipusCollitaActual=\'cereal\';mostrarVista_Entrades();" style="padding:8px 20px;border:none;border-radius:6px 6px 0 0;cursor:pointer;font-weight:600;background:#2d5016;color:white;">🌾 Cereal</button>';
+        html += '</div>';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
+        html += '<h3 style="margin:0;">💰 Liquidació Cereal ' + campanyaActual + '</h3>';
+        html += '<button class="btn btn-secondary" onclick="tipusCollitaActual=\'cereal\';mostrarVista_Entrades()">← Tornar</button>';
+        html += '</div>';
+
+        if (Object.keys(perCultiu).length === 0) {
+            html += '<p style="color:#999;text-align:center;padding:30px;">No hi ha entrades per la campanya ' + campanyaActual + '</p>';
+        } else {
+            let totalGeneral = 0;
+            html += '<table class="data-table" style="width:100%;">';
+            html += '<thead><tr><th>Cultiu</th><th style="text-align:right;">Albarans</th><th style="text-align:right;">Kg nets</th><th style="text-align:right;">Preu (€/kg)</th><th style="text-align:right;">Import brut</th><th style="text-align:right;">Despesa</th><th style="text-align:right;">Base Imp.</th><th style="text-align:right;">IVA 4%</th><th style="text-align:right;">Aport. Cap.</th><th style="text-align:right;">Total</th></tr></thead><tbody>';
+
+            Object.keys(perCultiu).sort().forEach(function(cultiu) {
+                const d = perCultiu[cultiu];
+                const p = preusMap[cultiu];
+                if (!p) {
+                    html += '<tr><td><strong>' + cultiu + '</strong></td><td colspan="9" style="color:#ff9800;">⚠️ Sense preu configurat per campanya ' + campanyaActual + '</td></tr>';
+                    return;
+                }
+                const importBrut = d.kgNets * p.preu_kg;
+                const despesa = d.kgNets * (p.despesa_kg || 0);
+                const baseImp = importBrut - despesa;
+                const iva = baseImp * (p.iva_pct || 4) / 100;
+                const aportCap = d.kgNets * (p.aport_capital_kg || 0);
+                const total = baseImp + iva - aportCap;
+                totalGeneral += total;
+
+                html += '<tr>';
+                html += '<td><strong>' + cultiu + '</strong></td>';
+                html += '<td style="text-align:right;">' + d.albarans + '</td>';
+                html += '<td style="text-align:right;">' + d.kgNets.toLocaleString('ca-ES') + '</td>';
+                html += '<td style="text-align:right;">' + parseFloat(p.preu_kg).toFixed(4) + '</td>';
+                html += '<td style="text-align:right;">' + importBrut.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €</td>';
+                html += '<td style="text-align:right;color:#e74c3c;">-' + despesa.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €</td>';
+                html += '<td style="text-align:right;"><strong>' + baseImp.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €</strong></td>';
+                html += '<td style="text-align:right;">' + iva.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €</td>';
+                html += '<td style="text-align:right;color:#e74c3c;">-' + aportCap.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €</td>';
+                html += '<td style="text-align:right;"><strong style="color:#27ae60;">' + total.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €</strong></td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            html += '<div style="background:#2d5016;color:white;padding:15px 20px;border-radius:8px;margin-top:15px;display:flex;justify-content:space-between;align-items:center;">';
+            html += '<strong>TOTAL LIQUIDACIÓ CEREAL ' + campanyaActual + '</strong>';
+            html += '<strong style="font-size:1.3em;">' + totalGeneral.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €</strong>';
+            html += '</div>';
+        }
+
+        html += '</div>';
+        content.innerHTML = html;
+
+    } catch (error) {
         content.innerHTML = '<div style="color:red;padding:20px;">Error: ' + error.message + '</div>';
     }
 }

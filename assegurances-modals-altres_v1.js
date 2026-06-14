@@ -328,7 +328,8 @@ async function obrirModalDetallAltres(polissaId) {
 // MODAL NOVA PÒLISSA ALTRES
 // ============================================================
 
-async function obrirModalNovaAltres() {
+function obrirModalNovaAsseguranca() {obrirModalNovaAltres();
+}
     try {
         const existent = document.getElementById('modal-nova-altres');
         if (existent) existent.remove();
