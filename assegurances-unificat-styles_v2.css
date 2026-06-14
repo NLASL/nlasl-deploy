@@ -440,6 +440,26 @@
     }
 }
 
+/* ============================================================
+   RESETAR ESTILS GLOBALS (NO SOBRESCRIURE MENÚ)
+   ============================================================ */
+
+/* Assegurar que els botons del menú NO es veuen afectats */
+.nav-btn,
+.submenu-btn,
+.nav-section button {
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    color: inherit !important;
+    letter-spacing: inherit !important;
+}
+
+/* Fer que els estils de navegació siguin uniformes */
+.sidebar-nav .nav-btn,
+.sidebar-nav .submenu-btn {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+}
+
 /* PRINT */
 @media print {
     .assegurances-header,
