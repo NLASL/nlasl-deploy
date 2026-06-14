@@ -73,7 +73,7 @@ function etiquetaTipusPolissa(tipus) {
 // ============================================================
 
 async function getAltresPolisses() {
-    const { data, error } = await window.supabase
+    const { data, error } = await supabaseClient
         .from('assegurances_altres')
         .select('*, immobilitzat_material(descripció, tipus, matrícula)')
         .order('data_venciment', { ascending: true });
@@ -82,7 +82,7 @@ async function getAltresPolisses() {
 }
 
 async function getAltresPolissaById(id) {
-    const { data, error } = await window.supabase
+    const { data, error } = await supabaseClient
         .from('assegurances_altres')
         .select('*, immobilitzat_material(id, descripció, tipus, matrícula)')
         .eq('id', id)
@@ -92,7 +92,7 @@ async function getAltresPolissaById(id) {
 }
 
 async function createAltresPolissa(polissa) {
-    const { data, error } = await window.supabase
+    const { data, error } = await supabaseClient
         .from('assegurances_altres')
         .insert([polissa])
         .select()
@@ -102,7 +102,7 @@ async function createAltresPolissa(polissa) {
 }
 
 async function updateAltresPolissa(id, polissa) {
-    const { data, error } = await window.supabase
+    const { data, error } = await supabaseClient
         .from('assegurances_altres')
         .update({ ...polissa, updated_at: new Date().toISOString() })
         .eq('id', id)
@@ -113,7 +113,7 @@ async function updateAltresPolissa(id, polissa) {
 }
 
 async function deleteAltresPolissa(id) {
-    const { error } = await window.supabase
+    const { error } = await supabaseClient
         .from('assegurances_altres')
         .delete()
         .eq('id', id);
@@ -125,7 +125,7 @@ async function deleteAltresPolissa(id) {
 // ============================================================
 
 async function getAltresQuotesPerPolissa(assegurancaId) {
-    const { data, error } = await window.supabase
+    const { data, error } = await supabaseClient
         .from('assegurances_altres_quotes')
         .select('*')
         .eq('asseguranca_id', assegurancaId)
@@ -135,7 +135,7 @@ async function getAltresQuotesPerPolissa(assegurancaId) {
 }
 
 async function createAltresQuota(quota) {
-    const { data, error } = await window.supabase
+    const { data, error } = await supabaseClient
         .from('assegurances_altres_quotes')
         .insert([quota])
         .select()
@@ -145,7 +145,7 @@ async function createAltresQuota(quota) {
 }
 
 async function updateAltresQuota(id, quota) {
-    const { data, error } = await window.supabase
+    const { data, error } = await supabaseClient
         .from('assegurances_altres_quotes')
         .update({ ...quota, updated_at: new Date().toISOString() })
         .eq('id', id)
@@ -156,7 +156,7 @@ async function updateAltresQuota(id, quota) {
 }
 
 async function deleteAltresQuota(id) {
-    const { error } = await window.supabase
+    const { error } = await supabaseClient
         .from('assegurances_altres_quotes')
         .delete()
         .eq('id', id);
@@ -164,7 +164,7 @@ async function deleteAltresQuota(id) {
 }
 
 async function getImmobilitzatLlista() {
-    const { data, error } = await window.supabase
+    const { data, error } = await supabaseClient
         .from('immobilitzat_material')
         .select('id, descripció, tipus, matrícula')
         .order('descripció', { ascending: true });
@@ -859,7 +859,7 @@ async function obrirModalEditarQuotaAltres(quotaId, polissaId) {
         const existent = document.getElementById('modal-editar-quota-altres');
         if (existent) existent.remove();
 
-        const { data: quota, error } = await window.supabase
+        const { data: quota, error } = await supabaseClient
             .from('assegurances_altres_quotes')
             .select('*')
             .eq('id', quotaId)
