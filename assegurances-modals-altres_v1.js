@@ -1018,6 +1018,36 @@ async function confirmarEliminarQuotaAltres(quotaId, polissaId) {
     const style = document.createElement('style');
     style.id = 'estils-detall-altres';
     style.textContent = `
+        #modal-nova-altres,
+        #modal-editar-altres,
+        #modal-detall-altres,
+        #modal-nou-pagament-altres,
+        #modal-editar-quota-altres {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background: rgba(0,0,0,0.6) !important;
+            z-index: 99999 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            overflow-y: auto !important;
+        }
+        #modal-nova-altres .modal-content,
+        #modal-editar-altres .modal-content,
+        #modal-detall-altres .modal-content,
+        #modal-nou-pagament-altres .modal-content,
+        #modal-editar-quota-altres .modal-content {
+            position: relative !important;
+            z-index: 100000 !important;
+            max-height: 90vh !important;
+            overflow-y: auto !important;
+            background: white !important;
+            border-radius: 8px !important;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3) !important;
+        }
         .detall-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
