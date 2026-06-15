@@ -5,6 +5,7 @@
 // Variable de control
 let vistaColltitaActual = 'entrades';
 let tipusCollitaActual = 'fruita'; // 'fruita' o 'cereal'
+let campanyaCerealActual = null;
 
 // ============================================================
 // 0. DISPATCHER (canviar entre vistes)
@@ -2646,7 +2647,7 @@ async function mostrarVistaCereal(container, campanyadefecte) {
     const ara = new Date();
     const mes = ara.getMonth() + 1;
     const campDef = campanyadefecte || (mes >= 10 ? ara.getFullYear() + 1 : ara.getFullYear());
-    const campanyaActual = parseInt(document.getElementById('filtre-campanya-cereal')?.value) || campDef;
+    const campanyaActual = campanyaCerealActual || campDef;
 
     const { data: entrades, error } = await supabaseClient
         .from('collita_entrades_cereal')
@@ -2678,7 +2679,7 @@ async function mostrarVistaCereal(container, campanyadefecte) {
 
     html += '<div id="bloc-filtres-cereal" style="display:flex;gap:15px;align-items:flex-end;margin-bottom:15px;flex-wrap:wrap;background:#f5f5f5;padding:12px;border-radius:8px;">';
     html += '<div><label style="display:block;font-size:0.85em;margin-bottom:3px;"><strong>Campanya</strong></label>';
-    html += '<select id="filtre-campanya-cereal" onchange="tipusCollitaActual=\'cereal\';mostrarVista_Entrades()" style="padding:6px;border-radius:4px;border:1px solid #ddd;">';
+    html += '<select id="filtre-campanya-cereal" onchange="campanyaCerealActual=parseInt(this.value);tipusCollitaActual=\'cereal\';mostrarVista_Entrades()" style="padding:6px;border-radius:4px;border:1px solid #ddd;">';
     [2024, 2025, 2026, 2027].forEach(function(c) {
         html += '<option value="' + c + '"' + (c === campanyaActual ? ' selected' : '') + '>' + c + '</option>';
     });
