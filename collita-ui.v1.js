@@ -2753,7 +2753,7 @@ async function obrirFormularICereal() {
     modal.className = 'modal';
     modal.style.display = 'block';
     modal.innerHTML = `
-        <div class="modal-content" style="max-width:600px;">
+		<div class="modal-content" style="max-width:600px;max-height:85vh;overflow-y:auto;margin-top:10px;">
             <span class="close" onclick="tancarModal('modal-nova-entrada-cereal')">&times;</span>
             <h2>🌾 Nova Entrada Cereal</h2>
             <form id="form-nova-entrada-cereal" onsubmit="guardarEntradaCereal(event)">
