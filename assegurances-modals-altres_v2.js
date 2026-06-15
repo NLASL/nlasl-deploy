@@ -845,3 +845,101 @@ function obrirModalEditarAsseguranca(id) {
 })();
 
 console.log('✅ Assegurances Modals Altres v2 carregat');
+
+// ============================================================
+// OVERRIDE mostrarVistaAltresAsseg
+// Substitueix la del fitxer principal (que mostrava duplicats
+// perquè carregava un registre per pagament)
+// ============================================================
+
+async function mostrarVistaAltresAsseg() {
+    try {
+        const container = document.getElementById('altres-asseg-view');
+        if (!container) return;
+
+        // Preservar estat del checkbox si existeix
+        const mostrarVencudes = document.getElementById('mostrar-vencudes-altres')?.checked || false;
+
+        let html = `
+            <div class="assegurances-header">
+                <h3>🔐 Altres assegurances</h3>
+                <div class="assegurances-controls">
+                    <label>
+                        <input type="checkbox" id="mostrar-vencudes-altres"
+                            ${mostrarVencudes ? 'checked' : ''}
+                            onchange="mostrarVistaAltresAsseg()">
+                        Mostrar vençudes
+                    </label>
+                    <button class="btn-nova" onclick="obrirModalNovaAsseguranca()">
+                        ➕ Nova assegurança
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // Carregar TOTES les pòlisses (sense filtre exercici — el nou model
+        // no duplica per exercici, cada pòlissa és única)
+        const { data: assegurances, error } = await supabaseClient
+            .from('assegurances_altres')
+            .select('*, immobilitzat_material(descripció, matrícula)')
+            .order('data_venciment', { ascending: true });
+        if (error) throw error;
+
+        assegurancesAltresCache = assegurances || [];
+
+        const avui = new Date();
+        const filtrades = (assegurances || []).filter(a => {
+            if (mostrarVencudes) return true;
+            return new Date(a.data_venciment) >= avui || a.estat === 'actiu';
+        });
+
+        if (filtrades.length === 0) {
+            html += `<div class="no-data">Sense assegurances${mostrarVencudes ? '' : ' vigents'}</div>`;
+        } else {
+            html += `<div class="cards-grid">`;
+
+            filtrades.forEach(ass => {
+                const dataVenciment = formatData(ass.data_venciment);
+                const prima = (ass.prima_anual || 0).toLocaleString('ca-ES', { style: 'currency', currency: 'EUR' });
+                const immInfo = ass.immobilitzat_material
+                    ? ass.immobilitzat_material.descripció + (ass.immobilitzat_material.matrícula ? ` (${ass.immobilitzat_material.matrícula})` : '')
+                    : '—';
+                const estat = ass.estat === 'actiu' ? '✅' : ass.estat === 'vençut' ? '⏰' : '⚠️';
+
+                html += `
+                    <div class="card-polissa">
+                        <div class="card-header">
+                            <h4>${getTipusAssegurancaIcon(ass.tipus_polissa)} ${ass.companyia}</h4>
+                            <span class="badge-estat">${estat} ${ass.estat}</span>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Pòlissa:</strong> ${ass.num_polissa}</p>
+                            <p><strong>Tipus:</strong> ${etiquetaTipusA(ass.tipus_polissa)}</p>
+                            <p><strong>Vinculat:</strong> ${immInfo}</p>
+                            <p><strong>Venciment:</strong> ${dataVenciment}</p>
+                            <p><strong>Prima anual:</strong> ${prima}</p>
+                        </div>
+                        <div class="card-footer">
+                            <button class="btn-small btn-veure" onclick="obrirModalDetallAltres('${ass.id}')">👁️ Veure</button>
+                            <button class="btn-small btn-eliminar" onclick="eliminarPolissaAltresV2('${ass.id}')">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div>`;
+        }
+
+        container.innerHTML = html;
+
+    } catch (error) {
+        console.error('Error mostrarVistaAltresAsseg:', error);
+        const c = document.getElementById('altres-asseg-view');
+        if (c) c.innerHTML = `<div class="error-message">Error: ${error.message}</div>`;
+    }
+}
+
+// Override també de mostrarVistaAssegurances per si es crida des dels modals
+async function mostrarVistaAssegurances() {
+    await mostrarVistaAltresAsseg();
+}
