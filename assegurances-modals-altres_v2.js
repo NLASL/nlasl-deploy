@@ -890,7 +890,7 @@ async function mostrarVistaAltresAsseg() {
         const avui = new Date();
         const filtrades = (assegurances || []).filter(a => {
             if (mostrarVencudes) return true;
-            return new Date(a.data_venciment) >= avui || a.estat === 'actiu';
+            return a.estat === 'actiu';
         });
 
         if (filtrades.length === 0) {
