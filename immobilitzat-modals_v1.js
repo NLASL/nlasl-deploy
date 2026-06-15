@@ -790,14 +790,8 @@ async function mostrarVistaImmobilitzat() {
             container = document.getElementById('immobilitzat-view');
         }
 
-        let html = `
-            <div class="assegurances-header">
-                <h3>🏗️ Immobilitzat material</h3>
-                <button class="btn-nova" onclick="obrirModalNouImmobilitzat()">
-                    ➕ Nou immobilitzat
-                </button>
-            </div>
-        `;
+        // Filtre actiu (persistit a window per no perdre'l en recàrrega de vista)
+        const filtreTipus = window._immFiltreTipus || 'tots';
 
         const immobilitzat = await supabaseClient
             .from('immobilitzat_material')
@@ -806,13 +800,48 @@ async function mostrarVistaImmobilitzat() {
             .order('descripció');
 
         if (immobilitzat.error) throw immobilitzat.error;
-        const llista = immobilitzat.data || [];
+        const tota_llista = immobilitzat.data || [];
 
         // Actualitzar cache global si existeix
-        if (typeof immobilizatCache !== 'undefined') immobilizatCache = llista;
+        if (typeof immobilizatCache !== 'undefined') immobilizatCache = tota_llista;
+
+        // Comptar per tipus per als botons de filtre
+        const comptadors = {};
+        tota_llista.forEach(i => { comptadors[i.tipus] = (comptadors[i.tipus] || 0) + 1; });
+
+        // Aplicar filtre
+        const llista = filtreTipus === 'tots'
+            ? tota_llista
+            : tota_llista.filter(i => i.tipus === filtreTipus);
+
+        const tipusFiltres = [
+            { val: 'tots',                label: `Tots (${tota_llista.length})` },
+            { val: 'tractor',             label: `🚜 Tractors (${comptadors['tractor'] || 0})` },
+            { val: 'vehicle',             label: `🚗 Vehicles (${comptadors['vehicle'] || 0})` },
+            { val: 'remolc',              label: `🚛 Remolcs (${comptadors['remolc'] || 0})` },
+            { val: 'maquinaria',          label: `⚙️ Maquinària (${comptadors['maquinaria'] || 0})` },
+            { val: 'edifici',             label: `🏢 Edificis (${comptadors['edifici'] || 0})` },
+            { val: 'infraestructura_reg', label: `💧 Reg (${comptadors['infraestructura_reg'] || 0})` },
+            { val: 'altra',               label: `📦 Altra (${comptadors['altra'] || 0})` },
+        ].filter(f => f.val === 'tots' || comptadors[f.val]);
+
+        let html = `
+            <div class="assegurances-header">
+                <h3>🏗️ Immobilitzat material</h3>
+                <button class="btn-nova" onclick="obrirModalNouImmobilitzat()">
+                    ➕ Nou immobilitzat
+                </button>
+            </div>
+            <div class="filtres-immobilitzat">
+                ${tipusFiltres.map(f => `
+                    <button class="btn-filtre-imm ${filtreTipus === f.val ? 'actiu' : ''}"
+                        onclick="filtrarImmobilitzat('${f.val}')">${f.label}</button>
+                `).join('')}
+            </div>
+        `;
 
         if (llista.length === 0) {
-            html += `<div class="no-data">Sense immobilitzat registrat</div>`;
+            html += `<div class="no-data">Sense immobilitzat del tipus seleccionat</div>`;
         } else {
             html += `
                 <div style="overflow-x:auto;">
@@ -947,6 +976,33 @@ function badgeDataProperaImm(dataStr, etiqueta) {
         .detall-camp-ample-imm {
             grid-column: 1 / -1;
         }
+        .filtres-immobilitzat {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 10px 0 14px 0;
+        }
+        .btn-filtre-imm {
+            padding: 5px 12px;
+            border-radius: 20px;
+            border: 2px solid #ddd;
+            background: #f5f5f5;
+            color: #555;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn-filtre-imm:hover {
+            border-color: #4a7c59;
+            color: #4a7c59;
+            background: #f0f7ee;
+        }
+        .btn-filtre-imm.actiu {
+            background: #4a7c59;
+            color: white;
+            border-color: #4a7c59;
+        }
         .detall-label-imm {
             font-size: 11px;
             font-weight: 600;
@@ -963,3 +1019,12 @@ function badgeDataProperaImm(dataStr, etiqueta) {
 })();
 
 console.log('✅ Immobilitzat Modals v1 carregat');
+
+// ============================================================
+// FILTRE TIPUS IMMOBILITZAT
+// ============================================================
+
+function filtrarImmobilitzat(tipus) {
+    window._immFiltreTipus = tipus;
+    mostrarVistaImmobilitzat();
+}
