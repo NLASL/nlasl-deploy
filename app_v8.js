@@ -801,7 +801,7 @@ function actualitzarParcellesSeleccionades() {
         const checks = document.querySelectorAll('#tractament-finques-checks input[type="checkbox"]:checked');
         const fincesSeleccionades = Array.from(checks).map(function(c) { return c.value; });
         const parcellesFinca = parcelles.filter(function(p) { 
-            return fincesSeleccionades.includes(p.finca); 
+            return fincesSeleccionades.includes(p.finca) && esParcellaApta(p); 
         });
         calcularSuperficieTotal(parcellesFinca);
     } else if (tipus === 'varietat') {
@@ -1568,7 +1568,7 @@ function actualitzarParcellesSeleccionadesFert() {
         const checks = document.querySelectorAll('#fertilitzacio-finques-checks input[type="checkbox"]:checked');
         const fincesSeleccionades = Array.from(checks).map(function(c) { return c.value; });
         const parcellesFinca = parcelles.filter(function(p) { 
-            return fincesSeleccionades.includes(p.finca); 
+            return fincesSeleccionades.includes(p.finca) && esParcellaApta(p); 
         });
         calcularSuperficieTotalFert(parcellesFinca);
     } else if (tipus === 'varietat') {
