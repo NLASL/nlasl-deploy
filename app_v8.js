@@ -17,6 +17,7 @@ let incidencies = [];
 let absencies = [];
 let finques = [];
 let alertes = [];
+let cultiusTractables = [];
 let fincaSeleccionada = null;
 let vistaActual = 'dashboard';
 
@@ -189,15 +190,15 @@ function canviarVista(vista) {
 		case 'agroseguro':
 			carregarVistaAssegurances();  // Existeix
 			break;
+		case 'altres-assegurances':
+			carregarVistaAltresAssegurances();  // Nova funció
+			break;
 		case 'immobilitzat':
 			mostrarVistaImmobilitzat();  // Existent (de altres-assegurances-ui_v1.js)
 			break;
 		case 'contactes':
 			carregarVistaContactes();
 			break;
-		case 'bestreta':
-			mostrarVistaBestreta();
-			break;	
 		case 'fertilitzants':
 			carregarVistaFertilitzants();
 			break;
@@ -242,6 +243,11 @@ async function carregarDashboard() {
         fitosanitaris = await getFitosanitaris();
         fertilitzants = await getFertilitzants();
         finques = await getFinques();
+        // Carregar cultius tractables si no s'han carregat encara
+        if (cultiusTractables.length === 0) {
+            cultiusTractables = await getCultiusTractables();
+            console.log('✅ Cultius tractables carregats:', cultiusTractables);
+        }
     } catch (error) {
         console.error('Error carregant dades:', error);
         mostrarNotificacio('Error carregant dades', 'error');
@@ -1055,9 +1061,27 @@ async function guardarTractament(event) {
 
 
 // Funció auxiliar per mantenir els filtres homogenis
+async function getCultiusTractables() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('cultius_tractables')
+            .select('cultiu');
+        if (error) throw error;
+        return (data || []).map(function(r) { return r.cultiu.toUpperCase(); });
+    } catch (error) {
+        console.warn('⚠️ No s\'han pogut carregar cultius tractables:', error.message);
+        return [];
+    }
+}
+
 function esParcellaApta(p) {
-    const cultiusProhibits = ['PROD. FORESTALS', 'GUARET', 'IMPROD'];
-    return p.cultiu && p.cultiu.trim() !== '' && !cultiusProhibits.includes(p.cultiu.toUpperCase());
+    if (!p.cultiu || p.cultiu.trim() === '') return false;
+    if (cultiusTractables.length === 0) {
+        // Fallback si encara no s'han carregat els cultius tractables
+        const cultiusProhibits = ['PROD. FORESTALS', 'GUARET', 'IMPROD', 'IMPRODUCTIU', 'TRITICALE', 'ORDI', 'BLAT TOU'];
+        return !cultiusProhibits.includes(p.cultiu.toUpperCase());
+    }
+    return cultiusTractables.includes(p.cultiu.toUpperCase());
 }
 
 function resetFormulariTractaments() {
