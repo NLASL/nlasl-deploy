@@ -2678,7 +2678,7 @@ async function mostrarVistaCereal(container, campanyadefecte) {
 
     html += '<div id="bloc-filtres-cereal" style="display:flex;gap:15px;align-items:flex-end;margin-bottom:15px;flex-wrap:wrap;background:#f5f5f5;padding:12px;border-radius:8px;">';
     html += '<div><label style="display:block;font-size:0.85em;margin-bottom:3px;"><strong>Campanya</strong></label>';
-    html += '<select id="filtre-campanya-cereal" onchange="mostrarVista_Entrades()" style="padding:6px;border-radius:4px;border:1px solid #ddd;">';
+    html += '<select id="filtre-campanya-cereal" onchange="tipusCollitaActual=\'cereal\';mostrarVista_Entrades()" style="padding:6px;border-radius:4px;border:1px solid #ddd;">';
     [2024, 2025, 2026, 2027].forEach(function(c) {
         html += '<option value="' + c + '"' + (c === campanyaActual ? ' selected' : '') + '>' + c + '</option>';
     });
@@ -2753,7 +2753,7 @@ async function obrirFormularICereal() {
     modal.className = 'modal';
     modal.style.display = 'block';
     modal.innerHTML = `
-		<div class="modal-content" style="max-width:600px;max-height:85vh;overflow-y:auto;margin-top:10px;">
+		<div class="modal-content" style="max-width:600px;max-height:85vh;overflow-y:auto;margin-top:20px;margin-bottom:20px;">
             <span class="close" onclick="tancarModal('modal-nova-entrada-cereal')">&times;</span>
             <h2>🌾 Nova Entrada Cereal</h2>
             <form id="form-nova-entrada-cereal" onsubmit="guardarEntradaCereal(event)">
