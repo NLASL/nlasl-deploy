@@ -191,6 +191,16 @@
     // Event listener login
     document.getElementById('login-form').addEventListener('submit', login);
 </script>
+<script src="/app_v8.js"></script>
+<script src="/auth.v3.js"></script>
+
+<!-- Fix tancarModal — SEMPRE AL FINAL -->
+<script>
+    function tancarModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) modal.remove();
+    }
+</script>
 
 </body>
 </html>
