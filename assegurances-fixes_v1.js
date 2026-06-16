@@ -182,3 +182,37 @@ async function mostrarVistaAltresAsseg() {
 }
 
 console.log('✅ Assegurances Fixes v1 carregat');
+
+// ── FIX Z-INDEX GLOBAL TOTS ELS MODALS ──────────────────────
+// Força tots els .modal-overlay a estar per sobre de qualsevol element
+
+(function fixZIndexModals() {
+    if (document.getElementById('fix-zindex-modals')) return;
+    const style = document.createElement('style');
+    style.id = 'fix-zindex-modals';
+    style.textContent = `
+        .modal-overlay {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background: rgba(0,0,0,0.6) !important;
+            z-index: 99999 !important;
+            display: flex !important;
+            align-items: flex-start !important;
+            justify-content: center !important;
+            padding-top: 30px !important;
+            overflow-y: auto !important;
+        }
+        .modal-overlay .modal-content,
+        .modal-overlay > div {
+            position: relative !important;
+            z-index: 100000 !important;
+            max-height: 85vh !important;
+            overflow-y: auto !important;
+            margin-bottom: 30px !important;
+        }
+    `;
+    document.head.appendChild(style);
+})();
