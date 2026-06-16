@@ -111,8 +111,8 @@ async function obrirModalDetallImmobilitzat(id) {
         const alertes = [alertaITV, alertaITEAF].filter(Boolean).join(' ');
 
         const modal = document.createElement('div');
-        modal.className = 'modal-overlay-imm';
         modal.id = 'modal-detall-immobilitzat';
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:flex-start;justify-content:center;padding-top:30px;overflow-y:auto;';
 
         modal.innerHTML = `
             <div class="modal-content-imm">
@@ -266,8 +266,8 @@ function obrirModalNouImmobilitzat() {
     if (existent) existent.remove();
 
     const modal = document.createElement('div');
-    modal.className = 'modal-overlay-imm';
     modal.id = 'modal-nou-immobilitzat';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:flex-start;justify-content:center;padding-top:30px;overflow-y:auto;';
 
     modal.innerHTML = `
         <div class="modal-content-imm">
@@ -510,8 +510,8 @@ async function obrirModalEditarImmobilitzat(id) {
         const imm = await getImmobilitzatById(id);
 
         const modal = document.createElement('div');
-        modal.className = 'modal-overlay-imm';
         modal.id = 'modal-editar-immobilitzat';
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:flex-start;justify-content:center;padding-top:30px;overflow-y:auto;';
 
         const tipusOptions = ['tractor','vehicle','remolc','maquinaria','edifici','infraestructura_reg','altra'];
         const tipusLabels  = {

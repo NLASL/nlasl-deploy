@@ -300,8 +300,8 @@ async function obrirModalDetallU(polissaId) {
         `;
 
         const modal = document.createElement('div');
-        modal.className = 'modal-overlay-u';
         modal.id = 'modal-detall-u';
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:flex-start;justify-content:center;padding-top:30px;overflow-y:auto;';
 
         modal.innerHTML = `
             <div class="modal-content-u">
@@ -744,8 +744,8 @@ async function obrirModalNovaU(categoria) {
         `;
 
         const modal = document.createElement('div');
-        modal.className = 'modal-overlay-u';
         modal.id = 'modal-nova-u';
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:flex-start;justify-content:center;padding-top:30px;overflow-y:auto;';
 
         modal.innerHTML = `
             <div class="modal-content-u" style="max-width:580px;">
@@ -916,7 +916,6 @@ function mostrarVistaAssegurances()      { mostrarVistaAltresAsseg(); }
             width: 100% !important; height: 100% !important;
             background: rgba(0,0,0,0.6) !important;
             z-index: 99999 !important;
-            display: flex !important;
             align-items: flex-start !important;
             justify-content: center !important;
             padding-top: 30px !important;
