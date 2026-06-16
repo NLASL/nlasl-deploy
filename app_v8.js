@@ -1026,7 +1026,7 @@ async function guardarTractament(event) {
 				parcella_id: p.id,
 				superficie_tractada: superficieParcel,
 				estat: 'actiu',
-				creat_per: currentUser ? currentUser.id : null
+				created_by: currentUser ? currentUser.id : null
 			};
 	
             const creat = await createTractament(nouTractament);
@@ -1056,7 +1056,7 @@ async function guardarTractament(event) {
             unitat: unitat.split('/')[0],
             referencia_id: g.referenciaId,
             observacions: `Tractament a ${g.finca} – ${g.varietat} (${g.superficieTotal.toFixed(2)} Ha)`,
-            creat_per: currentUser ? currentUser.id : null
+            created_by: currentUser ? currentUser.id : null
         }));
 
         if (moviments.length) {
@@ -1883,7 +1883,7 @@ async function guardarFertilitzacio(event) {
                 unitat: unitat.split('/')[0],
                 referencia_id: g.referenciaId,
                 observacions: `Fertilització ${g.finca} – ${g.varietat} (${g.superficieTotal.toFixed(2)} Ha)`,
-                creat_per: currentUser ? currentUser.id : null
+                created_by: currentUser ? currentUser.id : null
             }]);
         }
 
@@ -5114,7 +5114,7 @@ async function guardarCompra() {
                 unitat: producte ? (producte.unitat_stock || 'L') : 'L',
                 referencia_id: facturaId,
                 observacions: 'Factura ' + factura.num_factura + ' — ' + (linia.descripcio || ''),
-                creat_per: currentUser ? currentUser.id : null
+                created_by: currentUser ? currentUser.id : null
             }]);
         }
 
