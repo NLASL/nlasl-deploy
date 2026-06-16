@@ -181,6 +181,14 @@ async function mostrarVistaAltresAsseg() {
     await mostrarVistaLlistatU('altres', 'altres-asseg-view');
 }
 
+// ── FIX tancarModal ─────────────────────────────────────────
+// Sobreescriu la funció original que feia display:none
+// (incompatible amb el CSS que força display:flex als modals)
+function tancarModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.remove();
+}
+
 console.log('✅ Assegurances Fixes v1 carregat');
 
 // ── FIX Z-INDEX GLOBAL TOTS ELS MODALS ──────────────────────
@@ -199,14 +207,12 @@ console.log('✅ Assegurances Fixes v1 carregat');
             height: 100% !important;
             background: rgba(0,0,0,0.6) !important;
             z-index: 99999 !important;
-            display: flex !important;
             align-items: flex-start !important;
             justify-content: center !important;
             padding-top: 30px !important;
             overflow-y: auto !important;
         }
-        .modal-overlay .modal-content,
-        .modal-overlay > div {
+        .modal-overlay .modal-content {
             position: relative !important;
             z-index: 100000 !important;
             max-height: 85vh !important;
