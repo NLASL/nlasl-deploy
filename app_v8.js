@@ -1075,14 +1075,30 @@ async function getCultiusTractables() {
 }
 
 function esParcellaApta(p) {
-    if (!p.cultiu || p.cultiu.trim() === '') return false;
-    if (cultiusTractables.length === 0) {
-        // Fallback si encara no s'han carregat els cultius tractables
-        const cultiusProhibits = ['PROD. FORESTALS', 'GUARET', 'IMPROD', 'IMPRODUCTIU', 'TRITICALE', 'ORDI', 'BLAT TOU'];
-        return !cultiusProhibits.includes(p.cultiu.toUpperCase());
-    }
-    return cultiusTractables.includes(p.cultiu.toUpperCase());
+    if (!p.cultiu) return false;
+
+    const c = p.cultiu.trim().toUpperCase();
+
+    // Llista blanca de cultius tractables
+    const cultiusAptes = [
+        'PRÉSSEC',
+        'PRESSEC',
+        'PRÉSSEC PLA',
+        'PRESSEC PLA',
+        'NECTARINA',
+        'ALBERCOC',
+        'PÈSSOL',
+        'PESSOL',
+        'BLAT',
+        'BLAT TOU',
+        'ORDI',
+        'CIVADA',
+        'TRITICALE'
+    ];
+
+    return cultiusAptes.includes(c);
 }
+
 
 function resetFormulariTractaments() {
     const form = document.getElementById('form-tractament');
