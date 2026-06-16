@@ -1013,6 +1013,22 @@ async function guardarTractament(event) {
             const finca = p.finca || 'Sense finca';
             const clauGrup = finca + '|' + varietat;
 
+			const nouTractament = {
+				data,
+				producte_id: producteId,
+				dosi,
+				unitat,
+				operador,
+				maquinaria,
+				condicions_meteo: meteo,
+				observacions,
+				data_limit: dataLimitStr,
+				parcella_id: p.id,
+				superficie_tractada: superficieParcel,
+				estat: 'actiu',
+				creat_per: currentUser ? currentUser.id : null
+			};
+	
             const creat = await createTractament(nouTractament);
             tractamentIds.push(creat.id);
 
@@ -1087,8 +1103,8 @@ function esParcellaApta(p) {
         'PRESSEC PLA',
         'NECTARINA',
         'ALBERCOC',
-        'PÈSSOL',
-        'PESSOL',
+        'PESOL',
+		'PÈSOL',
         'BLAT',
         'BLAT TOU',
         'ORDI',
