@@ -2482,93 +2482,68 @@ async function mostrarCalculBestreta() {
         if (!fruites || fruites.length === 0) await carregarDadesCollita();
         await carregarDadesPreus();
 
-        // Bestretes de la campanya ordenades per fruita i num_bestreta
-        const preusActuals = preusAnuals
-            .filter(function(p) { return p.campanya === campanya; })
-            .sort(function(a, b) {
-                const fa = fruites.find(function(f) { return f.id === a.fruita_id; });
-                const fb = fruites.find(function(f) { return f.id === b.fruita_id; });
-                const nomA = fa ? fa.nom : '';
-                const nomB = fb ? fb.nom : '';
-                if (nomA !== nomB) return nomA.localeCompare(nomB);
-                return (a.num_bestreta || 1) - (b.num_bestreta || 1);
-            });
+        // Carregar períodes del calendari
+        const periodes = await obtenirPeriodesBestreta(campanya);
 
-        if (preusActuals.length === 0) {
-            content.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;">⚠️ No hi ha preus de bestreta configurats per la campanya ' + campanya + '</div>';
+        if (periodes.length === 0) {
+            content.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;">⚠️ No hi ha períodes de bestreta configurats per la campanya ' + campanya + '</div>';
             return;
         }
 
-        // Calcular kg per cada bestreta (pel seu període específic)
-        const resultatPerBestreta = [];
-        let totalAcumulat = 0;
+        // Preus confirmats per aquesta campanya
+        const preusActuals = preusAnuals.filter(function(p) { return p.campanya === campanya; });
 
-        for (let i = 0; i < preusActuals.length; i++) {
-            const p = preusActuals[i];
-            const fruita = fruites.find(function(f) { return f.id === p.fruita_id; });
-            const dataInici = p.bestreta_data_inici;
-            const dataFinal = p.bestreta_data_final;
-            const dataFinalDate = new Date(dataFinal);
-            const dataIniciDate = new Date(dataInici);
+        // Calcular per cada període × fruita
+        // Primer detectem quines fruites tenen entrades en algun període
+        const fruitesAmbEntrades = {};
 
-            // Estat de la bestreta
-            let estat, estatBadge;
-            if (ara < dataIniciDate) {
-                estat = 'pendent';
-                estatBadge = '<span style="background:#9e9e9e;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">🔜 Pendent</span>';
-            } else if (ara > dataFinalDate) {
-                estat = 'tancada';
-                estatBadge = '<span style="background:#27ae60;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">✅ Tancada</span>';
-            } else {
-                estat = 'provisional';
-                estatBadge = '<span style="background:#ff9800;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">⏳ Provisional</span>';
-            }
+        for (let i = 0; i < periodes.length; i++) {
+            const periode = periodes[i];
+            const dataFi = periode.num_bestreta === periodes.filter(p => p.campanya === campanya).length
+                ? (ara < new Date(periode.data_final) ? ara.toISOString().split('T')[0] : periode.data_final)
+                : periode.data_final;
 
-            // Consultar kg nets per aquest període i fruita
-            let kgNets = 0;
             const { data: entrades } = await supabaseClient
                 .from('collita_entrada')
                 .select('pes_net, fruita_varietat_id')
                 .eq('estat', 'actiu')
-                .gte('data', dataInici)
-                .lte('data', estat === 'provisional' ? ara.toISOString().split('T')[0] : dataFinal);
+                .gte('data', periode.data_inici)
+                .lte('data', dataFi);
 
             (entrades || []).forEach(function(e) {
                 const fvId = typeof e.fruita_varietat_id === 'string'
                     ? e.fruita_varietat_id
                     : e.fruita_varietat_id?.id;
                 const varObj = varietats.find(function(v) { return v.id === fvId; });
-                if (!varObj || varObj.fruita_id !== p.fruita_id) return;
-                kgNets += parseFloat(e.pes_net) || 0;
-            });
-
-            const importBestreta = kgNets * p.bestreta_preu_unitari;
-            if (estat !== 'pendent') totalAcumulat += importBestreta;
-
-            resultatPerBestreta.push({
-                numBestreta: p.num_bestreta || i + 1,
-                fruita: fruita ? fruita.nom : '-',
-                fruitaId: p.fruita_id,
-                kgNets: kgNets,
-                preu: p.bestreta_preu_unitari,
-                import_: importBestreta,
-                dataInici: dataInici,
-                dataFinal: dataFinal,
-                estat: estat,
-                estatBadge: estatBadge
+                if (!varObj) return;
+                const fruitaId = varObj.fruita_id;
+                if (!fruitesAmbEntrades[fruitaId]) fruitesAmbEntrades[fruitaId] = {};
+                if (!fruitesAmbEntrades[fruitaId][periode.num_bestreta]) {
+                    fruitesAmbEntrades[fruitaId][periode.num_bestreta] = 0;
+                }
+                fruitesAmbEntrades[fruitaId][periode.num_bestreta] += parseFloat(e.pes_net) || 0;
             });
         }
 
-        // Agrupar per fruita per mostrar subtotals
-        const fruitesUniqueIds = [...new Set(resultatPerBestreta.map(function(r) { return r.fruitaId; }))];
+        const fruitesIds = Object.keys(fruitesAmbEntrades);
+
+        if (fruitesIds.length === 0) {
+            content.innerHTML = '<div style="text-align:center;padding:30px;color:#999;">No hi ha entrades de collita per la campanya ' + campanya + '</div>';
+            return;
+        }
 
         // Indicador global
-        const teProvisional = resultatPerBestreta.some(function(r) { return r.estat === 'provisional'; });
+        const periodeActual = periodes.find(function(p) {
+            const di = new Date(p.data_inici);
+            const df = new Date(p.data_final);
+            return ara >= di && ara <= df;
+        });
+        const teProvisional = !!periodeActual;
         const badgeGlobal = teProvisional
-            ? '<span style="background:#ff9800;color:white;padding:4px 12px;border-radius:4px;font-size:13px;">⏳ Provisional — falten albarans fins al 20/' + String(mes).padStart(2,'0') + '</span>'
-            : '<span style="background:#27ae60;color:white;padding:4px 12px;border-radius:4px;font-size:13px;">✅ Tancada — data tall 20/' + String(mes-1 || 12).padStart(2,'0') + '/' + campanya + '</span>';
+            ? '<span style="background:#ff9800;color:white;padding:4px 12px;border-radius:4px;font-size:13px;">⏳ Provisional — falten albarans fins al ' + new Date(periodeActual.data_final).toLocaleDateString('ca-ES') + '</span>'
+            : '<span style="background:#27ae60;color:white;padding:4px 12px;border-radius:4px;font-size:13px;">✅ Tancada</span>';
 
-        // Renderitzar
+        let totalAcumulat = 0;
         let html = '<div class="calcul-bestreta">';
 
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
@@ -2582,14 +2557,14 @@ async function mostrarCalculBestreta() {
         html += '</div>';
 
         // Taula per fruita
-        fruitesUniqueIds.forEach(function(fruitaId) {
-            const linesF = resultatPerBestreta.filter(function(r) { return r.fruitaId === fruitaId; });
-            const nomFruita = linesF[0].fruita;
+        fruitesIds.forEach(function(fruitaId) {
+            const fruita = fruites.find(function(f) { return f.id === fruitaId; });
+            const nomFruita = fruita ? fruita.nom : 'Desconeguda';
             const colorFruita = nomFruita === 'Albercoc' ? '#f39c12' :
                                 nomFruita === 'Nectarina' ? '#e74c3c' :
                                 nomFruita === 'Préssec Pla' ? '#e91e8c' : '#27ae60';
-            const subtotal = linesF.filter(function(r) { return r.estat !== 'pendent'; })
-                                   .reduce(function(s, r) { return s + r.import_; }, 0);
+
+            let subtotal = 0;
 
             html += '<div style="margin-bottom:20px;">';
             html += '<h4 style="color:' + colorFruita + ';margin-bottom:8px;">' + nomFruita + '</h4>';
@@ -2603,14 +2578,44 @@ async function mostrarCalculBestreta() {
             html += '<th>Estat</th>';
             html += '</tr></thead><tbody>';
 
-            linesF.forEach(function(l) {
-                html += '<tr' + (l.estat === 'pendent' ? ' style="opacity:0.5;"' : '') + '>';
-                html += '<td><strong>' + l.numBestreta + 'ª</strong></td>';
-                html += '<td style="font-size:12px;">' + formatData(l.dataInici) + ' — ' + formatData(l.dataFinal) + '</td>';
-                html += '<td style="text-align:right;">' + (l.estat === 'pendent' ? '-' : l.kgNets.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2})) + '</td>';
-                html += '<td style="text-align:right;">' + l.preu.toFixed(3) + '</td>';
-                html += '<td style="text-align:right;"><strong>' + (l.estat === 'pendent' ? '-' : l.import_.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €') + '</strong></td>';
-                html += '<td>' + l.estatBadge + '</td>';
+            periodes.forEach(function(periode) {
+                const kgNets = (fruitesAmbEntrades[fruitaId] || {})[periode.num_bestreta] || 0;
+                if (kgNets === 0) return; // Sense entrades, no mostrar fila
+
+                const preuObj = preusActuals.find(function(p) {
+                    return p.fruita_id === fruitaId && p.num_bestreta === periode.num_bestreta;
+                });
+
+                // Determinar estat del període
+                const di = new Date(periode.data_inici);
+                const df = new Date(periode.data_final);
+                let estatBadge;
+                if (ara < di) {
+                    estatBadge = '<span style="background:#9e9e9e;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">🔜 Pendent</span>';
+                } else if (ara > df) {
+                    estatBadge = '<span style="background:#27ae60;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">✅ Tancada</span>';
+                } else {
+                    estatBadge = '<span style="background:#ff9800;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">⏳ Provisional</span>';
+                }
+
+                html += '<tr>';
+                html += '<td><strong>' + periode.num_bestreta + 'ª</strong></td>';
+                html += '<td style="font-size:12px;">' + new Date(periode.data_inici).toLocaleDateString('ca-ES') + ' — ' + new Date(periode.data_final).toLocaleDateString('ca-ES') + '</td>';
+                html += '<td style="text-align:right;">' + kgNets.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</td>';
+
+                if (!preuObj) {
+                    // Hi ha entrades però no preu confirmat
+                    html += '<td style="text-align:right;color:#e74c3c;font-style:italic;">Pendent de preu</td>';
+                    html += '<td style="text-align:right;color:#e74c3c;">—</td>';
+                } else {
+                    const importBestreta = kgNets * preuObj.bestreta_preu_unitari;
+                    if (ara >= di) subtotal += importBestreta;
+                    totalAcumulat += importBestreta;
+                    html += '<td style="text-align:right;">' + preuObj.bestreta_preu_unitari.toFixed(3) + '</td>';
+                    html += '<td style="text-align:right;"><strong>' + importBestreta.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €</strong></td>';
+                }
+
+                html += '<td>' + estatBadge + '</td>';
                 html += '</tr>';
             });
 
@@ -2631,7 +2636,6 @@ async function mostrarCalculBestreta() {
         html += '</div>';
 
         html += '</div>';
-
         content.innerHTML = html;
 
     } catch (error) {

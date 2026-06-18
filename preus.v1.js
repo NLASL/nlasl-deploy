@@ -446,5 +446,32 @@ function arrodonarPreu(preu) {
 // ============================================================
 // 7. INICIALITZACIÓ
 // ============================================================
+// ============================================================
+// 8. PERÍODES DE BESTRETA (calendari)
+// ============================================================
+
+async function obtenirPeriodesBestreta(campanya = null) {
+    try {
+        let query = supabaseClient
+            .from('collita_periodes_bestreta')
+            .select('*')
+            .order('campanya', { ascending: false })
+            .order('num_bestreta', { ascending: true });
+
+        if (campanya !== null) {
+            query = query.eq('campanya', campanya);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        return data || [];
+    } catch (error) {
+        console.error('❌ Error obtenint períodes bestreta:', error);
+        return [];
+    }
+}
+
+
+
 
 console.log('✅ Preus v1 carregat');

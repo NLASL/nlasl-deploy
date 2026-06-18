@@ -129,23 +129,6 @@ function obrirModalNovabestreta() {
         suggeriments[f.id] = bestresFruita.length + 1;
     });
 
-    // Calcular dates suggerides (període actual)
-    const avui = new Date();
-    let mesInici, anyInici, mesFinal, anyFinal;
-    if (avui.getDate() >= 21) {
-        mesInici = avui.getMonth() + 1;
-        anyInici = avui.getFullYear();
-    } else {
-        mesInici = avui.getMonth();
-        anyInici = mesInici === 0 ? avui.getFullYear() - 1 : avui.getFullYear();
-        if (mesInici === 0) mesInici = 12;
-    }
-    mesFinal = mesInici === 12 ? 1 : mesInici + 1;
-    anyFinal = mesInici === 12 ? anyInici + 1 : anyInici;
-
-    const dataIniciSug = anyInici + '-' + String(mesInici).padStart(2,'0') + '-21';
-    const dataFinalSug = anyFinal + '-' + String(mesFinal).padStart(2,'0') + '-20';
-
     const modal = document.createElement('div');
     modal.id = 'modal-nova-bestreta';
     modal.className = 'modal';
@@ -154,6 +137,7 @@ function obrirModalNovabestreta() {
         <div class="modal-content" style="max-width:500px;">
             <span class="close" onclick="tancarModal('modal-nova-bestreta')">&times;</span>
             <h2>➕ Nova Bestreta ${campanyaFiltre}</h2>
+            <p style="color:#666;font-size:13px;margin-bottom:15px;">Les dates del període venen del calendari de bestretes.</p>
             <form id="form-nova-bestreta" onsubmit="guardarNovabestreta(event)">
                 <div class="form-group">
                     <label>Campanya *</label>
@@ -170,19 +154,12 @@ function obrirModalNovabestreta() {
                 </div>
                 <div class="form-group">
                     <label>Nº Bestreta *</label>
-                    <input type="number" id="bestreta-num" min="1" max="5" value="1" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                    <input type="number" id="bestreta-num" min="1" max="5" value="1" required onchange="mostrarPeriodeSeleccionat()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
                 </div>
+                <div id="info-periode" style="background:#e8f5e9;padding:10px;border-radius:6px;margin-bottom:15px;font-size:13px;display:none;"></div>
                 <div class="form-group">
                     <label>Preu Unitari (€/kg) *</label>
                     <input type="number" id="bestreta-preu" placeholder="0.000" step="0.001" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
-                </div>
-                <div class="form-group">
-                    <label>Data Inici *</label>
-                    <input type="date" id="bestreta-data-inici" required value="${dataIniciSug}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
-                </div>
-                <div class="form-group">
-                    <label>Data Final *</label>
-                    <input type="date" id="bestreta-data-final" required value="${dataFinalSug}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
                 </div>
                 <div style="margin-top:20px;">
                     <button type="submit" class="btn btn-success">💾 Guardar Bestreta</button>
@@ -199,6 +176,28 @@ function actualitzarNumBestreta() {
     const opt = select.options[select.selectedIndex];
     const num = opt ? (opt.getAttribute('data-num') || 1) : 1;
     document.getElementById('bestreta-num').value = num;
+    mostrarPeriodeSeleccionat();
+}
+
+async function mostrarPeriodeSeleccionat() {
+    const campanya = parseInt(document.getElementById('bestreta-campanya').value);
+    const num = parseInt(document.getElementById('bestreta-num').value);
+    const infoDiv = document.getElementById('info-periode');
+    if (!campanya || !num || !infoDiv) return;
+
+    const periodes = await obtenirPeriodesBestreta(campanya);
+    const periode = periodes.find(function(p) { return p.num_bestreta === num; });
+
+    if (periode) {
+        infoDiv.style.display = 'block';
+        infoDiv.innerHTML = '📅 Període ' + num + 'ª bestreta: <strong>' +
+            new Date(periode.data_inici).toLocaleDateString('ca-ES') + ' — ' +
+            new Date(periode.data_final).toLocaleDateString('ca-ES') + '</strong>';
+    } else {
+        infoDiv.style.display = 'block';
+        infoDiv.innerHTML = '⚠️ No hi ha període ' + num + ' configurat per la campanya ' + campanya;
+        infoDiv.style.background = '#fde8e8';
+    }
 }
 
 async function guardarNovabestreta(event) {
@@ -208,11 +207,17 @@ async function guardarNovabestreta(event) {
         const fruitaId = document.getElementById('bestreta-fruita').value;
         const numBestreta = parseInt(document.getElementById('bestreta-num').value);
         const preu = parseFloat(document.getElementById('bestreta-preu').value);
-        const dataInici = document.getElementById('bestreta-data-inici').value;
-        const dataFinal = document.getElementById('bestreta-data-final').value;
 
-        if (!fruitaId || !preu || !dataInici || !dataFinal) {
+        if (!fruitaId || !preu) {
             mostrarNotificacio('Completa tots els camps', 'error');
+            return;
+        }
+
+        // Verificar que existeix el període al calendari
+        const periodes = await obtenirPeriodesBestreta(campanya);
+        const periode = periodes.find(function(p) { return p.num_bestreta === numBestreta; });
+        if (!periode) {
+            mostrarNotificacio('No existeix el període ' + numBestreta + ' per la campanya ' + campanya, 'error');
             return;
         }
 
@@ -221,8 +226,8 @@ async function guardarNovabestreta(event) {
             fruita_id: fruitaId,
             num_bestreta: numBestreta,
             bestreta_preu_unitari: preu,
-            bestreta_data_inici: dataInici,
-            bestreta_data_final: dataFinal,
+            bestreta_data_inici: periode.data_inici,
+            bestreta_data_final: periode.data_final,
             created_by: currentUser ? currentUser.id : null
         });
 
