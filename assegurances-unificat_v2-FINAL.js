@@ -12,7 +12,12 @@ let polissesCache = [];
 let parcellesCache = [];
 let sinistresCache = [];
 let campanyaSeleccionadaAsegurances = 2026;
-const campanyesDisponibles = [2026, 2025, 2024, 2023];
+const campanyaActual = new Date().getFullYear();
+const anyInici = 2023;
+const campanyesDisponibles = Array.from(
+    { length: campanyaActual - anyInici + 1 },
+    (_, i) => campanyaActual - i
+);
 
 let immobilizatCache = [];
 let assegurancesAltresCache = [];
