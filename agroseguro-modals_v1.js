@@ -95,7 +95,7 @@ function obrirModalNovaPolissa() {
                                 <input type="number" name="subvencio_enesa" step="0.01" min="0">
                             </div>
                             <div class="form-group">
-                                <label>Subvenció CA (€):</label>
+                                <label>Subvenció CA (Catalunya) (€):</label>
                                 <input type="number" name="subvencio_ca" step="0.01" min="0">
                             </div>
                         </div>
@@ -241,7 +241,7 @@ async function obrirModalEditarPolissa(polissaId) {
                                     <input type="number" name="subvencio_enesa" step="0.01" min="0" value="${polissa.subvencio_enesa || ''}">
                                 </div>
                                 <div class="form-group">
-                                    <label>Subvenció CA (€):</label>
+                                    <label>Subvenció CA (Catalunya) (€):</label>
                                     <input type="number" name="subvencio_ca" step="0.01" min="0" value="${polissa.subvencio_ca || ''}">
                                 </div>
                             </div>
