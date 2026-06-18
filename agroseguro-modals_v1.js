@@ -1932,9 +1932,34 @@ function diesRestants(dataVenciment) {
     style.id = 'agroseguro-v2-styles';
     style.textContent = `
         /* ---- Modal XL ---- */
-        .modal-content-xl {
-            max-width: 1000px;
-            width: 95vw;
+        /* Especificitat alta + !important per superar el fix global
+           .modal-overlay .modal-content {max-height:85vh; overflow-y:auto}
+           d'assegurances-fixes_v1.js, que si no quedaria com a scroll únic
+           i tapava la capçalera/tabs en fer scroll dins la taula. */
+        .modal-overlay .modal-content.modal-content-xl {
+            max-width: 1000px !important;
+            width: 95vw !important;
+            max-height: 90vh !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+        }
+        .modal-content-xl .modal-header {
+            flex-shrink: 0;
+        }
+        .modal-content-xl .detall-tabs {
+            flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .modal-overlay .modal-content-xl .modal-body {
+            flex: 1 1 auto !important;
+            overflow-y: auto !important;
+            min-height: 0;
+        }
+        .modal-content-xl .modal-footer {
+            flex-shrink: 0;
         }
 
         /* ---- Tabs detall ---- */
