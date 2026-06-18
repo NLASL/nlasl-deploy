@@ -734,9 +734,21 @@ function renderEstimacioProduccio(parcelles, polissa, collitaReal) {
     const totalProd = parcelles.reduce((s, p) => s + (p.produccio_kg || 0), 0);
     const rendimentMig = totalSup > 0 ? totalProd / totalSup : 0;
     const capitalTotal = parcelles.reduce((s, p) => s + (p.capital_assegurat || 0), 0);
-    const preuMig = capitalTotal > 0 && totalProd > 0 ? capitalTotal / totalProd : 0;
+    // Preu mig ponderat: prioritzem el preu_kg declarat a cada parcel·la (ponderat per la
+    // seva producció), ja que capital_assegurat pot no estar emplenat encara que preu_kg sí.
+    // Fallback: si cap parcel·la té preu_kg, derivem el preu del capital/producció total.
+    const sumaPreuPonderat = parcelles.reduce((s, p) => s + ((p.preu_kg || 0) * (p.produccio_kg || 0)), 0);
+    const preuMig = totalProd > 0 && sumaPreuPonderat > 0
+        ? sumaPreuPonderat / totalProd
+        : (capitalTotal > 0 && totalProd > 0 ? capitalTotal / totalProd : 0);
 
-    // Escenaris producció
+    // Base de càlcul dels escenaris: la producció assegurada pot quedar molt per sota
+    // de la collita real (la pòlissa sovint assegura només una part de la producció total).
+    // Per evitar escenaris "excel·lents" inferiors a un any real ja collit, fem servir
+    // com a base el valor més alt entre producció assegurada i collita real coneguda.
+    const baseEscenaris = Math.max(totalProd, collitaReal && collitaReal.totalKg ? collitaReal.totalKg : 0);
+
+    // Escenaris producció (factors aplicats sobre la base, no només sobre l'assegurat)
     const escenaris = [
         { nom: '🌧️ Any dolent', factor: 0.60, color: 'escenari-dolent' },
         { nom: '☁️ Any normal baix', factor: 0.80, color: 'escenari-normal-baix' },
@@ -769,6 +781,10 @@ function renderEstimacioProduccio(parcelles, polissa, collitaReal) {
                         ${parcelles.map(p => {
                             const rend = p.superficie_ha > 0 ? (p.produccio_kg || 0) / p.superficie_ha : 0;
                             const pct = totalProd > 0 ? ((p.produccio_kg || 0) / totalProd * 100) : 0;
+                            // Fallback: si capital_assegurat no està emplenat, el derivem de producció × preu
+                            const capitalParcella = (p.capital_assegurat != null && p.capital_assegurat !== 0)
+                                ? p.capital_assegurat
+                                : ((p.produccio_kg || 0) * (p.preu_kg || 0));
                             return `
                             <tr>
                                 <td>${p.num_par || '—'} <small>${p.sigpac || ''}</small></td>
@@ -777,7 +793,7 @@ function renderEstimacioProduccio(parcelles, polissa, collitaReal) {
                                 <td class="text-right">${formatKg(p.produccio_kg || 0)}</td>
                                 <td class="text-right">${rend.toFixed(0)}</td>
                                 <td class="text-right">${p.preu_kg ? p.preu_kg.toFixed(2) + ' €' : '—'}</td>
-                                <td class="text-right">${formatEuros(p.capital_assegurat)}</td>
+                                <td class="text-right">${formatEuros(capitalParcella)}</td>
                                 <td class="text-right">
                                     <div class="mini-barra-wrapper">
                                         <div class="mini-barra" style="width:${pct.toFixed(0)}%"></div>
@@ -794,7 +810,7 @@ function renderEstimacioProduccio(parcelles, polissa, collitaReal) {
                             <td class="text-right"><strong>${formatKg(totalProd)}</strong></td>
                             <td class="text-right"><strong>${rendimentMig.toFixed(0)} kg/ha</strong></td>
                             <td class="text-right">${preuMig > 0 ? preuMig.toFixed(2) + ' €' : '—'}</td>
-                            <td class="text-right"><strong>${formatEuros(capitalTotal)}</strong></td>
+                            <td class="text-right"><strong>${formatEuros(capitalTotal > 0 ? capitalTotal : totalProd * preuMig)}</strong></td>
                             <td></td>
                         </tr>
                     </tfoot>
@@ -803,9 +819,14 @@ function renderEstimacioProduccio(parcelles, polissa, collitaReal) {
 
             <!-- Escenaris producció -->
             <h4 style="margin-top:20px">🔮 Escenaris de Producció</h4>
+            ${baseEscenaris > totalProd ? `
+                <div class="nota-info" style="margin-bottom:12px;">
+                    ℹ️ La producció assegurada (${formatKg(totalProd)}) és inferior a la collita real coneguda (${formatKg(collitaReal.totalKg)}). Els escenaris es calculen sobre la base més alta per no infravalorar anys ja collits.
+                </div>
+            ` : ''}
             <div class="escenaris-grid">
                 ${escenaris.map(e => {
-                    const prod = totalProd * e.factor;
+                    const prod = baseEscenaris * e.factor;
                     const valor = prod * preuMig;
                     return `
                     <div class="escenari-card ${e.color}">
