@@ -12,7 +12,7 @@ let polissesCache = [];
 let parcellesCache = [];
 let sinistresCache = [];
 let campanyaSeleccionadaAsegurances = 2026;
-const campanyesDisponibles = [2026, 2025, 2024];
+const campanyesDisponibles = [2026, 2025, 2024, 2023];
 
 let immobilizatCache = [];
 let assegurancesAltresCache = [];
