@@ -257,6 +257,53 @@ async function obrirModalEditarPolissa(polissaId) {
                             </div>
                         </fieldset>
                         <fieldset>
+                            <legend>🧾 Desglossament Prima / Subvencions <small style="font-weight:400;color:#888;">(opcional — per a predicció d'evolució)</small></legend>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Bonificació Assegurat (€):</label>
+                                    <input type="number" name="bonificacio_assegurat" step="0.01" min="0" value="${polissa.bonificacio_assegurat || ''}">
+                                </div>
+                                <div class="form-group">
+                                    <label>Recàrrec F.L. Consorci (€):</label>
+                                    <input type="number" name="recarrec_consorci" step="0.01" min="0" value="${polissa.recarrec_consorci || ''}">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Rebut de Prima (€):</label>
+                                    <input type="number" name="rebut_prima" step="0.01" min="0" value="${polissa.rebut_prima || ''}">
+                                </div>
+                                <div class="form-group"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Subv. ENESA Base (€):</label>
+                                    <input type="number" name="subvencio_enesa_base" step="0.01" min="0" value="${polissa.subvencio_enesa_base || ''}">
+                                </div>
+                                <div class="form-group">
+                                    <label>Subv. ENESA Renovació (€):</label>
+                                    <input type="number" name="subvencio_enesa_renovacio" step="0.01" min="0" value="${polissa.subvencio_enesa_renovacio || ''}">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Subv. Contractació Col·lectiva (€):</label>
+                                    <input type="number" name="subvencio_contractacio_collectiva" step="0.01" min="0" value="${polissa.subvencio_contractacio_collectiva || ''}">
+                                </div>
+                                <div class="form-group">
+                                    <label>Subv. Jove Agricultor/Ganader (€): <small class="text-warning">⏳ amb límit temporal</small></label>
+                                    <input type="number" name="subvencio_jove_agricultor" step="0.01" min="0" value="${polissa.subvencio_jove_agricultor || ''}">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Subv. Estructures Assessorament (€):</label>
+                                    <input type="number" name="subvencio_estructures_assessorament" step="0.01" min="0" value="${polissa.subvencio_estructures_assessorament || ''}">
+                                </div>
+                                <div class="form-group"></div>
+                            </div>
+                        </fieldset>
+                        <fieldset>
                             <legend>🌾 Producció</legend>
                             <div class="form-row">
                                 <div class="form-group">
@@ -365,7 +412,15 @@ async function guardarEdicionPolissa(event, polissaId) {
             produccio_total_kg: parseFloat(dades.get('produccio_total_kg')) || null,
             superficie_total_ha: parseFloat(dades.get('superficie_total_ha')) || null,
             num_parcelles: parseInt(dades.get('num_parcelles')) || null,
-            observacions: dades.get('observacions') || null
+            observacions: dades.get('observacions') || null,
+            bonificacio_assegurat: parseFloat(dades.get('bonificacio_assegurat')) || null,
+            recarrec_consorci: parseFloat(dades.get('recarrec_consorci')) || null,
+            rebut_prima: parseFloat(dades.get('rebut_prima')) || null,
+            subvencio_enesa_base: parseFloat(dades.get('subvencio_enesa_base')) || null,
+            subvencio_enesa_renovacio: parseFloat(dades.get('subvencio_enesa_renovacio')) || null,
+            subvencio_contractacio_collectiva: parseFloat(dades.get('subvencio_contractacio_collectiva')) || null,
+            subvencio_jove_agricultor: parseFloat(dades.get('subvencio_jove_agricultor')) || null,
+            subvencio_estructures_assessorament: parseFloat(dades.get('subvencio_estructures_assessorament')) || null
         };
         if (!polissa.linia) throw new Error('Línia obligatòria');
         if (polissa.capital_assegurat_total <= 0) throw new Error('Capital assegurat ha de ser > 0');
