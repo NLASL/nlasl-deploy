@@ -1537,13 +1537,15 @@ async function eliminarParcel·la(parcellaId, polissaId) {
 // MODAL NOU SINISTRE
 // ============================================================
 
-function obrirModalNouSinistre(polissaId, campanya) {
+async function obrirModalNouSinistre(polissaId, campanya) {
+    const parcelles = await carregarParcelles(polissaId);
+
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.id = 'modal-nou-sinistre';
 
     modal.innerHTML = `
-        <div class="modal-content">
+        <div class="modal-content modal-content-xl">
             <div class="modal-header">
                 <h2>⚠️ Nou Sinistre</h2>
                 <button class="modal-close" onclick="tancarModal('modal-nou-sinistre')">✕</button>
@@ -1574,45 +1576,70 @@ function obrirModalNouSinistre(polissaId, campanya) {
                         </div>
                         <div class="form-group">
                             <label>Número Expedient:</label>
-                            <input type="text" name="num_expedient" placeholder="Ex: EXP-2024-001">
+                            <input type="text" name="num_expedient" placeholder="Ex: 2024-372210">
                         </div>
                     </fieldset>
+
                     <fieldset>
-                        <legend>🌱 Cultiu Afectat</legend>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Cultiu:</label>
-                                <input type="text" name="cultiu" placeholder="Ex: PRESSEC">
+                        <legend>🗺️ Parcel·les Afectades <small style="font-weight:400;color:#888;">(marca les afectades i introdueix les dades de l'Acta de Taxació)</small></legend>
+                        ${parcelles.length === 0 ? `
+                            <div class="buit-msg"><p>Aquesta pòlissa no té parcel·les donades d'alta. Afegeix-les primer a la pestanya Parcel·les.</p></div>
+                        ` : `
+                            <div class="table-responsive">
+                                <table class="taula-dades taula-sinistre-detall" id="taula-sinistre-detall">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:30px;"></th>
+                                            <th>Parcel·la</th>
+                                            <th>Cultiu/Varietat</th>
+                                            <th class="text-right">Sup. real (ha)</th>
+                                            <th class="text-right">Sup. afect. (ha)</th>
+                                            <th class="text-right">PRF (kg)</th>
+                                            <th class="text-right">PRE (kg)</th>
+                                            <th class="text-right">% Franq.</th>
+                                            <th class="text-right">% Cobert.</th>
+                                            <th class="text-right">% Dany</th>
+                                            <th class="text-right">Valor Pèrdues (€)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${parcelles.map(p => `
+                                            <tr data-parcella-id="${p.id}" data-preu-kg="${p.preu_kg || 0}" data-produccio-assegurada="${p.produccio_kg || 0}">
+                                                <td><input type="checkbox" class="chk-parcella-afectada" onchange="toggleFilaSinistre(this)"></td>
+                                                <td>${p.num_par || '—'} <small>${p.sigpac || ''}</small></td>
+                                                <td>${p.cultiu_nom || p.cultiu_codi || '—'} ${p.varietat_nom ? '/ ' + p.varietat_nom : ''}</td>
+                                                <td class="text-right">${(p.superficie_ha || 0).toFixed(2)}</td>
+                                                <td class="text-right"><input type="number" class="input-mini camp-sup-afectada" step="0.01" min="0" disabled oninput="recalcularLiniaSinistre(this)"></td>
+                                                <td class="text-right"><input type="number" class="input-mini camp-prf" step="0.01" min="0" disabled oninput="recalcularLiniaSinistre(this)"></td>
+                                                <td class="text-right"><input type="number" class="input-mini camp-pre" step="0.01" min="0" disabled oninput="recalcularLiniaSinistre(this)"></td>
+                                                <td class="text-right"><input type="number" class="input-mini camp-franquicia" step="0.01" min="0" value="10" disabled oninput="recalcularLiniaSinistre(this)"></td>
+                                                <td class="text-right"><input type="number" class="input-mini camp-cobertura" step="0.01" min="0" max="100" value="100" disabled oninput="recalcularLiniaSinistre(this)"></td>
+                                                <td class="text-right resultat-dany">—</td>
+                                                <td class="text-right resultat-valor">—</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="taula-totals">
+                                            <td colspan="9"><strong>TOTAL INDEMNITZACIÓ ESTIMADA</strong></td>
+                                            <td></td>
+                                            <td class="text-right" id="total-sinistre-detall"><strong>0,00 €</strong></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
                             </div>
-                            <div class="form-group">
-                                <label>Varietat:</label>
-                                <input type="text" name="varietat" placeholder="Ex: ANDROS">
+                            <div class="nota-info" style="margin-top:10px;">
+                                ℹ️ La PRE (Producció Real Esperada) no es pot calcular automàticament: ve del barem intern d'Agroseguro. Transcriu-la directament de l'Acta de Taxació.
                             </div>
-                        </div>
+                        `}
                     </fieldset>
-                    <fieldset>
-                        <legend>💥 Danys</legend>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>% Dany:</label>
-                                <input type="number" name="percentatge_dany" step="0.1" min="0" max="100" placeholder="Ex: 45.5">
-                            </div>
-                            <div class="form-group">
-                                <label>Producció Perduda (kg):</label>
-                                <input type="number" name="produccio_perduda_kg" step="0.01" min="0">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Capital Danyat (€):</label>
-                            <input type="number" name="capital_danyat" step="0.01" min="0">
-                        </div>
-                    </fieldset>
+
                     <fieldset>
                         <legend>💰 Indemnització</legend>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Indemnització Rebuda (€):</label>
-                                <input type="number" name="indemnitzacio_rebuda" step="0.01" min="0">
+                                <label>Indemnització Rebuda (€): <small class="text-muted">(es proposa la suma de les línies, pots ajustar-la)</small></label>
+                                <input type="number" name="indemnitzacio_rebuda" id="input-indemnitzacio-rebuda" step="0.01" min="0" oninput="this.dataset.editatManual='1'">
                             </div>
                             <div class="form-group">
                                 <label>Data Cobrament:</label>
@@ -1639,6 +1666,77 @@ function obrirModalNouSinistre(polissaId, campanya) {
     modal.addEventListener('click', (e) => { if (e.target === modal) tancarModal('modal-nou-sinistre'); });
 }
 
+// ---- Activar/desactivar camps d'una línia de parcel·la dins el sinistre ----
+function toggleFilaSinistre(checkbox) {
+    const fila = checkbox.closest('tr');
+    const inputs = fila.querySelectorAll('input[type="number"]');
+    inputs.forEach(inp => inp.disabled = !checkbox.checked);
+    if (!checkbox.checked) {
+        fila.querySelector('.resultat-dany').textContent = '—';
+        fila.querySelector('.resultat-valor').textContent = '—';
+        recalcularTotalSinistre();
+    }
+}
+
+// ---- Recàlcul d'una línia de parcel·la (% dany, valor pèrdues) ----
+function recalcularLiniaSinistre(inputElement) {
+    const fila = inputElement.closest('tr');
+    const preuKg = parseFloat(fila.dataset.preuKg) || 0;
+    const produccioAssegurada = parseFloat(fila.dataset.produccioAssegurada) || 0;
+
+    const prf = parseFloat(fila.querySelector('.camp-prf').value) || 0;
+    const pre = parseFloat(fila.querySelector('.camp-pre').value) || 0;
+    const franquicia = parseFloat(fila.querySelector('.camp-franquicia').value) || 0;
+    const cobertura = parseFloat(fila.querySelector('.camp-cobertura').value) || 0;
+
+    const resultatDanyEl = fila.querySelector('.resultat-dany');
+    const resultatValorEl = fila.querySelector('.resultat-valor');
+
+    if (pre <= 0) {
+        resultatDanyEl.textContent = '—';
+        resultatValorEl.textContent = '—';
+        recalcularTotalSinistre();
+        return;
+    }
+
+    // % Dany sobre PRE
+    const percentatgeDany = Math.max(0, ((pre - prf) / pre) * 100);
+
+    // Producció Base = mínim entre PRE i producció assegurada (la pòlissa no cobreix més del que té assegurat)
+    const produccioBase = Math.min(pre, produccioAssegurada || pre);
+    const valorProduccioBase = produccioBase * preuKg;
+
+    // % Dany Indemnitzable = % Dany - % Franquícia (mai negatiu)
+    const percentatgeDanyIndemnitzable = Math.max(0, percentatgeDany - franquicia);
+
+    // Valor Pèrdues Indemnitzables = Valor Producció Base × %Dany Indemnitzable/100 × %Cobertura/100
+    const valorPerdues = valorProduccioBase * (percentatgeDanyIndemnitzable / 100) * (cobertura / 100);
+
+    resultatDanyEl.textContent = percentatgeDany.toFixed(2) + ' %';
+    resultatValorEl.textContent = formatEuros(valorPerdues);
+    fila.dataset.valorPerdues = valorPerdues;
+
+    recalcularTotalSinistre();
+}
+
+// ---- Suma totes les línies marcades i actualitza el total + proposta d'indemnització ----
+function recalcularTotalSinistre() {
+    const files = document.querySelectorAll('#taula-sinistre-detall tbody tr');
+    let total = 0;
+    files.forEach(fila => {
+        const checkbox = fila.querySelector('.chk-parcella-afectada');
+        if (checkbox && checkbox.checked) {
+            total += parseFloat(fila.dataset.valorPerdues) || 0;
+        }
+    });
+    const totalEl = document.getElementById('total-sinistre-detall');
+    if (totalEl) totalEl.innerHTML = `<strong>${formatEuros(total)}</strong>`;
+    const inputIndemnitzacio = document.getElementById('input-indemnitzacio-rebuda');
+    if (inputIndemnitzacio && !inputIndemnitzacio.dataset.editatManual) {
+        inputIndemnitzacio.value = total.toFixed(2);
+    }
+}
+
 // ============================================================
 // GUARDAR NOU SINISTRE
 // ============================================================
@@ -1649,17 +1747,68 @@ async function guardarNouSinistre(event, polissaId, campanya) {
         const form = document.getElementById('form-nou-sinistre');
         const dades = new FormData(form);
 
+        // Recollir les línies de parcel·la marcades com a afectades
+        const filesAfectades = [];
+        document.querySelectorAll('#taula-sinistre-detall tbody tr').forEach(fila => {
+            const checkbox = fila.querySelector('.chk-parcella-afectada');
+            if (!checkbox || !checkbox.checked) return;
+
+            const supAfectada = parseFloat(fila.querySelector('.camp-sup-afectada').value) || null;
+            const prf = parseFloat(fila.querySelector('.camp-prf').value) || null;
+            const pre = parseFloat(fila.querySelector('.camp-pre').value) || null;
+            const franquicia = parseFloat(fila.querySelector('.camp-franquicia').value) || 0;
+            const cobertura = parseFloat(fila.querySelector('.camp-cobertura').value) || 0;
+            const preuKg = parseFloat(fila.dataset.preuKg) || 0;
+            const produccioAssegurada = parseFloat(fila.dataset.produccioAssegurada) || 0;
+
+            let percentatgeDany = null, produccioBase = null, valorProduccioBase = null,
+                percentatgeDanyIndemnitzable = null, valorPerdues = 0;
+
+            if (pre && pre > 0) {
+                percentatgeDany = Math.max(0, ((pre - (prf || 0)) / pre) * 100);
+                produccioBase = Math.min(pre, produccioAssegurada || pre);
+                valorProduccioBase = produccioBase * preuKg;
+                percentatgeDanyIndemnitzable = Math.max(0, percentatgeDany - franquicia);
+                valorPerdues = valorProduccioBase * (percentatgeDanyIndemnitzable / 100) * (cobertura / 100);
+            }
+
+            filesAfectades.push({
+                parcella_agro_id: fila.dataset.parcellaId,
+                superficie_afectada: supAfectada,
+                prf: prf,
+                pre: pre,
+                percentatge_franquicia: franquicia,
+                percentatge_cobertura: cobertura,
+                compensacio_deduccio: 0,
+                percentatge_dany: percentatgeDany,
+                produccio_esperada_afectada: pre,
+                produccio_base: produccioBase,
+                valor_produccio_base: valorProduccioBase,
+                percentatge_dany_indemnitzable: percentatgeDanyIndemnitzable,
+                valor_perdudes_indemnitzables: valorPerdues
+            });
+        });
+
+        // Agregats pel registre principal (compatibilitat amb la resta de la UI existent)
+        const totalValorPerdues = filesAfectades.reduce((s, f) => s + (f.valor_perdudes_indemnitzables || 0), 0);
+        const totalProduccioPerduda = filesAfectades.reduce((s, f) => {
+            if (f.pre == null || f.prf == null) return s;
+            return s + Math.max(0, f.pre - f.prf);
+        }, 0);
+        // % dany mitjà ponderat per valor de pèrdues (si no n'hi ha, mitjana simple)
+        const percentatgeDanyMitja = filesAfectades.length > 0
+            ? (filesAfectades.reduce((s, f) => s + (f.percentatge_dany || 0), 0) / filesAfectades.length)
+            : null;
+
         const sinistre = {
             polissa_id: polissaId,
             campanya: parseInt(campanya),
             data_sinistre: dades.get('data_sinistre') || null,
             tipus: dades.get('tipus') || null,
             num_expedient: dades.get('num_expedient') || null,
-            cultiu: dades.get('cultiu') || null,
-            varietat: dades.get('varietat') || null,
-            percentatge_dany: parseFloat(dades.get('percentatge_dany')) || null,
-            produccio_perduda_kg: parseFloat(dades.get('produccio_perduda_kg')) || null,
-            capital_danyat: parseFloat(dades.get('capital_danyat')) || null,
+            percentatge_dany: percentatgeDanyMitja,
+            produccio_perduda_kg: totalProduccioPerduda || null,
+            capital_danyat: totalValorPerdues || null,
             indemnitzacio_rebuda: parseFloat(dades.get('indemnitzacio_rebuda')) || null,
             data_cobrament: dades.get('data_cobrament') || null,
             observacions: dades.get('observacions') || null
@@ -1668,10 +1817,23 @@ async function guardarNouSinistre(event, polissaId, campanya) {
         if (!sinistre.data_sinistre) throw new Error('Data del sinistre obligatòria');
         if (!sinistre.tipus) throw new Error('Tipus de sinistre obligatori');
 
-        const { error } = await supabaseClient.from('agroseguro_sinistres').insert([sinistre]);
+        const { data: sinistreCreado, error } = await supabaseClient
+            .from('agroseguro_sinistres')
+            .insert([sinistre])
+            .select()
+            .single();
         if (error) throw error;
 
-        mostrarNotificacio('✅ Sinistre registrat correctament', 'success');
+        // Inserir les línies de detall per parcel·la, si n'hi ha
+        if (filesAfectades.length > 0) {
+            const detallsAmbSinistre = filesAfectades.map(f => ({ ...f, sinistre_id: sinistreCreado.id }));
+            const { error: errDetall } = await supabaseClient
+                .from('agroseguro_sinistres_detall')
+                .insert(detallsAmbSinistre);
+            if (errDetall) throw errDetall;
+        }
+
+        mostrarNotificacio('✅ Sinistre registrat correctament' + (filesAfectades.length > 0 ? ` (${filesAfectades.length} parcel·les afectades)` : ''), 'success');
         tancarModal('modal-nou-sinistre');
         tancarModal('modal-detall-polissa');
         await obrirModalPolissa(polissaId);
@@ -2168,6 +2330,36 @@ function diesRestants(dataVenciment) {
         .observacions-text { font-size: 13px; color: #555; line-height: 1.5; margin: 0; }
 
         input[type="range"] { width: 100%; }
+
+        /* ---- Taula sinistre detallat per parcel·la ---- */
+        .taula-sinistre-detall .input-mini {
+            width: 70px;
+            padding: 3px 4px;
+            font-size: 12px;
+            text-align: right;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        .taula-sinistre-detall .input-mini:disabled {
+            background: #f0f0f0;
+            color: #aaa;
+        }
+        .taula-sinistre-detall th {
+            font-size: 11px;
+            white-space: nowrap;
+        }
+        .taula-sinistre-detall td {
+            white-space: nowrap;
+        }
+        .taula-sinistre-detall .resultat-dany,
+        .taula-sinistre-detall .resultat-valor {
+            font-weight: 600;
+        }
+        .chk-parcella-afectada {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
     `;
     document.head.appendChild(style);
 })();
