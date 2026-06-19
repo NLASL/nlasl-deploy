@@ -1706,8 +1706,10 @@ function recalcularLiniaSinistre(inputElement) {
     const produccioBase = Math.min(pre, produccioAssegurada || pre);
     const valorProduccioBase = produccioBase * preuKg;
 
-    // % Dany Indemnitzable = % Dany - % Franquícia (mai negatiu)
-    const percentatgeDanyIndemnitzable = Math.max(0, percentatgeDany - franquicia);
+    // % Dany Indemnitzable = % Dany × (100 - % Franquícia) / 100
+    // (franquícia RELATIVA, no resta absoluta — confirmat amb dades reals de l'acta:
+    //  55,53% dany, 10% franquícia → 49,98% indemnitzable = 55,53 × 0,90, no 55,53-10=45,53)
+    const percentatgeDanyIndemnitzable = Math.max(0, percentatgeDany * (100 - franquicia) / 100);
 
     // Valor Pèrdues Indemnitzables = Valor Producció Base × %Dany Indemnitzable/100 × %Cobertura/100
     const valorPerdues = valorProduccioBase * (percentatgeDanyIndemnitzable / 100) * (cobertura / 100);
@@ -1768,7 +1770,8 @@ async function guardarNouSinistre(event, polissaId, campanya) {
                 percentatgeDany = Math.max(0, ((pre - (prf || 0)) / pre) * 100);
                 produccioBase = Math.min(pre, produccioAssegurada || pre);
                 valorProduccioBase = produccioBase * preuKg;
-                percentatgeDanyIndemnitzable = Math.max(0, percentatgeDany - franquicia);
+                // Franquícia relativa (multiplicativa), no resta absoluta — veure nota a recalcularLiniaSinistre
+                percentatgeDanyIndemnitzable = Math.max(0, percentatgeDany * (100 - franquicia) / 100);
                 valorPerdues = valorProduccioBase * (percentatgeDanyIndemnitzable / 100) * (cobertura / 100);
             }
 
