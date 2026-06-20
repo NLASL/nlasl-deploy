@@ -84,10 +84,12 @@ async function carregarAlertesReg() {
     if (!container) return;
 
     try {
-        const { data, error } = await supabaseClient
-            .from('reg_factor_explotacio')
-            .select('*')
-            .order('factor_reg', { ascending: true });
+       const ts = Date.now();
+	   const { data, error } = await supabaseClient
+		.from('reg_factor_explotacio')
+		.select('*')
+		.order('factor_reg', { ascending: true })
+		.gte('avui', '2000-01-01'); // forçar nova petició HTTP
 
         if (error) {
             console.warn('Vista reg_factor_explotacio no disponible:', error.message);
