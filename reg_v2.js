@@ -117,10 +117,10 @@ async function carregarAlertesReg() {
         };
 
         const nomCultiu = {
-            'albercoc':      'Albercoc',
-            'pressec_juny':  'Préssec (juny)',
-            'pressec_agost': 'Préssec (agost)'
-        };
+			'albercoc':      'Albercoc',
+			'pressec_juny':  'Préssec Pla (juny)',
+			'pressec_agost': 'Préssec Pla (agost)'
+};
 
         let html = '<div style="font-weight:600;color:#333;margin-bottom:10px;">💧 Recomanacions de reg per fase fenològica</div>';
         html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px;">';
