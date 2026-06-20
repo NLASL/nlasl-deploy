@@ -417,7 +417,7 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
             const resultatsFases = await Promise.all(
                 fincesReg.map(async (finca) => {
                     const { data } = await supabaseClient
-                        .rpc('get_factor_reg_per_data', {
+                        .rpc('reg_factor_explotacio_per_data', {
                             p_num_explotacio: finca.num_explotacio,
                             p_data: dataMitjana
                         });
