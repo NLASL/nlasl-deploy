@@ -453,6 +453,23 @@ async function obrirModalPolissa(polissaId) {
             carregarCollitaReal(polissa, parcelles)
         ]);
 
+        // Carregar el detall per parcel·la de tots els sinistres d'aquesta pòlissa
+        // en una sola consulta, i adjuntar-lo a cada sinistre (camp _detall)
+        if (sinistres.length > 0) {
+            const idsParcellesMap = Object.fromEntries(parcelles.map(p => [p.id, p]));
+            const { data: detallsRaw, error: errDetalls } = await supabaseClient
+                .from('agroseguro_sinistres_detall')
+                .select('*')
+                .in('sinistre_id', sinistres.map(s => s.id));
+            if (errDetalls) console.error('Error carregant detall sinistres:', errDetalls);
+            const detalls = detallsRaw || [];
+            sinistres.forEach(s => {
+                s._detall = detalls
+                    .filter(d => d.sinistre_id === s.id)
+                    .map(d => ({ ...d, _parcella: idsParcellesMap[d.parcella_agro_id] || null }));
+            });
+        }
+
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.id = 'modal-detall-polissa';
@@ -725,10 +742,11 @@ function renderTaulaSinistresDetall(sinistres, polissaId, campanya) {
                 <table class="taula-dades">
                     <thead>
                         <tr>
+                            <th style="width:24px;"></th>
                             <th>Data</th>
                             <th>Tipus</th>
                             <th>Expedient</th>
-                            <th>Cultiu</th>
+                            <th>Parcel·les</th>
                             <th>% Dany</th>
                             <th>Prod. perduda</th>
                             <th>Capital danyat</th>
@@ -738,14 +756,17 @@ function renderTaulaSinistresDetall(sinistres, polissaId, campanya) {
                         </tr>
                     </thead>
                     <tbody>
-                        ${sinistres.map(s => {
+                        ${sinistres.map((s, idx) => {
                             const estat = !s.indemnitzacio_rebuda ? 'pendent' : 'cobrat';
+                            const numParcelles = (s._detall || []).length;
+                            const filaId = `sinistre-detall-${idx}`;
                             return `
-                            <tr>
+                            <tr class="fila-sinistre-resum" onclick="toggleDetallSinistre('${filaId}', this)" style="cursor:pointer;">
+                                <td class="icona-expandir">▶</td>
                                 <td>${formatData(s.data_sinistre)}</td>
                                 <td><span class="badge badge-tipus-sinistre">${s.tipus || '—'}</span></td>
                                 <td><code>${s.num_expedient || '—'}</code></td>
-                                <td>${s.cultiu || '—'} ${s.varietat ? '/ ' + s.varietat : ''}</td>
+                                <td>${numParcelles > 0 ? `${numParcelles} parcel·les` : '<span class="text-muted">sense detall</span>'}</td>
                                 <td class="text-right">${s.percentatge_dany ? s.percentatge_dany.toFixed(1) + ' %' : '—'}</td>
                                 <td class="text-right">${s.produccio_perduda_kg ? formatKg(s.produccio_perduda_kg) : '—'}</td>
                                 <td class="text-right text-warning">${formatEuros(s.capital_danyat)}</td>
@@ -755,16 +776,21 @@ function renderTaulaSinistresDetall(sinistres, polissaId, campanya) {
                                         ${estat === 'cobrat' ? '✅ ' + formatData(s.data_cobrament) : '⏳ Pendent'}
                                     </span>
                                 </td>
-                                <td>
+                                <td onclick="event.stopPropagation()">
                                     <button class="btn-icon" onclick="obrirModalEditarSinistre('${s.id}', '${polissaId}')" title="Editar">✏️</button>
                                     <button class="btn-icon btn-icon-danger" onclick="eliminarSinistre('${s.id}', '${polissaId}')" title="Eliminar">🗑️</button>
+                                </td>
+                            </tr>
+                            <tr class="fila-sinistre-detall" id="${filaId}" style="display:none;">
+                                <td colspan="11" style="padding:0;">
+                                    ${renderDetallParcellesSinistre(s._detall || [])}
                                 </td>
                             </tr>
                         `}).join('')}
                     </tbody>
                     <tfoot>
                         <tr class="taula-totals">
-                            <td colspan="6"><strong>TOTALS</strong></td>
+                            <td colspan="7"><strong>TOTALS</strong></td>
                             <td class="text-right text-warning"><strong>${formatEuros(sinistres.reduce((s,x) => s + (x.capital_danyat||0), 0))}</strong></td>
                             <td class="text-right text-success"><strong>${formatEuros(sinistres.reduce((s,x) => s + (x.indemnitzacio_rebuda||0), 0))}</strong></td>
                             <td colspan="2"></td>
@@ -774,6 +800,68 @@ function renderTaulaSinistresDetall(sinistres, polissaId, campanya) {
             </div>
         `}
     `;
+}
+
+// ---- Render del detall per parcel·la d'un sinistre concret (sub-fila expandible) ----
+function renderDetallParcellesSinistre(detall) {
+    if (!detall || detall.length === 0) {
+        return `<div class="buit-msg" style="padding:10px;">Aquest sinistre no té detall per parcel·la (es va crear sense seleccionar-ne cap, o ve de l'esquema antic).</div>`;
+    }
+
+    return `
+        <div class="detall-sinistre-wrapper">
+            <table class="taula-dades taula-detall-sinistre-mini">
+                <thead>
+                    <tr>
+                        <th>Parcel·la</th>
+                        <th>Cultiu/Varietat</th>
+                        <th class="text-right">Sup. afect. (ha)</th>
+                        <th class="text-right">PRF (kg)</th>
+                        <th class="text-right">PRE (kg)</th>
+                        <th class="text-right">% Dany</th>
+                        <th class="text-right">% Franq.</th>
+                        <th class="text-right">% Dany Indem.</th>
+                        <th class="text-right">% Cobert.</th>
+                        <th class="text-right">Valor Pèrdues</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${detall.map(d => {
+                        const p = d._parcella;
+                        return `
+                        <tr>
+                            <td>${p ? (p.num_par || '—') + ' <small>' + (p.sigpac || '') + '</small>' : '<span class="text-muted">parcel·la eliminada</span>'}</td>
+                            <td>${p ? (p.cultiu_nom || p.cultiu_codi || '—') + (p.varietat_nom ? ' / ' + p.varietat_nom : '') : '—'}</td>
+                            <td class="text-right">${d.superficie_afectada != null ? d.superficie_afectada.toFixed(2) : '—'}</td>
+                            <td class="text-right">${d.prf != null ? formatKg(d.prf) : '—'}</td>
+                            <td class="text-right">${d.pre != null ? formatKg(d.pre) : '—'}</td>
+                            <td class="text-right">${d.percentatge_dany != null ? d.percentatge_dany.toFixed(2) + ' %' : '—'}</td>
+                            <td class="text-right">${d.percentatge_franquicia != null ? d.percentatge_franquicia.toFixed(2) + ' %' : '—'}</td>
+                            <td class="text-right">${d.percentatge_dany_indemnitzable != null ? d.percentatge_dany_indemnitzable.toFixed(2) + ' %' : '—'}</td>
+                            <td class="text-right">${d.percentatge_cobertura != null ? d.percentatge_cobertura.toFixed(2) + ' %' : '—'}</td>
+                            <td class="text-right text-success"><strong>${formatEuros(d.valor_perdudes_indemnitzables)}</strong></td>
+                        </tr>
+                    `}).join('')}
+                </tbody>
+                <tfoot>
+                    <tr class="taula-totals">
+                        <td colspan="9"><strong>TOTAL DETALL</strong></td>
+                        <td class="text-right text-success"><strong>${formatEuros(detall.reduce((s, d) => s + (d.valor_perdudes_indemnitzables || 0), 0))}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    `;
+}
+
+// ---- Mostrar/amagar la sub-fila de detall en clicar la fila resum ----
+function toggleDetallSinistre(filaId, filaResum) {
+    const fila = document.getElementById(filaId);
+    if (!fila) return;
+    const oculta = fila.style.display === 'none';
+    fila.style.display = oculta ? 'table-row' : 'none';
+    const icona = filaResum.querySelector('.icona-expandir');
+    if (icona) icona.textContent = oculta ? '▼' : '▶';
 }
 
 // ============================================================
@@ -1745,6 +1833,15 @@ function recalcularTotalSinistre() {
 
 async function guardarNouSinistre(event, polissaId, campanya) {
     event.preventDefault();
+
+    // Protecció contra doble enviament (doble clic, doble Enter, etc.)
+    const botoSubmit = document.querySelector('#modal-nou-sinistre button[type="submit"]');
+    if (botoSubmit) {
+        if (botoSubmit.disabled) return; // ja s'està processant, ignora clics extra
+        botoSubmit.disabled = true;
+        botoSubmit.textContent = '⏳ Registrant...';
+    }
+
     try {
         const form = document.getElementById('form-nou-sinistre');
         const dades = new FormData(form);
@@ -1844,6 +1941,12 @@ async function guardarNouSinistre(event, polissaId, campanya) {
     } catch (error) {
         console.error('Error:', error);
         mostrarNotificacio('❌ Error: ' + error.message, 'error');
+        // Reactivar el botó perquè es pugui corregir i tornar a provar
+        const boto = document.querySelector('#modal-nou-sinistre button[type="submit"]');
+        if (boto) {
+            boto.disabled = false;
+            boto.textContent = '⚠️ Registrar Sinistre';
+        }
     }
 }
 
@@ -2362,6 +2465,38 @@ function diesRestants(dataVenciment) {
             width: 16px;
             height: 16px;
             cursor: pointer;
+        }
+
+        /* ---- Fila expandible de sinistres ---- */
+        .fila-sinistre-resum:hover td {
+            background: #f8fff4 !important;
+        }
+        .icona-expandir {
+            color: var(--verde-principal, #2d5016);
+            font-size: 11px;
+            text-align: center;
+        }
+        .fila-sinistre-detall td {
+            background: #fafafa;
+            border-top: none;
+        }
+        .detall-sinistre-wrapper {
+            padding: 10px 16px;
+        }
+        .taula-detall-sinistre-mini {
+            font-size: 12px;
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .taula-detall-sinistre-mini th {
+            background: #6b8e4e;
+            font-size: 11px;
+            padding: 6px 8px;
+        }
+        .taula-detall-sinistre-mini td {
+            padding: 5px 8px;
         }
     `;
     document.head.appendChild(style);
