@@ -275,7 +275,8 @@ async function mostrarRecomanacionsReg() {
             <span onclick="document.getElementById('modal-recomanacions-reg').remove()"
                 style="position:absolute;right:20px;top:20px;font-size:28px;
                 cursor:pointer;color:#999;font-weight:bold;line-height:1;">&times;</span>
-            <h2 style="color:#2980b9; margin-bottom:20px;">🌡️ Recomanacions de Reg</h2>
+            html += '<h2 style="color:#2980b9; margin-bottom:20px;">🌡️ Recomanacions de Reg</h2>';
+			html += '<div style="background:#fff3e0;padding:8px 14px;border-radius:6px;margin-bottom:15px;font-size:13px;color:#e65100;">⚠️ Les fases fenològiques corresponen a la <strong>data mitjana del període seleccionat</strong>, no a avui. Això permet l\'auditoria correcta del reg aplicat.</div>';
             <div style="display:flex; gap:15px; align-items:center; flex-wrap:wrap; margin-bottom:20px;">
                 <div><label><strong>Des de:</strong></label> <input type="date" id="rec-data-inici" value="${dataInici}" style="padding:5px; border-radius:4px; border:1px solid #ddd;"></div>
                 <div><label><strong>Fins a:</strong></label> <input type="date" id="rec-data-fi" value="${dataFi}" style="padding:5px; border-radius:4px; border:1px solid #ddd;"></div>
