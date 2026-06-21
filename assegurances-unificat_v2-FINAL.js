@@ -475,6 +475,11 @@ async function mostrarVistaImmobilitzat() {
         const immobilitzat = await getImmobilitzat();
         immobilizatCache = immobilitzat;
         
+        // Carreguem les pòlisses d'"Altres assegurances" per poder enllaçar
+        // cada immobilitzat amb la(es) seva(es) pòlissa(es) vinculada(es)
+        const assegurancesAltres = await getAssegurancesAltres(null);
+        assegurancesAltresCache = assegurancesAltres;
+        
         if (immobilitzat.length === 0) {
             html += `<div class="no-data">Sense immobilitzat registrat</div>`;
         } else {
@@ -487,6 +492,7 @@ async function mostrarVistaImmobilitzat() {
                             <th>Marca/Model</th>
                             <th>Valor actual</th>
                             <th>Ubicació</th>
+                            <th>Pòlissa vinculada</th>
                             <th>Accions</th>
                         </tr>
                     </thead>
@@ -497,6 +503,19 @@ async function mostrarVistaImmobilitzat() {
                 const valor = (imm.valor_actual || 0).toLocaleString('ca-ES', { style: 'currency', currency: 'EUR' });
                 const marca = imm.marca ? `${imm.marca} ${imm.model || ''}` : imm.model || '—';
                 
+                const polissesVinculades = assegurancesAltres.filter(a => a.immobilitzat_id === imm.id);
+                
+                let polissaCell = '—';
+                if (polissesVinculades.length > 0) {
+                    polissaCell = polissesVinculades.map(p => `
+                        <button class="btn-small btn-link-polissa" 
+                                onclick="anarAPolissaVinculada('${p.id}')" 
+                                title="${p.companyia} — ${p.num_polissa}">
+                            🔗 ${p.companyia} (${p.num_polissa})
+                        </button>
+                    `).join('<br>');
+                }
+                
                 html += `
                     <tr>
                         <td><strong>${getTipusIcon(imm.tipus)} ${imm.tipus}</strong></td>
@@ -504,6 +523,7 @@ async function mostrarVistaImmobilitzat() {
                         <td>${marca}</td>
                         <td>${valor}</td>
                         <td>${imm.ubicació || '—'}</td>
+                        <td>${polissaCell}</td>
                         <td class="accions-cell">
                             <button class="btn-small btn-editar" onclick="obrirModalEditarImmobilitzat('${imm.id}')">✏️</button>
                             <button class="btn-small btn-eliminar" onclick="eliminarImmobilitzatConfirm('${imm.id}')">🗑️</button>
@@ -628,6 +648,25 @@ async function obrirModalPolissa(polissaId) {
 
 async function obrirModalDetallAsseguranca(assegurancaId) {
     mostrarNotificacio('Modal detall assegurança — A implementar', 'info');
+}
+
+// ============================================================
+// NAVEGACIÓ: IMMOBILITZAT -> PÒLISSA VINCULADA
+// ============================================================
+
+async function anarAPolissaVinculada(assegurancaId) {
+    // 1. Activem la pestanya principal "Altres assegurances"
+    const tabAltres = document.querySelector('.tab-btn-main[data-tab="altres"]');
+    if (tabAltres) tabAltres.click();
+    
+    // 2. Activem la subpestanya "Altres assegurances"
+    const subtabAltresAsseg = document.querySelector('.tab-btn-sub[data-subtab="altres-asseg"]');
+    if (subtabAltresAsseg) subtabAltresAsseg.click();
+    
+    // 3. Esperem que es renderitzi la vista i obrim el detall de la pòlissa vinculada
+    setTimeout(() => {
+        obrirModalDetallAsseguranca(assegurancaId);
+    }, 150);
 }
 
 async function obrirModalDetallCivil(civilId) {
