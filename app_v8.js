@@ -77,6 +77,17 @@ function generateId() {
     return crypto.randomUUID();
 }
 
+// Hores totals d'un registre de control horari.
+// Per treballadors individuals num_persones és 1, així que no canvia res.
+// Per grups (ex: TISA GRUP X) multiplica les hores de la jornada pel nombre
+// de persones del grup, perquè reflecteixi les hores totals fetes pel grup
+// (coherent amb el càlcul del cost: hores x preu_hora x num_persones).
+function horesTotalsRegistre(r) {
+    const hores = parseFloat(r && r.hores_treballades) || 0;
+    const persones = parseInt(r && r.num_persones) || 1;
+    return hores * persones;
+}
+
 function formatData(data) {
     if (!data) return '';
     const d = new Date(data);
@@ -2946,7 +2957,7 @@ async function carregarTaulaControlHorari() {
             
             const horaEntrada = r.hora_entrada || '-';
             const horaSortida = r.hora_sortida || '<span style="color: red;">Pendent</span>';
-            const hores = r.hores_treballades ? r.hores_treballades.toFixed(2) + 'h' : '-';
+            const hores = r.hores_treballades ? horesTotalsRegistre(r).toFixed(2) + 'h' : '-';
             
             let accions = '<button class="btn btn-sm btn-primary" onclick="veureControlHorari(\'' + r.id + '\')">👁️</button> ';
             if (podeEditar) {
@@ -2972,7 +2983,7 @@ function mostrarResumHorari() {
     if (!resum) return;
     
     const totalHores = controlHorari.reduce(function(sum, r) {
-        return sum + (parseFloat(r.hores_treballades) || 0);
+        return sum + horesTotalsRegistre(r);
     }, 0);
     
     const totalCost = controlHorari.reduce(function(sum, r) {
@@ -3094,7 +3105,7 @@ async function exportarControlHorariLaboral() {
     }
 
     // Capçalera CSV
-    let csv = 'Data;Treballador;Tipus;Categoria;Hora Entrada;Hora Sortida;Hores Totals\n';
+    let csv = 'Data;Treballador;Tipus;Categoria;Hora Entrada;Hora Sortida;Persones;Hores Totals\n';
 
     registres.forEach(function(r) {
         const treb = treballadors.find(function(t) { return t.id === r.treballador_id; });
@@ -3103,9 +3114,10 @@ async function exportarControlHorariLaboral() {
         const categoria = treb ? (treb.categoria || '-') : '-';
         const entrada = r.hora_entrada || '-';
         const sortida = r.hora_sortida || '-';
-        const hores = r.hores_treballades ? r.hores_treballades.toFixed(2) : '-';
+        const persones = r.num_persones || 1;
+        const hores = r.hores_treballades ? horesTotalsRegistre(r).toFixed(2) : '-';
 
-        csv += r.data + ';' + nom + ';' + tipus + ';' + categoria + ';' + entrada + ';' + sortida + ';' + hores + '\n';
+        csv += r.data + ';' + nom + ';' + tipus + ';' + categoria + ';' + entrada + ';' + sortida + ';' + persones + ';' + hores + '\n';
     });
 
     // Descarregar
@@ -3143,7 +3155,7 @@ async function exportarControlHorariGestio() {
         return;
     }
 
-    let csv = 'Data;Treballador;Tipus;Categoria;Hora Entrada;Hora Sortida;Hores Totals;Finca;Tasca;Cost\n';
+    let csv = 'Data;Treballador;Tipus;Categoria;Hora Entrada;Hora Sortida;Persones;Hores Totals;Finca;Tasca;Cost\n';
 
     registres.forEach(function(r) {
         const treb = treballadors.find(function(t) { return t.id === r.treballador_id; });
@@ -3152,13 +3164,14 @@ async function exportarControlHorariGestio() {
         const categoria = treb ? (treb.categoria || '-') : '-';
         const entrada = r.hora_entrada || '-';
         const sortida = r.hora_sortida || '-';
-        const hores = r.hores_treballades ? r.hores_treballades.toFixed(2) : '-';
+        const persones = r.num_persones || 1;
         const finca = r.finca || '-';
         const tasca = tasques.find(function(t) { return t.id === r.tasca_id; });
         const nomTasca = tasca ? tasca.nom : (r.tasca_libre || '-');
+        const hores = r.hores_treballades ? horesTotalsRegistre(r).toFixed(2) : '-';
         const cost = r.cost_total ? r.cost_total.toFixed(2) : '-';
 
-        csv += r.data + ';' + nom + ';' + tipus + ';' + categoria + ';' + entrada + ';' + sortida + ';' + hores + ';' + finca + ';' + nomTasca + ';' + cost + '\n';
+        csv += r.data + ';' + nom + ';' + tipus + ';' + categoria + ';' + entrada + ';' + sortida + ';' + persones + ';' + hores + ';' + finca + ';' + nomTasca + ';' + cost + '\n';
     });
 
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -3332,7 +3345,7 @@ async function veureControlHorari(id) {
     info += '<strong>📅 Data:</strong> ' + formatData(registre.data) + '<br>';
     info += '<strong>🕐 Entrada:</strong> ' + (registre.hora_entrada || '-') + '<br>';
     info += '<strong>🕐 Sortida:</strong> ' + (registre.hora_sortida || '<span style="color:#ff9800">Pendent</span>') + '<br>';
-    info += '<strong>⏱️ Hores:</strong> ' + (registre.hores_treballades ? parseFloat(registre.hores_treballades).toFixed(2) + 'h' : '-') + '<br>';
+    info += '<strong>⏱️ Hores:</strong> ' + (registre.hores_treballades ? horesTotalsRegistre(registre).toFixed(2) + 'h' : '-') + '<br>';
     info += '<strong>👥 Persones:</strong> ' + (registre.num_persones || 1) + '<br>';
     info += '<strong>🌱 Tasca:</strong> ' + (tasca ? tasca.nom : (registre.tasca_libre || '-')) + '<br>';
     info += '<strong>🏡 Finca:</strong> ' + (registre.finca || '-') + '<br>';
