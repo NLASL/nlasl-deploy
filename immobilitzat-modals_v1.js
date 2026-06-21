@@ -105,6 +105,10 @@ async function obrirModalDetallImmobilitzat(id) {
 
         const imm = await getImmobilitzatById(id);
 
+        // Pòlisses vinculades (relació inversa: assegurances_altres.immobilitzat_id)
+        const assegRes = await supabaseClient.from('assegurances_altres').select('*').eq('immobilitzat_id', id);
+        const polissesVinculades = assegRes.error ? [] : (assegRes.data || []);
+
         // Alertes venciments
         const alertaITV   = alertaVenciment(imm.itv_data_propera,   'ITV');
         const alertaITEAF = alertaVenciment(imm.iteaf_data_propera, 'ITEAF');
@@ -233,6 +237,23 @@ async function obrirModalDetallImmobilitzat(id) {
                                     ${alertaITEAF ? `<br>${alertaITEAF}` : ''}
                                 </span>
                             </div>
+                        </div>
+                    </fieldset>
+
+                    <!-- ═══ BLOC E — PÒLISSA VINCULADA ═══ -->
+                    <fieldset style="margin-top:12px;">
+                        <legend>🛡️ E — Pòlissa vinculada</legend>
+                        <div class="detall-grid-imm">
+                            ${polissesVinculades.length === 0 ? `
+                            <div class="detall-camp-imm detall-camp-ample-imm">
+                                <span class="detall-valor-imm" style="color:#888;">Sense pòlissa vinculada</span>
+                            </div>` : polissesVinculades.map(p => `
+                            <div class="detall-camp-imm detall-camp-ample-imm">
+                                <button class="btn btn-secondary btn-sm"
+                                        onclick="tancarModal('modal-detall-immobilitzat'); anarAPolissaVinculada('${p.id}');">
+                                    🔗 ${p.companyia} (${p.num_polissa})
+                                </button>
+                            </div>`).join('')}
                         </div>
                     </fieldset>
 
@@ -805,6 +826,13 @@ async function mostrarVistaImmobilitzat() {
         // Actualitzar cache global si existeix
         if (typeof immobilizatCache !== 'undefined') immobilizatCache = tota_llista;
 
+        // Carreguem les pòlisses d'"Altres assegurances" per enllaçar
+        // cada immobilitzat amb la(es) seva(es) pòlissa(es) vinculada(es)
+        const assegRes = await supabaseClient.from('assegurances_altres').select('*');
+        if (assegRes.error) throw assegRes.error;
+        const assegurancesAltresLlista = assegRes.data || [];
+        if (typeof assegurancesAltresCache !== 'undefined') assegurancesAltresCache = assegurancesAltresLlista;
+
         // Comptar per tipus per als botons de filtre
         const comptadors = {};
         tota_llista.forEach(i => { comptadors[i.tipus] = (comptadors[i.tipus] || 0) + 1; });
@@ -855,6 +883,7 @@ async function mostrarVistaImmobilitzat() {
                             <th>Valor actual</th>
                             <th>ITV</th>
                             <th>ITEAF</th>
+                            <th>Pòlissa vinculada</th>
                             <th>Accions</th>
                         </tr>
                     </thead>
@@ -870,6 +899,20 @@ async function mostrarVistaImmobilitzat() {
                 // Badge ITEAF
                 const iteafBadge = badgeDataProperaImm(imm.iteaf_data_propera, 'ITEAF');
 
+                // Pòlisses vinculades (relació inversa: assegurances_altres.immobilitzat_id)
+                const polissesVinculades = assegurancesAltresLlista.filter(a => a.immobilitzat_id === imm.id);
+                let polissaCell = '<span style="color:#ccc;font-size:12px;">—</span>';
+                if (polissesVinculades.length > 0) {
+                    polissaCell = polissesVinculades.map(p => `
+                        <button class="btn-small btn-link-polissa"
+                                onclick="anarAPolissaVinculada('${p.id}')"
+                                title="${p.companyia} — ${p.num_polissa}"
+                                style="white-space:nowrap;">
+                            🔗 ${p.companyia} (${p.num_polissa})
+                        </button>
+                    `).join('<br>');
+                }
+
                 html += `
                     <tr>
                         <td><strong>${getTipusIconImm(imm.tipus)} ${imm.tipus}</strong></td>
@@ -879,6 +922,7 @@ async function mostrarVistaImmobilitzat() {
                         <td>${valor}</td>
                         <td>${itvBadge}</td>
                         <td>${iteafBadge}</td>
+                        <td>${polissaCell}</td>
                         <td class="accions-cell" style="white-space:nowrap;">
                             <button class="btn-small btn-veure"   onclick="obrirModalDetallImmobilitzat('${imm.id}')">👁️</button>
                             <button class="btn-small btn-editar"  onclick="obrirModalEditarImmobilitzat('${imm.id}')">✏️</button>
