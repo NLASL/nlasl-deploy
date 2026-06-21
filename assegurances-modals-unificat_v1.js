@@ -49,7 +49,8 @@ function etiquetaTipusU(tipus) {
         'proteccio_juridica': '⚖️ Protecció Jurídica',
         'RC': '🛡️ Responsabilitat Civil', 'robatori': '🔒 Robatori',
         'salut_laboral': '👷 Salut Laboral', 'viatges': '✈️ Viatges',
-        'vida': '❤️ Vida', 'altra': '📋 Altra',
+        'vida': '❤️ Vida', 'llar': '🏠 Llar', 'leasing': '📄 Leasing',
+        'altra': '📋 Altra',
     };
     return mapa[tipus] || tipus;
 }
@@ -72,7 +73,7 @@ function configCategoria(categoria) {
     return {
         titol: '🔐 Altres assegurances',
         iconaNova: '➕ Nova assegurança',
-        tipusOpts: ['auto','accidents','impagament','incendi','proteccio_juridica','RC','robatori','salut_laboral','viatges','vida','altra'],
+        tipusOpts: ['auto','accidents','impagament','incendi','proteccio_juridica','RC','robatori','salut_laboral','viatges','vida','llar','leasing','altra'],
         campsTipus: true,
         campsCivil: false,
     };
