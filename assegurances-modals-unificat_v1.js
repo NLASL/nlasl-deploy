@@ -22,8 +22,7 @@ function formatEuroU(valor) {
 function obtenirExerciciPerDataU(dataStr) {
     if (!dataStr) return new Date().getFullYear();
     const d = new Date(dataStr + 'T00:00:00');
-    const mes = d.getMonth() + 1;
-    return mes >= 5 ? d.getFullYear() : d.getFullYear() - 1;
+    return d.getFullYear();
 }
 
 function badgeEstatU(estat, tipus = 'polissa') {
@@ -148,6 +147,32 @@ async function deleteQuotaU(id) {
     if (error) throw error;
 }
 
+function obtenirQuotaVigentU(quotes) {
+    if (!quotes || quotes.length === 0) return null;
+    // La vigent és la de data_fi_cobertura més recent (pagada o pendent, no importa)
+    return quotes.reduce((vigent, q) => {
+        if (!q.data_fi_cobertura) return vigent;
+        if (!vigent || !vigent.data_fi_cobertura) return q;
+        return q.data_fi_cobertura > vigent.data_fi_cobertura ? q : vigent;
+    }, null);
+}
+
+function esVencudaSenseRenovarU(quotaVigent) {
+    if (!quotaVigent || !quotaVigent.data_fi_cobertura) return false;
+    const avui = new Date().toISOString().split('T')[0];
+    return quotaVigent.data_fi_cobertura < avui;
+}
+
+function teQuotaEndarreridaPendentU(quotes) {
+    if (!quotes || quotes.length === 0) return false;
+    const avui = new Date().toISOString().split('T')[0];
+    return quotes.some(q =>
+        q.estat === 'pendent' &&
+        q.data_fi_cobertura &&
+        q.data_fi_cobertura < avui
+    );
+}
+
 async function getImmobilitzatLlistaU() {
     const { data, error } = await supabaseClient
         .from('immobilitzat_material')
@@ -177,11 +202,22 @@ async function mostrarVistaLlistatU(categoria, containerId) {
         const cfg = configCategoria(categoria);
         const checkboxId = `mostrar-vencudes-${categoria}`;
         const mostrarVencudes = document.getElementById(checkboxId)?.checked || false;
+        const ordreId = `ordre-${categoria}`;
+        const ordreSeleccionat = document.getElementById(ordreId)?.value || 'venciment';
 
         let html = `
             <div class="assegurances-header">
                 <h3>${cfg.titol}</h3>
                 <div class="assegurances-controls">
+                    <label>
+                        Ordenar per:
+                        <select id="${ordreId}" onchange="mostrarVistaLlistatU('${categoria}', '${containerId}')">
+                            <option value="venciment" ${ordreSeleccionat === 'venciment' ? 'selected' : ''}>📅 Venciment real</option>
+                            <option value="companyia" ${ordreSeleccionat === 'companyia' ? 'selected' : ''}>🏢 Companyia</option>
+                            <option value="tipus"     ${ordreSeleccionat === 'tipus'     ? 'selected' : ''}>📋 Tipus</option>
+                            <option value="prima"     ${ordreSeleccionat === 'prima'     ? 'selected' : ''}>💰 Import prima</option>
+                        </select>
+                    </label>
                     <label>
                         <input type="checkbox" id="${checkboxId}"
                             ${mostrarVencudes ? 'checked' : ''}
@@ -198,24 +234,81 @@ async function mostrarVistaLlistatU(categoria, containerId) {
         const { data, error } = await supabaseClient
             .from('assegurances_altres')
             .select('*, immobilitzat_material(descripció, matrícula)')
-            .eq('categoria', categoria)
-            .order('data_venciment', { ascending: true });
+            .eq('categoria', categoria);
         if (error) throw error;
 
-        const filtrades = (data || []).filter(a =>
-            mostrarVencudes ? true : a.estat === 'actiu'
-        );
+        const polisses = data || [];
+
+        // Carregar totes les quotes de les pòlisses d'aquesta categoria d'un sol cop
+        const ids = polisses.map(p => p.id);
+        let totesQuotes = [];
+        if (ids.length > 0) {
+            const { data: quotesData, error: errorQuotes } = await supabaseClient
+                .from('assegurances_altres_quotes')
+                .select('asseguranca_id, prima_anual, data_fi_cobertura, estat')
+                .in('asseguranca_id', ids);
+            if (errorQuotes) throw errorQuotes;
+            totesQuotes = quotesData || [];
+        }
+
+        // Agrupar quotes per pòlissa i calcular la vigent (fi_cobertura més recent) de cadascuna
+        const quotesPerPolissa = {};
+        totesQuotes.forEach(q => {
+            (quotesPerPolissa[q.asseguranca_id] ||= []).push(q);
+        });
+
+        polisses.forEach(p => {
+            const quotesP = quotesPerPolissa[p.id] || [];
+            p._quotaVigent = obtenirQuotaVigentU(quotesP);
+            p._vencudaSenseRenovar = esVencudaSenseRenovarU(p._quotaVigent);
+            p._quotaEndarrerida = teQuotaEndarreridaPendentU(quotesP);
+            p._prioritaria = p._vencudaSenseRenovar || p._quotaEndarrerida;
+        });
+
+        const filtrades = polisses
+            .filter(a => mostrarVencudes ? true : a.estat === 'actiu')
+            .sort((a, b) => {
+                // Vençudes-sense-renovar i quotes endarrerides, sempre al capdamunt
+                if (a._prioritaria !== b._prioritaria) {
+                    return a._prioritaria ? -1 : 1;
+                }
+                switch (ordreSeleccionat) {
+                    case 'companyia':
+                        return (a.companyia || '').localeCompare(b.companyia || '');
+                    case 'tipus':
+                        return (a.tipus_polissa || '').localeCompare(b.tipus_polissa || '');
+                    case 'prima': {
+                        const pA = a._quotaVigent?.prima_anual ?? a.prima_anual ?? 0;
+                        const pB = b._quotaVigent?.prima_anual ?? b.prima_anual ?? 0;
+                        return pB - pA; // descendent: import més alt primer
+                    }
+                    case 'venciment':
+                    default: {
+                        const fiA = a._quotaVigent?.data_fi_cobertura || '9999-99-99';
+                        const fiB = b._quotaVigent?.data_fi_cobertura || '9999-99-99';
+                        return fiA.localeCompare(fiB);
+                    }
+                }
+            });
 
         if (filtrades.length === 0) {
             html += `<div class="no-data">Sense ${categoria === 'civil' ? 'pòlisses RC' : 'assegurances'}${mostrarVencudes ? '' : ' actives'}</div>`;
         } else {
             html += `<div class="cards-grid">`;
             filtrades.forEach(ass => {
-                const prima = (ass.prima_anual || 0).toLocaleString('ca-ES', { style: 'currency', currency: 'EUR' });
+                const quotaVigent = ass._quotaVigent;
+                const primaVigent = quotaVigent?.prima_anual ?? ass.prima_anual;
+                const prima = (primaVigent || 0).toLocaleString('ca-ES', { style: 'currency', currency: 'EUR' });
+                const venciment = quotaVigent?.data_fi_cobertura || ass.data_venciment;
                 const immInfo = ass.immobilitzat_material
                     ? ass.immobilitzat_material.descripció + (ass.immobilitzat_material.matrícula ? ` (${ass.immobilitzat_material.matrícula})` : '')
                     : null;
                 const estat = ass.estat === 'actiu' ? '✅' : ass.estat === 'vençut' ? '⏰' : '⚠️';
+                const avisVencuda = ass._vencudaSenseRenovar
+                    ? `<p style="color:#c62828;font-weight:600;">⚠️ Vençuda sense renovar</p>`
+                    : ass._quotaEndarrerida
+                        ? `<p style="color:#e65100;font-weight:600;">⚠️ Quota pendent endarrerida</p>`
+                        : '';
 
                 // Línies específiques per categoria
                 const liniesExtra = categoria === 'civil' ? `
@@ -227,7 +320,7 @@ async function mostrarVistaLlistatU(categoria, containerId) {
                 `;
 
                 html += `
-                    <div class="card-polissa">
+                    <div class="card-polissa" ${ass._prioritaria ? 'style="border:2px solid #c62828;"' : ''}>
                         <div class="card-header">
                             <h4>${ass.companyia}</h4>
                             <span class="badge-estat">${estat} ${ass.estat}</span>
@@ -235,8 +328,9 @@ async function mostrarVistaLlistatU(categoria, containerId) {
                         <div class="card-body">
                             <p><strong>Pòlissa:</strong> ${ass.num_polissa}</p>
                             ${liniesExtra}
-                            <p><strong>Venciment:</strong> ${formatDataU(ass.data_venciment)}</p>
-                            <p><strong>Prima anual:</strong> ${prima}</p>
+                            ${avisVencuda}
+                            <p><strong>Venciment:</strong> ${formatDataU(venciment)}</p>
+                            <p><strong>Prima vigent:</strong> ${prima}</p>
                         </div>
                         <div class="card-footer">
                             <button class="btn-small btn-veure" onclick="obrirModalDetallU('${ass.id}')">👁️ Veure</button>
