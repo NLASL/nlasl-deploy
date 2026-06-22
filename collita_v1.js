@@ -391,21 +391,22 @@ async function compararEntradaVsEscandall(entradaId, escandallDades) {
 // ============================================================
 
 function calcularCategoria(calibre, fruitaVarietatId) {
-    console.log('🔍 INPUT:', calibre, fruitaVarietatId);
+    // Trobar fruita_id de fruitaVarietatId
     const varietat = varietats.find(v => v.id === fruitaVarietatId);
-    console.log('🔍 varietat trobada:', varietat);
     if (!varietat) return 'Mitjà';
+
     const fruita = fruites.find(f => f.id === varietat.fruita_id);
-    console.log('🔍 fruita trobada:', fruita);
     if (!fruita) return 'Mitjà';
+
+    // Calibres òptims per fruita
     const calibresOptims = {
         'Préssec': ['73-80', '80-85', '85+'],
-        'Préssec Pla': ['73-80', '80-85', '85+'],
+		'Préssec Pla': ['73-80', '80-85', '85+'],
         'Nectarina': ['73-80', '80-85', '85+'],
         'Albercoc': ['50-55', '55-60', '60+']
     };
+
     const optims = calibresOptims[fruita.nom] || [];
-    console.log('🔍 optims:', optims, '| inclou calibre?', optims.includes(calibre));
     return optims.includes(calibre) ? 'Òptim' : 'Mitjà';
 }
 
