@@ -70,12 +70,12 @@ async function renderAgendaWidget() {
     const { inici, fi } = agendaInicieFiRang();
     const esdeveniments = await getEsdevenimentsRang(inici, fi);
 
-    let html = '<div class="agenda-widget" style="background:white;border-radius:10px;box-shadow:0 4px 16px rgba(33,150,243,0.25);border:1px solid rgba(33,150,243,0.15);padding:18px;">';
+    let html = '<div class="agenda-widget" style="background:white;border-radius:10px;box-shadow:0 4px 16px rgba(33,150,243,0.25);border:1px solid rgba(33,150,243,0.15);padding:18px;box-sizing:border-box;overflow:hidden;">';
 
     // Capçalera: títol + selector de vista + navegació + nova nota
     html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">';
     html += '<h3 style="margin:0;">📅 Agenda — ' + agendaTitolRang(inici, fi) + '</h3>';
-    html += '<div style="display:flex;gap:6px;align-items:center;">';
+    html += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;max-width:100%;">';
     html += '<button class="btn btn-sm btn-secondary" onclick="agendaMoure(-1)">‹</button>';
     html += '<button class="btn btn-sm btn-secondary" onclick="agendaAnarAvui()">Avui</button>';
     html += '<button class="btn btn-sm btn-secondary" onclick="agendaMoure(1)">›</button>';
