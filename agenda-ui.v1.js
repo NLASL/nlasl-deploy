@@ -70,7 +70,7 @@ async function renderAgendaWidget() {
     const { inici, fi } = agendaInicieFiRang();
     const esdeveniments = await getEsdevenimentsRang(inici, fi);
 
-    let html = '<div class="agenda-widget" style="background:white;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.08);padding:18px;">';
+    let html = '<div class="agenda-widget" style="background:white;border-radius:10px;box-shadow:0 4px 16px rgba(33,150,243,0.25);border:1px solid rgba(33,150,243,0.15);padding:18px;">';
 
     // Capçalera: títol + selector de vista + navegació + nova nota
     html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">';
