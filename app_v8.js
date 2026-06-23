@@ -376,6 +376,9 @@ alertes.forEach(function(a) {
         html += '</div></div>';
     }
 
+    // BLOC AGENDA (es pinta després, via renderAgendaWidget, un cop el contenidor ja és al DOM)
+    html += '<div id="agenda-widget-container" style="margin-bottom:30px;"></div>';
+
     if (Object.keys(cultius).length > 0) {
         html += '<div style="margin-top: 30px;"><h3>📊 Distribució per Cultiu</h3><div class="table-container"><table class="data-table">';
         html += '<thead><tr><th>Cultiu</th><th>Parcel·les</th><th>Hectàrees</th></tr></thead><tbody>';
@@ -394,6 +397,11 @@ alertes.forEach(function(a) {
     html += '</div></div></div>';
     
     container.innerHTML = html;
+
+    // Pintar el widget de l'agenda (és asíncron, no bloqueja la resta del dashboard)
+    if (typeof renderAgendaWidget === 'function') {
+        renderAgendaWidget();
+    }
 }
 
 function seleccionarFinca(finca) {
