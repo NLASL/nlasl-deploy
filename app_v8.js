@@ -460,7 +460,7 @@ async function carregarTaulaAlertes() {
         }).join('');
 
     } catch (error) {
-        tbody.innerHTML = '<tr><td colspan="8">Error: ' + error.message + '</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10">Error: ' + error.message + '</td></tr>';
     }
 }
 
@@ -5202,13 +5202,15 @@ async function carregarVistaGasoil() {
     }
     html += '</select></div>';
     html += '<div><label>Proveïdor</label><input type="text" id="gasoil-filtre-proveidor" oninput="filtrarTaulaGasoil()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" placeholder="Tots"></div>';
-    html += '<div></div>';
+    html += '<div><label>Activitat</label><select id="gasoil-filtre-activitat" onchange="filtrarTaulaGasoil()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">';
+    html += '<option value="">Totes</option><option value="F">🍑 F — Fruita</option><option value="PS">🚜 PS — Prestació de Serveis</option>';
+    html += '</select></div>';
     html += '<div style="align-self:end;"><button class="btn btn-secondary" onclick="netejarFiltresGasoil()">🗑️ Netejar</button></div>';
     html += '</div></div>';
 
     html += '<div class="table-container"><table class="data-table">';
-    html += '<thead><tr><th>Data</th><th>Proveïdor</th><th>nº Factura</th><th>Litres</th><th>Preu/L</th><th>IVA %</th><th>Import Net</th><th>Import Total</th><th>Accions</th></tr></thead>';
-	html += '<tbody id="tbody-gasoil"><tr><td colspan="9">Carregant...</td></tr></tbody>';
+    html += '<thead><tr><th>Data</th><th>Activitat</th><th>Proveïdor</th><th>nº Factura</th><th>Litres</th><th>Preu/L</th><th>IVA %</th><th>Import Net</th><th>Import Total</th><th>Accions</th></tr></thead>';
+	html += '<tbody id="tbody-gasoil"><tr><td colspan="10">Carregant...</td></tr></tbody>';
     html += '</table></div></div>';
 
     html += crearModalGasoil();
@@ -5234,8 +5236,15 @@ async function carregarTaulaGasoil() {
         filtrarTaulaGasoil();
 
     } catch (error) {
-        tbody.innerHTML = '<tr><td colspan="8">Error: ' + error.message + '</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10">Error: ' + error.message + '</td></tr>';
     }
+}
+
+function badgeTipusActivitat(tipus) {
+    if (tipus === 'PS') {
+        return '<span style="background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600;">🚜 PS</span>';
+    }
+    return '<span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600;">🍑 F</span>';
 }
 
 function filtrarTaulaGasoil() {
@@ -5243,6 +5252,7 @@ function filtrarTaulaGasoil() {
     if (!tbody) return;
 
     const proveidor = document.getElementById('gasoil-filtre-proveidor')?.value?.trim();
+    const activitat = document.getElementById('gasoil-filtre-activitat')?.value;
     let registres = gasoilTots;
 
     if (proveidor) {
@@ -5251,8 +5261,14 @@ function filtrarTaulaGasoil() {
         });
     }
 
+    if (activitat) {
+        registres = registres.filter(function(r) {
+            return (r.tipus_activitat || 'F') === activitat;
+        });
+    }
+
     if (registres.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No hi ha registres</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No hi ha registres</td></tr>';
         document.getElementById('resum-gasoil').innerHTML = '';
         return;
     }
@@ -5277,6 +5293,7 @@ function filtrarTaulaGasoil() {
         if (podeEliminar) accions += '<button class="btn btn-sm btn-danger" onclick="eliminarGasoil(\'' + r.id + '\')">🗑️</button>';
         return '<tr>' +
             '<td>' + formatData(r.data) + '</td>' +
+            '<td>' + badgeTipusActivitat(r.tipus_activitat) + '</td>' +
             '<td>' + (r.proveidor || '-') + '</td>' +
             '<td>' + (r.num_factura || '-') + '</td>' +
             '<td>' + (parseFloat(r.litres) || 0).toFixed(2) + ' L</td>' +
@@ -5291,6 +5308,7 @@ function filtrarTaulaGasoil() {
 
 function netejarFiltresGasoil() {
     document.getElementById('gasoil-filtre-proveidor').value = '';
+    document.getElementById('gasoil-filtre-activitat').value = '';
     carregarTaulaGasoil();
 }
 
@@ -5303,6 +5321,10 @@ function crearModalGasoil() {
         '<input type="hidden" id="gasoil-id">' +
         '<div class="form-group"><label>Data *</label><input type="date" id="gasoil-data" required></div>' +
         '<div class="form-group"><label>Proveïdor</label><input type="text" id="gasoil-proveidor"></div>' +
+        '<div class="form-group"><label>Activitat *</label><select id="gasoil-tipus-activitat" required>' +
+        '<option value="F">🍑 F — Fruita</option>' +
+        '<option value="PS">🚜 PS — Prestació de Serveis (moviments de terres)</option>' +
+        '</select></div>' +
         '<div class="form-group"><label>Litres *</label><input type="number" id="gasoil-litres" required min="0" step="0.01" onchange="calcularImportGasoil()"></div>' +
         '<div class="form-group"><label>Preu unitari (€/L) *</label><input type="number" id="gasoil-preu" required min="0" step="0.0001" onchange="calcularImportGasoil()"></div>' +
         '<div class="form-group"><label>IVA %</label><input type="number" id="gasoil-iva" value="21" min="0" step="1" onchange="calcularImportGasoil()"></div>' +
@@ -5342,6 +5364,7 @@ function obrirModalGasoil() {
     document.getElementById('gasoil-id').value = '';
     document.getElementById('gasoil-data').value = new Date().toISOString().split('T')[0];
     document.getElementById('gasoil-iva').value = 21;
+    document.getElementById('gasoil-tipus-activitat').value = 'F';
     document.getElementById('gasoil-import-net-calc').textContent = '0,00 €';
     document.getElementById('gasoil-import-iva-calc').textContent = '0,00 €';
     document.getElementById('gasoil-import-total-calc').textContent = '0,00 €';
@@ -5356,6 +5379,7 @@ async function editarGasoil(id) {
     document.getElementById('gasoil-id').value = data.id;
     document.getElementById('gasoil-data').value = data.data || '';
     document.getElementById('gasoil-proveidor').value = data.proveidor || '';
+    document.getElementById('gasoil-tipus-activitat').value = data.tipus_activitat || 'F';
     document.getElementById('gasoil-litres').value = data.litres || '';
     document.getElementById('gasoil-preu').value = data.preu_unitari || '';
     document.getElementById('gasoil-iva').value = data.iva || 21;
@@ -5382,6 +5406,7 @@ async function guardarGasoil(event) {
     const dades = {
         data: document.getElementById('gasoil-data').value,
         proveidor: document.getElementById('gasoil-proveidor').value.trim() || null,
+        tipus_activitat: document.getElementById('gasoil-tipus-activitat').value || 'F',
         litres: litres,
         preu_unitari: preu,
         iva: iva,
