@@ -403,8 +403,9 @@ function calcularCategoria(calibre, fruitaVarietatId) {
 
     // Calibres òptims per fruita
     const calibresOptims = {
+        'Préssec Pla': ['73-80', '80-85', '85+'],
         'Préssec': ['73-80', '80-85', '85+'],
-        'Nectarina': ['73-80', '80-85', '85+'],
+		'Nectarina': ['73-80', '80-85', '85+'],
         'Albercoc': ['50-55', '55-60', '60+']
     };
 
