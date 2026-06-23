@@ -5329,7 +5329,14 @@ function calcularImportGasoil() {
     document.getElementById('gasoil-import-total-calc').textContent = total.toFixed(2) + ' €';
 }
 
+function assegurarModalGasoil() {
+    if (!document.getElementById('modal-gasoil')) {
+        document.body.insertAdjacentHTML('beforeend', crearModalGasoil());
+    }
+}
+
 function obrirModalGasoil() {
+    assegurarModalGasoil();
     document.getElementById('modal-gasoil-titol').textContent = 'Nou Registre Gasoil';
     document.getElementById('form-gasoil').reset();
     document.getElementById('gasoil-id').value = '';
@@ -5344,6 +5351,7 @@ function obrirModalGasoil() {
 async function editarGasoil(id) {
     const { data, error } = await supabaseClient.from('gasoil').select('*').eq('id', id).single();
     if (error) return;
+    assegurarModalGasoil();
     document.getElementById('modal-gasoil-titol').textContent = 'Editar Gasoil';
     document.getElementById('gasoil-id').value = data.id;
     document.getElementById('gasoil-data').value = data.data || '';
