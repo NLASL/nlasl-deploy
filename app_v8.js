@@ -2069,17 +2069,50 @@ async function eliminarFertilitzacioGrup(clau) {
 async function carregarVistaParcelles() {
     const container = document.getElementById('view-container');
     const podeCrear = hasPermission('insert');
-    
+
+    const fincesUnic = [...new Set(parcelles.map(p => p.finca).filter(Boolean))].sort();
+    const cultiusUnic = [...new Set(parcelles.map(p => p.cultiu).filter(Boolean))].sort();
+
     let html = '<div class="view-parcelles">';
-    html += '<div style="display: flex; justify-content: space-between; margin-bottom: 20px;"><h2>🗺️ Parcel·les</h2>';
+    html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">';
+    html += '<h2>🗺️ Parcel·les</h2>';
     if (podeCrear) {
         html += '<button class="btn btn-primary" onclick="obrirModalParcella()">➕ Nova Parcel·la</button>';
     }
-    html += '</div><div class="table-container"><table class="data-table">';
+    html += '</div>';
+
+    html += '<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; align-items: flex-end;">';
+
+    html += '<div><label style="display:block; font-size:12px; margin-bottom:4px;">Finca</label>';
+    html += '<select id="filtre-finca" onchange="aplicarFiltresParcelles()" style="padding:6px 10px; border:1px solid #ddd; border-radius:4px;">';
+    html += '<option value="">Totes</option>';
+    fincesUnic.forEach(f => { html += `<option value="${f}">${f}</option>`; });
+    html += '</select></div>';
+
+    html += '<div><label style="display:block; font-size:12px; margin-bottom:4px;">Cultiu</label>';
+    html += '<select id="filtre-cultiu" onchange="aplicarFiltresParcelles()" style="padding:6px 10px; border:1px solid #ddd; border-radius:4px;">';
+    html += '<option value="">Tots</option>';
+    cultiusUnic.forEach(c => { html += `<option value="${c}">${c}</option>`; });
+    html += '</select></div>';
+
+    html += '<div><label style="display:block; font-size:12px; margin-bottom:4px;">Regadiu</label>';
+    html += '<select id="filtre-regadiu" onchange="aplicarFiltresParcelles()" style="padding:6px 10px; border:1px solid #ddd; border-radius:4px;">';
+    html += '<option value="">Tots</option>';
+    html += '<option value="true">Sí</option>';
+    html += '<option value="false">No</option>';
+    html += '</select></div>';
+
+    html += '<div style="display:flex; align-items:flex-end;">';
+    html += '<button class="btn btn-secondary" onclick="netejarFiltresParcelles()" style="padding:6px 12px;">🔄 Netejar</button></div>';
+    html += '<div id="resum-parcelles" style="display:flex; align-items:flex-end; font-size:13px; color:#666; margin-left:auto;"></div>';
+    html += '</div>';
+
+    html += '<div class="table-container"><table class="data-table">';
     html += '<thead><tr><th>Nom</th><th>SIGPAC</th><th>Finca</th><th>Cultiu</th><th>Varietat</th><th>Superfície (Ha)</th><th>Accions</th></tr></thead>';
     html += '<tbody id="tbody-parcelles"><tr><td colspan="7">Carregant...</td></tr></tbody>';
     html += '</table></div></div>';
     html += crearModalParcella();
+
     container.innerHTML = html;
     await carregarTaulaParcelles();
 }
@@ -2087,33 +2120,69 @@ async function carregarVistaParcelles() {
 async function carregarTaulaParcelles() {
     const tbody = document.getElementById('tbody-parcelles');
     if (!tbody) return;
-    
+
     try {
         parcelles = await getParcellas();
-        if (parcelles.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hi ha parcel·les</td></tr>';
-            return;
-        }
-        
-        const podeEditar = hasPermission('update');
-        const podeEliminar = hasPermission('delete');
-        
-        tbody.innerHTML = parcelles.map(function(p) {
-            let accions = '<button class="btn btn-sm btn-primary" onclick="veureParcella(\'' + p.id + '\')">👁️</button> ';
-            if (podeEditar) {
-                accions += '<button class="btn btn-sm btn-secondary" onclick="editarParcella(\'' + p.id + '\')">✏️</button> ';
-            }
-            if (podeEliminar) {
-                accions += '<button class="btn btn-sm btn-danger" onclick="eliminarParcella(\'' + p.id + '\')">🗑️</button>';
-            }
-            
-            return '<tr><td><strong>' + (p.nom || '-') + '</strong></td><td>' + (p.sigpac || '-') + '</td><td>' + (p.finca || '-') + '</td><td>' + (p.cultiu || '-') + '</td><td>' + (p.varietat || '-') + '</td><td>' + (p.superficie || 0) + '</td><td>' + accions + '</td></tr>';
-        }).join('');
-        
+        aplicarFiltresParcelles();
     } catch (error) {
         console.error('Error:', error);
         tbody.innerHTML = '<tr><td colspan="7">Error carregant dades</td></tr>';
     }
+}
+
+function aplicarFiltresParcelles() {
+    const tbody = document.getElementById('tbody-parcelles');
+    if (!tbody) return;
+
+    const filtreFinca   = (document.getElementById('filtre-finca')   || {}).value || '';
+    const filtreCultiu  = (document.getElementById('filtre-cultiu')  || {}).value || '';
+    const filtreRegadiu = (document.getElementById('filtre-regadiu') || {}).value || '';
+
+    const filtrades = parcelles.filter(function(p) {
+        if (filtreFinca   && p.finca  !== filtreFinca)                    return false;
+        if (filtreCultiu  && p.cultiu !== filtreCultiu)                   return false;
+        if (filtreRegadiu !== '' && String(!!p.regadiu) !== filtreRegadiu) return false;
+        return true;
+    });
+
+    const totalHa = filtrades.reduce(function(sum, p) { return sum + (parseFloat(p.superficie) || 0); }, 0);
+    const resum = document.getElementById('resum-parcelles');
+    if (resum) resum.textContent = filtrades.length + ' parcel·les · ' + totalHa.toFixed(2) + ' Ha';
+
+    if (filtrades.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Cap parcel·la coincideix amb els filtres</td></tr>';
+        return;
+    }
+
+    const podeEditar   = hasPermission('update');
+    const podeEliminar = hasPermission('delete');
+
+    tbody.innerHTML = filtrades.map(function(p) {
+        let accions = '<button class="btn btn-sm btn-primary" onclick="veureParcella(\'' + p.id + '\')">👁️</button> ';
+        if (podeEditar)   accions += '<button class="btn btn-sm btn-secondary" onclick="editarParcella(\'' + p.id + '\')">✏️</button> ';
+        if (podeEliminar) accions += '<button class="btn btn-sm btn-danger" onclick="eliminarParcella(\'' + p.id + '\')">🗑️</button>';
+
+        const regadiuIcon = p.regadiu ? ' 💧' : '';
+        return '<tr>' +
+            '<td><strong>' + (p.nom || '-') + '</strong></td>' +
+            '<td>' + (p.sigpac || '-') + '</td>' +
+            '<td>' + (p.finca || '-') + '</td>' +
+            '<td>' + (p.cultiu || '-') + '</td>' +
+            '<td>' + (p.varietat || '-') + '</td>' +
+            '<td>' + (p.superficie || 0) + regadiuIcon + '</td>' +
+            '<td>' + accions + '</td>' +
+            '</tr>';
+    }).join('');
+}
+
+function netejarFiltresParcelles() {
+    const sel = document.getElementById('filtre-finca');
+    const sec = document.getElementById('filtre-cultiu');
+    const ser = document.getElementById('filtre-regadiu');
+    if (sel) sel.value = '';
+    if (sec) sec.value = '';
+    if (ser) ser.value = '';
+    aplicarFiltresParcelles();
 }
 
 function crearModalParcella() {
