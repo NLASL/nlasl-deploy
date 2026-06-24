@@ -161,6 +161,9 @@ function canviarVista(vista) {
         case 'parcelles':
             carregarVistaParcelles();
             break;
+		case 'parcelles-import-dun':
+			carregarVistaImportDUN();
+			break;
         case 'tractaments':
             carregarVistaTractaments();
             break;
@@ -2083,8 +2086,9 @@ async function carregarVistaParcelles() {
     html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">';
     html += '<h2>🗺️ Parcel·les</h2>';
     if (podeCrear) {
-        html += '<button class="btn btn-primary" onclick="obrirModalParcella()">➕ Nova Parcel·la</button>';
-    }
+    html += '<button class="btn btn-primary" onclick="obrirModalParcella()">➕ Nova Parcel·la</button>';
+    html += '<button class="btn btn-secondary" onclick="canviarVista(\'parcelles-import-dun\')" style="margin-left:10px;">📥 Importar DUN</button>';
+}
     html += '</div>';
 
     // Barra de filtres
