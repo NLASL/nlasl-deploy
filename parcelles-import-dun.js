@@ -85,6 +85,8 @@ async function processarExcelDUN() {
         const wb = XLSX.read(buffer, { type: 'array' });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const files = XLSX.utils.sheet_to_json(ws, { defval: '' });
+console.log('Columnes DUN:', Object.keys(files[0]));
+console.log('Primera fila:', files[0]);
 
         if (!files.length) {
             preview.innerHTML = '<p class="alert alert-error">El fitxer és buit o no té el format correcte.</p>';
