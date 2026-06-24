@@ -97,6 +97,8 @@ console.log('Primera fila:', files[0]);
         const { data: mapatge } = await supabaseClient
             .from('dun_finques_mapatge')
             .select('municipi, poligon, parcela, finca, ref_cadastral, num_explotacio');
+console.log('Mapatge carregat:', mapatge.length, 'registres');
+console.log('Primer registre mapatge:', mapatge[0]);
 
         // Processar files
         const registres = processarFilesDUN(files, campanya, mapatge || []);
@@ -115,6 +117,9 @@ console.log('Primera fila:', files[0]);
 // ============================================================
 
 function processarFilesDUN(files, campanya, mapatge) {
+    console.log('Mapatge rebut:', mapatge.length, 'registres');
+    console.log('Primer mapatge:', mapatge[0]);
+    
     // Primer pas: agrupar per sigpac per detectar subrecintes
     const grupsSigpac = {};
 
@@ -156,10 +161,15 @@ function processarFilesDUN(files, campanya, mapatge) {
 
             // Buscar finca al mapatge
             const map = mapatge.find(function(m) {
-                return m.municipi === reg.municipi &&
-                       m.poligon  === reg.poligon  &&
-                       m.parcela  === reg.parcela;
-            });
+    if (registres.length === 0) { // només per la primera
+        console.log('Comparant:', m.municipi, typeof m.municipi, '===', reg.municipi, typeof reg.municipi);
+        console.log('Comparant:', m.poligon, typeof m.poligon, '===', reg.poligon, typeof reg.poligon);
+        console.log('Comparant:', m.parcela, typeof m.parcela, '===', reg.parcela, typeof reg.parcela);
+    }
+    return m.municipi === reg.municipi &&
+           m.poligon  === reg.poligon  &&
+           m.parcela  === reg.parcela;
+});
 
             const fincaNLASL     = map ? map.finca          : null;
             const refCadastral   = map ? map.ref_cadastral   : null;
