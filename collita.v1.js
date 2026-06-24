@@ -735,3 +735,4 @@ async function agendaProvider_collita(dataInici, dataFi) {
     return esdeveniments;
 }
 
+registrarProveidorAgenda(agendaProvider_collita);
