@@ -2424,7 +2424,7 @@ async function carregarVistaProductes() {
     html += '</div><div class="table-container"><table class="data-table">';
     html += '<thead><tr><th>Nom</th><th>Tipus</th><th>Matèria Activa</th><th>Plaç (dies)</th><th>Accions</th></tr></thead>';
     html += '<tbody id="tbody-fitosanitaris"><tr><td colspan="5">Carregant...</td></tr></tbody></table></div></div>';
-    html += '<div id="tab-fertilitzants" class="tab-content">';
+    html += '<div id="tab-fertilitzants" class="tab-content" style="display:none">';
     html += '<div style="display: flex; justify-content: space-between; margin-bottom: 20px;"><h3>Fertilitzants</h3>';
     if (podeCrear) {
         html += '<button class="btn btn-primary" onclick="obrirModalFertilitzant()">➕ Nou Fertilitzant</button>';
@@ -2440,21 +2440,16 @@ async function carregarVistaProductes() {
 }
 
 function canviarTabProductes(tab, el) {
-    // Buscar el contenidor pare dels tabs
-    const contenidor = document.querySelector('.view-productes');
-    if (!contenidor) return;
-
-    contenidor.querySelectorAll('.tab-btn').forEach(function(btn) {
+    // Botons
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
         btn.classList.remove('active');
     });
     if (el) el.classList.add('active');
 
-    contenidor.querySelectorAll('.tab-content').forEach(function(content) {
-        content.classList.remove('active');
-    });
-
-    const tabEl = document.getElementById('tab-' + tab);
-    if (tabEl) tabEl.classList.add('active');
+    // Tabs — controlar display directament
+    document.getElementById('tab-fitosanitaris').style.display = 'none';
+    document.getElementById('tab-fertilitzants').style.display = 'none';
+    document.getElementById('tab-' + tab).style.display = 'block';
 }
 
 async function carregarTaulaFitosanitaris() {
