@@ -2070,8 +2070,14 @@ async function carregarVistaParcelles() {
     const container = document.getElementById('view-container');
     const podeCrear = hasPermission('insert');
 
-    const fincesUnic = [...new Set(parcelles.map(p => p.finca).filter(Boolean))].sort();
-    const cultiusUnic = [...new Set(parcelles.map(p => p.cultiu).filter(Boolean))].sort();
+    // Campanya per defecte: actual si hi ha dades, si no l'anterior
+    const campanyes = [...new Set(parcelles.map(p => p.campanya).filter(Boolean))].sort((a,b) => b-a);
+    const anyActual = new Date().getFullYear();
+    const campanyes_disponibles = campanyes.length ? campanyes : [anyActual];
+    const campanyaDefecte = campanyes.includes(anyActual) ? anyActual : (campanyes[0] || anyActual);
+
+    const fincesUnic = [...new Set(parcelles.filter(p => p.campanya === campanyaDefecte).map(p => p.finca).filter(Boolean))].sort();
+    const cultiusUnic = [...new Set(parcelles.filter(p => p.campanya === campanyaDefecte).map(p => p.cultiu).filter(Boolean))].sort();
 
     let html = '<div class="view-parcelles">';
     html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">';
@@ -2081,7 +2087,16 @@ async function carregarVistaParcelles() {
     }
     html += '</div>';
 
+    // Barra de filtres
     html += '<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; align-items: flex-end;">';
+
+    html += '<div><label style="display:block; font-size:12px; margin-bottom:4px;">Campanya</label>';
+    html += '<select id="filtre-campanya" onchange="canviarCampanyaParcelles()" style="padding:6px 10px; border:1px solid #ddd; border-radius:4px;">';
+    campanyes_disponibles.forEach(c => {
+        const sel = c === campanyaDefecte ? 'selected' : '';
+        html += `<option value="${c}" ${sel}>${c}</option>`;
+    });
+    html += '</select></div>';
 
     html += '<div><label style="display:block; font-size:12px; margin-bottom:4px;">Finca</label>';
     html += '<select id="filtre-finca" onchange="aplicarFiltresParcelles()" style="padding:6px 10px; border:1px solid #ddd; border-radius:4px;">';
@@ -2129,18 +2144,40 @@ async function carregarTaulaParcelles() {
         tbody.innerHTML = '<tr><td colspan="7">Error carregant dades</td></tr>';
     }
 }
+function canviarCampanyaParcelles() {
+    // Quan canvia la campanya, recarreguem Finca i Cultiu amb valors d'aquesta campanya
+    const campanya = parseInt((document.getElementById('filtre-campanya') || {}).value) || 0;
+    const parcCampanya = campanya ? parcelles.filter(p => p.campanya === campanya) : parcelles;
+
+    const fincesUnic = [...new Set(parcCampanya.map(p => p.finca).filter(Boolean))].sort();
+    const cultiusUnic = [...new Set(parcCampanya.map(p => p.cultiu).filter(Boolean))].sort();
+
+    const selFinca = document.getElementById('filtre-finca');
+    const selCultiu = document.getElementById('filtre-cultiu');
+    if (selFinca) {
+        selFinca.innerHTML = '<option value="">Totes</option>';
+        fincesUnic.forEach(f => { selFinca.innerHTML += `<option value="${f}">${f}</option>`; });
+    }
+    if (selCultiu) {
+        selCultiu.innerHTML = '<option value="">Tots</option>';
+        cultiusUnic.forEach(c => { selCultiu.innerHTML += `<option value="${c}">${c}</option>`; });
+    }
+    aplicarFiltresParcelles();
+}
 
 function aplicarFiltresParcelles() {
     const tbody = document.getElementById('tbody-parcelles');
     if (!tbody) return;
 
-    const filtreFinca   = (document.getElementById('filtre-finca')   || {}).value || '';
-    const filtreCultiu  = (document.getElementById('filtre-cultiu')  || {}).value || '';
-    const filtreRegadiu = (document.getElementById('filtre-regadiu') || {}).value || '';
+    const filtreCampanya = parseInt((document.getElementById('filtre-campanya') || {}).value) || 0;
+    const filtreFinca    = (document.getElementById('filtre-finca')    || {}).value || '';
+    const filtreCultiu   = (document.getElementById('filtre-cultiu')   || {}).value || '';
+    const filtreRegadiu  = (document.getElementById('filtre-regadiu')  || {}).value || '';
 
     const filtrades = parcelles.filter(function(p) {
-        if (filtreFinca   && p.finca  !== filtreFinca)                    return false;
-        if (filtreCultiu  && p.cultiu !== filtreCultiu)                   return false;
+        if (filtreCampanya && p.campanya !== filtreCampanya) return false;
+        if (filtreFinca    && p.finca    !== filtreFinca)    return false;
+        if (filtreCultiu   && p.cultiu   !== filtreCultiu)   return false;
         if (filtreRegadiu !== '' && String(!!p.regadiu) !== filtreRegadiu) return false;
         return true;
     });
@@ -2176,12 +2213,13 @@ function aplicarFiltresParcelles() {
 }
 
 function netejarFiltresParcelles() {
-    const sel = document.getElementById('filtre-finca');
-    const sec = document.getElementById('filtre-cultiu');
-    const ser = document.getElementById('filtre-regadiu');
-    if (sel) sel.value = '';
+    // Netejar finca, cultiu i regadiu però mantenir la campanya activa
+    const sec = document.getElementById('filtre-finca');
+    const ser = document.getElementById('filtre-cultiu');
+    const srd = document.getElementById('filtre-regadiu');
     if (sec) sec.value = '';
     if (ser) ser.value = '';
+    if (srd) srd.value = '';
     aplicarFiltresParcelles();
 }
 
