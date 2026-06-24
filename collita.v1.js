@@ -241,6 +241,119 @@ async function obtenirTodasEntradas(campanya = null) {
 }
 
 // ============================================================
+// RESUM GENERAL DASHBOARD - Fruita i Cereal (Kg per campanya)
+// Afegir a collita.v1.js (p.ex. just després d'obtenirTodasEntradas)
+//
+// Campanya = la més recent que ja tingui com a mínim un albarà
+// d'entrada (si la campanya en curs encara no en té cap, agafa
+// l'última campanya tancada amb dades). No hi ha data de tall
+// manual: ho determina l'existència real de dades.
+//
+// fincaSeleccionada (opcional): si es passa, els Kg es calculen
+// només amb els albarans d'aquella finca.
+// ============================================================
+
+async function obtenirResumCollitaDashboard(fincaSeleccionada) {
+    const resultat = {
+        fruita: { kg: 0, campanya: null },
+        cereal: { kg: 0, campanya: null }
+    };
+
+    try {
+        // ---------------------------------------------------
+        // FRUITA — collita_entrada no té columna 'campanya',
+        // es deriva de la data (any agrícola oct→set), igual
+        // que fa obtenirTodasEntradas().
+        // ---------------------------------------------------
+        let queryUltimaFruita = supabaseClient
+            .from('collita_entrada')
+            .select('data')
+            .eq('estat', 'actiu')
+            .order('data', { ascending: false })
+            .limit(1);
+
+        if (fincaSeleccionada) {
+            queryUltimaFruita = queryUltimaFruita.eq('finca', fincaSeleccionada);
+        }
+
+        const { data: ultimaFruita, error: errorUltimaFruita } = await queryUltimaFruita;
+        if (errorUltimaFruita) throw errorUltimaFruita;
+
+        if (ultimaFruita && ultimaFruita.length > 0) {
+            const dataUltima = new Date(ultimaFruita[0].data);
+            const mesUltima = dataUltima.getMonth() + 1;
+            const campanyaFruita = mesUltima >= 10 ? dataUltima.getFullYear() + 1 : dataUltima.getFullYear();
+            const dataIniciCamp = (campanyaFruita - 1) + '-10-01';
+            const dataFiCamp = campanyaFruita + '-09-30';
+
+            let querySumaFruita = supabaseClient
+                .from('collita_entrada')
+                .select('pes_net')
+                .eq('estat', 'actiu')
+                .gte('data', dataIniciCamp)
+                .lte('data', dataFiCamp);
+
+            if (fincaSeleccionada) {
+                querySumaFruita = querySumaFruita.eq('finca', fincaSeleccionada);
+            }
+
+            const { data: entradesFruita, error: errorSumaFruita } = await querySumaFruita;
+            if (errorSumaFruita) throw errorSumaFruita;
+
+            resultat.fruita.kg = (entradesFruita || []).reduce(function(s, e) {
+                return s + (parseFloat(e.pes_net) || 0);
+            }, 0);
+            resultat.fruita.campanya = campanyaFruita;
+        }
+
+        // ---------------------------------------------------
+        // CEREAL — collita_entrades_cereal SÍ té columna
+        // 'campanya' pròpia (es tria al formulari), s'usa
+        // directament.
+        // ---------------------------------------------------
+        let queryUltimaCereal = supabaseClient
+            .from('collita_entrades_cereal')
+            .select('campanya')
+            .eq('estat', 'actiu')
+            .order('campanya', { ascending: false })
+            .limit(1);
+
+        if (fincaSeleccionada) {
+            queryUltimaCereal = queryUltimaCereal.eq('finca', fincaSeleccionada);
+        }
+
+        const { data: ultimaCereal, error: errorUltimaCereal } = await queryUltimaCereal;
+        if (errorUltimaCereal) throw errorUltimaCereal;
+
+        if (ultimaCereal && ultimaCereal.length > 0) {
+            const campanyaCereal = ultimaCereal[0].campanya;
+
+            let querySumaCereal = supabaseClient
+                .from('collita_entrades_cereal')
+                .select('pes_net')
+                .eq('estat', 'actiu')
+                .eq('campanya', campanyaCereal);
+
+            if (fincaSeleccionada) {
+                querySumaCereal = querySumaCereal.eq('finca', fincaSeleccionada);
+            }
+
+            const { data: entradesCereal, error: errorSumaCereal } = await querySumaCereal;
+            if (errorSumaCereal) throw errorSumaCereal;
+
+            resultat.cereal.kg = (entradesCereal || []).reduce(function(s, e) {
+                return s + (parseFloat(e.pes_net) || 0);
+            }, 0);
+            resultat.cereal.campanya = campanyaCereal;
+        }
+    } catch (error) {
+        console.error('❌ Error obtenint resum Collita per al Dashboard:', error);
+    }
+
+    return resultat;
+}
+
+// ============================================================
 // 3. ALBARÀ ESCANDALL - CRUD
 // ============================================================
 
