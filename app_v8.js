@@ -277,7 +277,12 @@ async function carregarDashboard() {
         return p.finca === fincaSeleccionada;
     });
 }
-    
+
+    // Resum Fruita/Cereal (Kg per campanya), ja filtrat per finca si cal
+    const resumCollita = (typeof obtenirResumCollitaDashboard === 'function')
+        ? await obtenirResumCollitaDashboard(fincaSeleccionada)
+        : { fruita: { kg: 0, campanya: null }, cereal: { kg: 0, campanya: null } };
+
     const totalSuperficie = parcellesFiltrades.reduce(function(sum, p) {
         return sum + (parseFloat(p.superficie) || 0);
     }, 0);
@@ -316,8 +321,8 @@ parcellesFiltrades.forEach(function(p) {
     html += '<div class="stats-grid">';
     html += '<div class="stat-card"><div class="stat-icon">🗺️</div><div class="stat-info"><div class="stat-value">' + parcellesFiltrades.length + '</div><div class="stat-label">Parcel·les</div></div></div>';
     html += '<div class="stat-card"><div class="stat-icon">📏</div><div class="stat-info"><div class="stat-value">' + totalSuperficie.toFixed(2) + ' Ha</div><div class="stat-label">Superfície Total</div></div></div>';
-    html += '<div class="stat-card"><div class="stat-icon">🌱</div><div class="stat-info"><div class="stat-value">' + tractaments.length + '</div><div class="stat-label">Tractaments</div></div></div>';
-    html += '<div class="stat-card"><div class="stat-icon">🧪</div><div class="stat-info"><div class="stat-value">' + fitosanitaris.length + '</div><div class="stat-label">Fitosanitaris</div></div></div>';
+    html += '<div class="stat-card"><div class="stat-icon">🍑</div><div class="stat-info"><div class="stat-value">' + resumCollita.fruita.kg.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' Kg</div><div class="stat-label">Fruita' + (resumCollita.fruita.campanya ? ' — Campanya ' + resumCollita.fruita.campanya : '') + '</div></div></div>';
+    html += '<div class="stat-card"><div class="stat-icon">🌾</div><div class="stat-info"><div class="stat-value">' + resumCollita.cereal.kg.toLocaleString('ca-ES', {maximumFractionDigits:0}) + ' Kg</div><div class="stat-label">Cereal' + (resumCollita.cereal.campanya ? ' — Campanya ' + resumCollita.cereal.campanya : '') + '</div></div></div>';
     html += '</div>';
 
  // BLOC ALERTES
