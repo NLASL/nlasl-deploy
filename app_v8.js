@@ -2414,8 +2414,8 @@ async function carregarVistaProductes() {
     const podeCrear = hasPermission('insert');
     
     let html = '<div class="view-productes"><div style="margin-bottom: 20px;"><h2>📦 Base de Dades de Productes</h2></div>';
-    html += '<div class="tabs"><button class="tab-btn active" onclick="canviarTabProductes(\'fitosanitaris\')">🧪 Fitosanitaris</button>';
-    html += '<button class="tab-btn" onclick="canviarTabProductes(\'fertilitzants\')">🌱 Fertilitzants</button></div>';
+    html += '<div class="tabs"><button class="tab-btn active" onclick="canviarTabProductes(\'fitosanitaris\', this)">🧪 Fitosanitaris</button>';
+	html += '<button class="tab-btn" onclick="canviarTabProductes(\'fertilitzants\', this)">🌱 Fertilitzants</button></div>';
     html += '<div id="tab-fitosanitaris" class="tab-content active">';
     html += '<div style="display: flex; justify-content: space-between; margin-bottom: 20px;"><h3>Fitosanitaris</h3>';
     if (podeCrear) {
@@ -2439,11 +2439,11 @@ async function carregarVistaProductes() {
     await carregarTaulaFertilitzants();
 }
 
-function canviarTabProductes(tab) {
+function canviarTabProductes(tab, el) {
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
         btn.classList.remove('active');
     });
-    event.target.classList.add('active');
+    if (el) el.classList.add('active');
     document.querySelectorAll('.tab-content').forEach(function(content) {
         content.classList.remove('active');
     });
