@@ -586,3 +586,152 @@ async function actualitzarAlbaraEscandall(id, dades) {
         throw error;
     }
 }
+// ============================================================
+// PROVEÏDOR AGENDA - COLLITA
+// Afegir AL FINAL de collita.v1.js
+//
+// ⚠️ VERSIÓ PROVISIONAL: només mostra dies amb entrada real
+// registrada (collita_entrada / collita_entrades_cereal).
+// Quan es pugi el mòdul de Fenologia, caldrà ampliar-ho per:
+//   - Mostrar l'acumulat fins als dies de marge que marquen
+//     la fi de la collita per varietat (no només el dia de
+//     l'última entrada).
+//   - Afegir les "actuacions a realitzar" segons % de
+//     l'escandall de Fruita (regles fixes, pendents que les
+//     expliqui el propietari).
+// ============================================================
+
+async function agendaProvider_collita(dataInici, dataFi) {
+    const esdeveniments = [];
+
+    try {
+        // ---------------------------------------------------
+        // FRUITA — acumulat per dia + fruita (detall per varietat)
+        // ---------------------------------------------------
+        const { data: entradesFruita, error: errorFruita } = await supabaseClient
+            .from('collita_entrada')
+            .select(`
+                id, data, pes_net,
+                fruita_varietat_id (id, fruita_id, varietat)
+            `)
+            .eq('estat', 'actiu')
+            .gte('data', dataInici)
+            .lte('data', dataFi);
+
+        if (errorFruita) throw errorFruita;
+
+        // { 'YYYY-MM-DD': { fruitaId: { kg, albarans, varietats: { nom: kg } } } }
+        const grupsFruita = {};
+
+        (entradesFruita || []).forEach(function(e) {
+            const dia = e.data;
+            const fruitaId = e.fruita_varietat_id?.fruita_id || 'desconeguda';
+            const nomVarietat = e.fruita_varietat_id?.varietat || '-';
+            const kg = parseFloat(e.pes_net) || 0;
+
+            if (!grupsFruita[dia]) grupsFruita[dia] = {};
+            if (!grupsFruita[dia][fruitaId]) {
+                grupsFruita[dia][fruitaId] = { kg: 0, albarans: 0, varietats: {} };
+            }
+            grupsFruita[dia][fruitaId].kg += kg;
+            grupsFruita[dia][fruitaId].albarans += 1;
+            grupsFruita[dia][fruitaId].varietats[nomVarietat] =
+                (grupsFruita[dia][fruitaId].varietats[nomVarietat] || 0) + kg;
+        });
+
+        Object.keys(grupsFruita).forEach(function(dia) {
+            Object.keys(grupsFruita[dia]).forEach(function(fruitaId) {
+                const grup = grupsFruita[dia][fruitaId];
+                const fruita = (typeof fruites !== 'undefined' ? fruites : [])
+                    .find(function(f) { return f.id === fruitaId; });
+                const nomFruita = fruita ? fruita.nom : 'Fruita';
+
+                const detallVarietats = Object.keys(grup.varietats)
+                    .map(function(v) {
+                        return v + ': ' + grup.varietats[v].toLocaleString('ca-ES', { maximumFractionDigits: 0 }) + ' kg';
+                    })
+                    .join(' · ');
+
+                esdeveniments.push({
+                    data: dia,
+                    tipus: 'collita',
+                    titol: '🍎 ' + nomFruita + ' — ' + grup.kg.toLocaleString('ca-ES', { maximumFractionDigits: 0 }) + ' kg',
+                    detall: detallVarietats + ' (' + grup.albarans + ' albarà' + (grup.albarans > 1 ? 'ns' : '') + ')',
+                    estat: 'fet',
+                    modulOrigen: 'collita',
+                    idOrigen: 'fruita-' + dia + '-' + fruitaId,
+                    accioClick: function() {
+                        canviarVistaCollita('entrades');
+                        tipusCollitaActual = 'fruita';
+                        setTimeout(function() {
+                            const selFruita = document.getElementById('filtre-fruita-entrades');
+                            if (selFruita) {
+                                selFruita.value = fruitaId;
+                                if (typeof actualitzarVarietatsEntrades === 'function') {
+                                    actualitzarVarietatsEntrades();
+                                } else if (typeof mostrarTaulaEntrades === 'function') {
+                                    mostrarTaulaEntrades();
+                                }
+                            }
+                        }, 150);
+                    }
+                });
+            });
+        });
+
+        // ---------------------------------------------------
+        // CEREAL — acumulat per dia + cultiu (sense escandall)
+        // ---------------------------------------------------
+        const { data: entradesCereal, error: errorCereal } = await supabaseClient
+            .from('collita_entrades_cereal')
+            .select('id, data, cultiu, pes_net')
+            .eq('estat', 'actiu')
+            .gte('data', dataInici)
+            .lte('data', dataFi);
+
+        if (errorCereal) throw errorCereal;
+
+        // { 'YYYY-MM-DD': { cultiu: { kg, albarans } } }
+        const grupsCereal = {};
+
+        (entradesCereal || []).forEach(function(e) {
+            const dia = e.data;
+            const cultiu = e.cultiu || 'Cereal';
+            const kg = parseFloat(e.pes_net) || 0;
+
+            if (!grupsCereal[dia]) grupsCereal[dia] = {};
+            if (!grupsCereal[dia][cultiu]) grupsCereal[dia][cultiu] = { kg: 0, albarans: 0 };
+            grupsCereal[dia][cultiu].kg += kg;
+            grupsCereal[dia][cultiu].albarans += 1;
+        });
+
+        Object.keys(grupsCereal).forEach(function(dia) {
+            Object.keys(grupsCereal[dia]).forEach(function(cultiu) {
+                const grup = grupsCereal[dia][cultiu];
+
+                esdeveniments.push({
+                    data: dia,
+                    tipus: 'collita',
+                    titol: '🌾 ' + cultiu + ' — ' + grup.kg.toLocaleString('ca-ES', { maximumFractionDigits: 0 }) + ' kg',
+                    detall: grup.albarans + ' albarà' + (grup.albarans > 1 ? 'ns' : ''),
+                    estat: 'fet',
+                    modulOrigen: 'collita',
+                    idOrigen: 'cereal-' + dia + '-' + cultiu,
+                    accioClick: function() {
+                        canviarVistaCollita('entrades');
+                        tipusCollitaActual = 'cereal';
+                        setTimeout(function() {
+                            if (typeof mostrarVista_Entrades === 'function') mostrarVista_Entrades();
+                        }, 150);
+                    }
+                });
+            });
+        });
+
+    } catch (error) {
+        console.error('❌ Error al proveïdor d\'agenda de Collita:', error);
+    }
+
+    return esdeveniments;
+}
+
