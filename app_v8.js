@@ -2440,14 +2440,21 @@ async function carregarVistaProductes() {
 }
 
 function canviarTabProductes(tab, el) {
-    document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    // Buscar el contenidor pare dels tabs
+    const contenidor = document.querySelector('.view-productes');
+    if (!contenidor) return;
+
+    contenidor.querySelectorAll('.tab-btn').forEach(function(btn) {
         btn.classList.remove('active');
     });
     if (el) el.classList.add('active');
-    document.querySelectorAll('.tab-content').forEach(function(content) {
+
+    contenidor.querySelectorAll('.tab-content').forEach(function(content) {
         content.classList.remove('active');
     });
-    document.getElementById('tab-' + tab).classList.add('active');
+
+    const tabEl = document.getElementById('tab-' + tab);
+    if (tabEl) tabEl.classList.add('active');
 }
 
 async function carregarTaulaFitosanitaris() {
