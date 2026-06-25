@@ -916,6 +916,7 @@ try {
     console.error('❌ Error generant esdeveniments de fenologia a l\'agenda:', error);
 }
 
+
 // ---------------------------------------------------
 // ESCANDALLS — % calibre òptim / % no comercial
 // Només als extrems (òptim ≥50% positiu, <25% alerta;
@@ -947,14 +948,24 @@ try {
  
         if (totalGeneral <= 0) return;
  
+        const fruita = (typeof fruites !== 'undefined' ? fruites : [])
+            .find(function(f) { return f.id === (esc.collita_entrada?.fruita_varietat_id?.fruita_id || null); });
+        const nomFruita = fruita ? fruita.nom : 'Fruita';
+        const varietat = esc.collita_entrada?.fruita_varietat_id?.varietat || '-';
+        const finca = esc.collita_entrada?.finca || '-';
+ 
+        // Llindar d'òptim segons fruita: Albercoc (calibres 40-60+) usa 50,
+        // la resta (Préssec Pla, Préssec, Nectarina, calibres fins 73+) usa 73.
+        const llindarOptim = (nomFruita === 'Albercoc') ? 50 : 73;
+ 
         // El calibre ve com a rang en text (ex: '73-80', '80-85', '85+').
-        // És òptim si el límit INFERIOR del rang és >= 73 (el rang 73-80
-        // ja comença a 73 i ha de comptar sencer com a òptim).
+        // És òptim si el límit INFERIOR del rang és >= llindar (el rang que
+        // comença just al llindar ja ha de comptar sencer com a òptim).
         function calibreEsOptim(calibreStr) {
             const match = String(calibreStr).match(/(\d+(?:[.,]\d+)?)/);
             if (!match) return false;
             const limitInferior = parseFloat(match[1].replace(',', '.'));
-            return limitInferior >= 73;
+            return limitInferior >= llindarOptim;
         }
  
         const totalOptims = calibres
@@ -963,12 +974,6 @@ try {
  
         const pctOptims = totalComercial > 0 ? (totalOptims / totalComercial) * 100 : 0;
         const pctNoComercial = (totalNoComercial / totalGeneral) * 100;
- 
-        const fruita = (typeof fruites !== 'undefined' ? fruites : [])
-            .find(function(f) { return f.id === (esc.collita_entrada?.fruita_varietat_id?.fruita_id || null); });
-        const nomFruita = fruita ? fruita.nom : 'Fruita';
-        const varietat = esc.collita_entrada?.fruita_varietat_id?.varietat || '-';
-        const finca = esc.collita_entrada?.finca || '-';
  
         if (pctOptims >= 50) {
             esdeveniments.push({
@@ -1010,6 +1015,7 @@ try {
 } catch (error) {
     console.error('❌ Error generant esdeveniments d\'escandall a l\'agenda:', error);
 }
+ 
  
     return esdeveniments;
 }
