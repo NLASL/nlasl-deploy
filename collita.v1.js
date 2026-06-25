@@ -844,8 +844,170 @@ async function agendaProvider_collita(dataInici, dataFi) {
     } catch (error) {
         console.error('❌ Error al proveïdor d\'agenda de Collita:', error);
     }
+// ============================================================
+// AMPLIACIÓ d'agendaProvider_collita
+// Afegir DINS de la funció agendaProvider_collita, ABANS del
+// 'return esdeveniments;' final. També cal afegir el helper
+// sumarDies() al fitxer (es pot posar fora de la funció).
+// ============================================================
 
+
+
+// ---------------------------------------------------
+// FENOLOGIA — només el CANVI D'ESTAT (sense recomanacions
+// de reg, que ja viuen al mòdul de Reg)
+// ---------------------------------------------------
+try {
+    const { data: datesCollita, error: errorDates } = await supabaseClient
+        .from('reg_dates_collita')
+        .select('cultiu, varietat, campanya, num_explotacio, data_inici, data_fi, dies_postcollita')
+        .eq('actiu', true)
+        .not('num_explotacio', 'is', null);
+
+    if (errorDates) throw errorDates;
+
+    const numExplotacions = [...new Set((datesCollita || []).map(function(d) { return d.num_explotacio; }))];
+    let mapaFinques = {};
+    if (numExplotacions.length > 0) {
+        const { data: configs } = await supabaseClient
+            .from('reg_configuracio')
+            .select('num_explotacio, nom_finca')
+            .in('num_explotacio', numExplotacions);
+        (configs || []).forEach(function(c) { mapaFinques[c.num_explotacio] = c.nom_finca; });
+    }
+
+    (datesCollita || []).forEach(function(d) {
+        if (!d.data_inici) return;
+        const nomFinca = mapaFinques[d.num_explotacio] || '';
+
+        // Entra en PRECOLLITA (30 dies abans de data_inici, com fa la vista reg_factor_explotacio)
+        const diaPrecollita = sumarDies(d.data_inici, -30);
+        if (diaPrecollita >= dataInici && diaPrecollita <= dataFi) {
+            esdeveniments.push({
+                data: diaPrecollita,
+                tipus: 'fenologia',
+                titol: '⚠️ ' + d.cultiu + ' ' + d.varietat + ' entra en precollita',
+                detall: nomFinca,
+                estat: 'avis',
+                modulOrigen: 'collita-fenologia',
+                idOrigen: 'precollita-' + d.num_explotacio + '-' + d.varietat + '-' + d.campanya,
+                accioClick: null
+            });
+        }
+
+        // Passa a POSTCOLLITA (data_fi + dies_postcollita + 1, quan es considera tancada)
+        if (d.data_fi && d.dies_postcollita) {
+            const diaPostcollita = sumarDies(d.data_fi, d.dies_postcollita + 1);
+            if (diaPostcollita >= dataInici && diaPostcollita <= dataFi) {
+                esdeveniments.push({
+                    data: diaPostcollita,
+                    tipus: 'fenologia',
+                    titol: '🍂 ' + d.cultiu + ' ' + d.varietat + ' passa a postcollita',
+                    detall: nomFinca,
+                    estat: 'avis',
+                    modulOrigen: 'collita-fenologia',
+                    idOrigen: 'postcollita-' + d.num_explotacio + '-' + d.varietat + '-' + d.campanya,
+                    accioClick: null
+                });
+            }
+        }
+    });
+} catch (error) {
+    console.error('❌ Error generant esdeveniments de fenologia a l\'agenda:', error);
+}
+
+// ---------------------------------------------------
+// ESCANDALLS — % calibre òptim / % no comercial
+// Només als extrems (òptim ≥50% positiu, <25% alerta;
+// no comercial >10% alerta). Zona 25-50% no genera res,
+// per no inflar l'agenda.
+// ---------------------------------------------------
+try {
+    const { data: escandallsRang, error: errorEsc } = await supabaseClient
+        .from('collita_escandall')
+        .select(`
+            id, num_albara_escandall, data,
+            collita_entrada:collita_entrada_id (finca, fruita_varietat_id (varietat, fruita_id)),
+            collita_escandall_calibres (calibre, pes_kg),
+            collita_escandall_no_comercial (pes_kg)
+        `)
+        .eq('estat', 'actiu')
+        .gte('data', dataInici)
+        .lte('data', dataFi);
+
+    if (errorEsc) throw errorEsc;
+
+    (escandallsRang || []).forEach(function(esc) {
+        const calibres = esc.collita_escandall_calibres || [];
+        const noComercials = esc.collita_escandall_no_comercial || [];
+
+        const totalComercial = calibres.reduce(function(s, c) { return s + (parseFloat(c.pes_kg) || 0); }, 0);
+        const totalNoComercial = noComercials.reduce(function(s, nc) { return s + (parseFloat(nc.pes_kg) || 0); }, 0);
+        const totalGeneral = totalComercial + totalNoComercial;
+
+        if (totalGeneral <= 0) return;
+
+        const totalOptims = calibres
+            .filter(function(c) { return parseFloat(c.calibre) > 73; })
+            .reduce(function(s, c) { return s + (parseFloat(c.pes_kg) || 0); }, 0);
+
+        const pctOptims = totalComercial > 0 ? (totalOptims / totalComercial) * 100 : 0;
+        const pctNoComercial = (totalNoComercial / totalGeneral) * 100;
+
+        const fruita = (typeof fruites !== 'undefined' ? fruites : [])
+            .find(function(f) { return f.id === (esc.collita_entrada?.fruita_varietat_id?.fruita_id || null); });
+        const nomFruita = fruita ? fruita.nom : 'Fruita';
+        const varietat = esc.collita_entrada?.fruita_varietat_id?.varietat || '-';
+        const finca = esc.collita_entrada?.finca || '-';
+
+        if (pctOptims >= 50) {
+            esdeveniments.push({
+                data: esc.data,
+                tipus: 'collita',
+                titol: '✅ ' + nomFruita + ' ' + varietat + ' — ' + pctOptims.toFixed(0) + '% calibre òptim',
+                detall: finca + ' · Albarà escandall ' + esc.num_albara_escandall,
+                estat: 'fet',
+                modulOrigen: 'collita-escandall',
+                idOrigen: 'optim-' + esc.id,
+                accioClick: function() { veureEscandall(esc.id); }
+            });
+        } else if (pctOptims < 25) {
+            esdeveniments.push({
+                data: esc.data,
+                tipus: 'collita',
+                titol: '⚠️ ' + nomFruita + ' ' + varietat + ' — només ' + pctOptims.toFixed(0) + '% calibre òptim',
+                detall: finca + ' · Albarà escandall ' + esc.num_albara_escandall,
+                estat: 'avis',
+                modulOrigen: 'collita-escandall',
+                idOrigen: 'optim-baix-' + esc.id,
+                accioClick: function() { veureEscandall(esc.id); }
+            });
+        }
+
+        if (pctNoComercial > 10) {
+            esdeveniments.push({
+                data: esc.data,
+                tipus: 'collita',
+                titol: '⚠️ ' + nomFruita + ' ' + varietat + ' — ' + pctNoComercial.toFixed(0) + '% no comercial',
+                detall: finca + ' · Albarà escandall ' + esc.num_albara_escandall,
+                estat: 'avis',
+                modulOrigen: 'collita-escandall',
+                idOrigen: 'nocomercial-' + esc.id,
+                accioClick: function() { veureEscandall(esc.id); }
+            });
+        }
+    });
+} catch (error) {
+    console.error('❌ Error generant esdeveniments d\'escandall a l\'agenda:', error);
+}
     return esdeveniments;
+}
+
+// Helper: suma/resta dies a una data 'YYYY-MM-DD', retorna 'YYYY-MM-DD'
+function sumarDies(dataStr, dies) {
+    const d = new Date(dataStr + 'T00:00:00');
+    d.setDate(d.getDate() + dies);
+    return d.toISOString().slice(0, 10);
 }
 
 registrarProveidorAgenda(agendaProvider_collita);
