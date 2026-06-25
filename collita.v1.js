@@ -934,32 +934,42 @@ try {
         .eq('estat', 'actiu')
         .gte('data', dataInici)
         .lte('data', dataFi);
-
+ 
     if (errorEsc) throw errorEsc;
-
+ 
     (escandallsRang || []).forEach(function(esc) {
         const calibres = esc.collita_escandall_calibres || [];
         const noComercials = esc.collita_escandall_no_comercial || [];
-
+ 
         const totalComercial = calibres.reduce(function(s, c) { return s + (parseFloat(c.pes_kg) || 0); }, 0);
         const totalNoComercial = noComercials.reduce(function(s, nc) { return s + (parseFloat(nc.pes_kg) || 0); }, 0);
         const totalGeneral = totalComercial + totalNoComercial;
-
+ 
         if (totalGeneral <= 0) return;
-
+ 
+        // El calibre ve com a rang en text (ex: '73-80', '80-85', '85+').
+        // És òptim si el límit INFERIOR del rang és >= 73 (el rang 73-80
+        // ja comença a 73 i ha de comptar sencer com a òptim).
+        function calibreEsOptim(calibreStr) {
+            const match = String(calibreStr).match(/(\d+(?:[.,]\d+)?)/);
+            if (!match) return false;
+            const limitInferior = parseFloat(match[1].replace(',', '.'));
+            return limitInferior >= 73;
+        }
+ 
         const totalOptims = calibres
-            .filter(function(c) { return parseFloat(c.calibre) > 73; })
+            .filter(function(c) { return calibreEsOptim(c.calibre); })
             .reduce(function(s, c) { return s + (parseFloat(c.pes_kg) || 0); }, 0);
-
+ 
         const pctOptims = totalComercial > 0 ? (totalOptims / totalComercial) * 100 : 0;
         const pctNoComercial = (totalNoComercial / totalGeneral) * 100;
-
+ 
         const fruita = (typeof fruites !== 'undefined' ? fruites : [])
             .find(function(f) { return f.id === (esc.collita_entrada?.fruita_varietat_id?.fruita_id || null); });
         const nomFruita = fruita ? fruita.nom : 'Fruita';
         const varietat = esc.collita_entrada?.fruita_varietat_id?.varietat || '-';
         const finca = esc.collita_entrada?.finca || '-';
-
+ 
         if (pctOptims >= 50) {
             esdeveniments.push({
                 data: esc.data,
@@ -983,7 +993,7 @@ try {
                 accioClick: function() { veureEscandall(esc.id); }
             });
         }
-
+ 
         if (pctNoComercial > 10) {
             esdeveniments.push({
                 data: esc.data,
@@ -1000,6 +1010,7 @@ try {
 } catch (error) {
     console.error('❌ Error generant esdeveniments d\'escandall a l\'agenda:', error);
 }
+ 
     return esdeveniments;
 }
 
