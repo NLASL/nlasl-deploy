@@ -187,15 +187,21 @@ async function carregarAlertesReg() {
 async function carregarFiltreExplotacions() {
     const select = document.getElementById('reg-filtre-explotacio');
     if (!select) return;
-    const explotsUniques = parcelles.filter(function(p) { return p.num_explotacio; });
-    const vistes = {};
-    explotsUniques.forEach(function(p) {
-        if (!vistes[p.num_explotacio]) {
-            vistes[p.num_explotacio] = p.finca || p.num_explotacio;
-        }
-    });
-    Object.keys(vistes).sort().forEach(function(e) {
-        select.innerHTML += '<option value="' + e + '">' + e + ' — ' + vistes[e] + '</option>';
+
+    const { data, error } = await supabaseClient
+        .from('reg_configuracio')
+        .select('num_explotacio, nom_finca')
+        .eq('actiu', true)
+        .order('num_explotacio');
+
+    if (error) {
+        console.warn('Error carregant explotacions:', error.message);
+        return;
+    }
+
+    select.innerHTML = '<option value="">Totes</option>';
+    (data || []).forEach(function(e) {
+        select.innerHTML += '<option value="' + e.num_explotacio + '">' + e.num_explotacio + ' — ' + e.nom_finca + '</option>';
     });
 }
 

@@ -75,7 +75,8 @@ function compararDates(a, b) {
  * Retorna true si la data 'd' està dins del rang [inici, fi] (inclusiu),
  * comparant NOMÉS any, mes i dia (ignora hores).
  */
-function dataDinsRangDate(d, inici, fi) {
+function 
+Date(d, inici, fi) {
     const dStr = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
     const iniStr = inici.getFullYear() * 10000 + (inici.getMonth() + 1) * 100 + inici.getDate();
     const fiStr = fi.getFullYear() * 10000 + (fi.getMonth() + 1) * 100 + fi.getDate();
