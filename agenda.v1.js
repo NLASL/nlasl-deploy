@@ -311,6 +311,10 @@ const AGENDA_TIPUS_INFO = {
     factura:       { icona: '🧾', color: '#607d8b', label: 'Factura' },
     estoc:         { icona: '⚠️', color: '#f44336', label: 'Existències' },
     'assegurança': { icona: '🛡️', color: '#3f51b5', label: 'Assegurança' },
+    asseg_renovacio:        { icona: '🔄', color: '#3f51b5', label: 'Renovació assegurança' },
+    asseg_pagament_proxim:  { icona: '💳', color: '#ff9800', label: 'Pagament proper' },
+    asseg_pagament_venciment:{ icona: '💳', color: '#ff5722', label: 'Pagament avui' },
+    asseg_pagament_vencut:  { icona: '🚨', color: '#c62828', label: 'Pagament vençut' },
     bestreta:      { icona: '💶', color: '#009688', label: 'Bestreta' },
     nota:          { icona: '📝', color: '#757575', label: 'Nota' }
 };

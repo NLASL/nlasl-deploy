@@ -781,4 +781,158 @@ async function mostrarVistaAltresAssegurances() {
     mostrarVistaAltresAsseg();
 }
 
-console.log('✅ Assegurances Unificat v2 FINAL carregat');
+// ============================================================
+// PROVEÏDOR D'AGENDA — ASSEGURANCES (Altres + Civil)
+// ============================================================
+// Agroseguro queda fora per ara (no té estat ni quotes de pagament).
+//
+// Dos tipus d'avís, independents:
+//   1) Renovació: un sol avís X dies abans de data_venciment de la pòlissa
+//      (assegurances_altres.data_venciment). Pensat per decidir si es renova.
+//   2) Pagament de quota: basat en assegurances_altres_quotes amb estat
+//      'pendent' (data_pagament = data prevista del pagament, no la real):
+//        - preavís Y dies abans
+//        - el dia mateix
+//        - cada dia des de l'endemà fins avui, mentre segueixi 'pendent'
+//          (s'atura sola quan la quota passa a 'pagada' o 'cancel·lada')
+
+const ASSEG_DIES_AVIS_RENOVACIO = 45; // dies abans del venciment de la pòlissa
+// Nota: el termini legal mínim per comunicar la no pròrroga és de 30 dies abans
+// del venciment. Es posa l'avís a 45 dies (15 dies de marge) perquè calgui
+// preparar i enviar un escrit (carta/burofax/email) abans que es consumeixi
+// el termini legal real.
+const ASSEG_DIES_AVIS_PAGAMENT = 7;   // dies abans de la data de pagament prevista
+
+function ferClickAsseguranca(assegurancaId, categoria) {
+    return function() {
+        canviarVista('assegurances');
+        setTimeout(function() {
+            const tabAltres = document.querySelector('.tab-btn-main[data-tab="altres"]');
+            if (tabAltres) tabAltres.click();
+
+            setTimeout(function() {
+                const subtabSelector = categoria === 'civil'
+                    ? '.tab-btn-sub[data-subtab="civil"]'
+                    : '.tab-btn-sub[data-subtab="altres-asseg"]';
+                const subtab = document.querySelector(subtabSelector);
+                if (subtab) subtab.click();
+
+                setTimeout(function() {
+                    obrirModalDetallAsseguranca(assegurancaId);
+                }, 150);
+            }, 50);
+        }, 150);
+    };
+}
+
+function formatDataISOAsseg(dateObj) {
+    const any = dateObj.getFullYear();
+    const mes = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const dia = String(dateObj.getDate()).padStart(2, '0');
+    return any + '-' + mes + '-' + dia;
+}
+
+function restarDiesAsseg(dateObj, dies) {
+    const d = new Date(dateObj);
+    d.setDate(d.getDate() - dies);
+    return d;
+}
+
+function sumarDiesAsseg(dateObj, dies) {
+    const d = new Date(dateObj);
+    d.setDate(d.getDate() + dies);
+    return d;
+}
+
+async function agendaProvider_assegurances(dataInici, dataFi) {
+    const esdeveniments = [];
+    const avui = new Date();
+    const dataIniciObj = new Date(dataInici);
+    const dataFiObj = new Date(dataFi);
+
+    // --- Dades base (paginades, per si algun dia hi ha moltes pòlisses) ---
+    const polisses = await consultaPaginada('assegurances_altres', '*', function(query) {
+        return query;
+    });
+
+    const quotes = await consultaPaginada('assegurances_altres_quotes', '*', function(query) {
+        return query;
+    });
+
+    const polissesPerId = {};
+    polisses.forEach(function(p) { polissesPerId[p.id] = p; });
+
+    // --- 1) RENOVACIÓ: X dies abans de data_venciment ---
+    polisses.forEach(function(p) {
+        if (!p.data_venciment) return;
+
+        const dataVenciment = new Date(p.data_venciment);
+        const dataAvis = restarDiesAsseg(dataVenciment, ASSEG_DIES_AVIS_RENOVACIO);
+
+        if (dataDinsRangDate(dataAvis, dataIniciObj, dataFiObj)) {
+            const nomCompanyia = p.companyia || 'Companyia desconeguda';
+            const etiquetaCategoria = p.categoria === 'civil' ? 'RC' : (p.tipus_polissa || 'Assegurança');
+
+            esdeveniments.push({
+                data: formatDataISOAsseg(dataAvis),
+                tipus: 'asseg_renovacio',
+                titol: 'Renovació a revisar — ' + nomCompanyia,
+                detall: etiquetaCategoria + ' · ' + (p.num_polissa || '') + ' · venç el ' + formatData(p.data_venciment),
+                estat: 'avis',
+                modulOrigen: 'assegurances',
+                idOrigen: p.id + '-renovacio',
+                accioClick: ferClickAsseguranca(p.id, p.categoria)
+            });
+        }
+    });
+
+    // --- 2) PAGAMENT DE QUOTA: preavís + dia + escalat fins pagada ---
+    quotes.forEach(function(q) {
+        if (q.estat !== 'pendent' || !q.data_pagament) return;
+
+        const polissa = polissesPerId[q.asseguranca_id];
+        if (!polissa) return;
+
+        const nomCompanyia = polissa.companyia || 'Companyia desconeguda';
+        const dataPagament = new Date(q.data_pagament);
+
+        function pushEventPagament(dataEventObj, tipusEvent, titolEvent) {
+            esdeveniments.push({
+                data: formatDataISOAsseg(dataEventObj),
+                tipus: tipusEvent,
+                titol: titolEvent + ' — ' + nomCompanyia,
+                detall: (polissa.num_polissa || '') + ' · import ' + (q.prima_anual || 0) + ' € · previst ' + formatData(q.data_pagament),
+                estat: 'avis',
+                modulOrigen: 'assegurances',
+                idOrigen: q.id + '-' + tipusEvent + '-' + formatDataISOAsseg(dataEventObj),
+                accioClick: ferClickAsseguranca(polissa.id, polissa.categoria)
+            });
+        }
+
+        // Preavís (un sol cop)
+        const dataPreavis = restarDiesAsseg(dataPagament, ASSEG_DIES_AVIS_PAGAMENT);
+        if (dataDinsRangDate(dataPreavis, dataIniciObj, dataFiObj)) {
+            pushEventPagament(dataPreavis, 'asseg_pagament_proxim', 'Pagament proper');
+        }
+
+        // El dia mateix
+        if (dataDinsRangDate(dataPagament, dataIniciObj, dataFiObj)) {
+            pushEventPagament(dataPagament, 'asseg_pagament_venciment', 'Pagament avui');
+        }
+
+        // Escalat diari: des de l'endemà del venciment fins avui, mentre 'pendent'
+        let cursor = sumarDiesAsseg(dataPagament, 1);
+        while (cursor <= avui) {
+            if (dataDinsRangDate(cursor, dataIniciObj, dataFiObj)) {
+                pushEventPagament(cursor, 'asseg_pagament_vencut', 'Pagament vençut sense registrar');
+            }
+            cursor = sumarDiesAsseg(cursor, 1);
+        }
+    });
+
+    return esdeveniments;
+}
+
+registrarProveidorAgenda(agendaProvider_assegurances);
+
+console.log('✅ Assegurances Unificat v2 FINAL carregat (amb proveïdor d\'agenda)');
