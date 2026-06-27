@@ -35,6 +35,38 @@ function registrarProveidorAgenda(fn) {
     }
 }
 
+/**
+ * Consulta paginada genèrica a Supabase, per evitar el límit
+ * de "Max Rows" (per defecte 1000) configurat al projecte.
+ * Fa servir .range() repetidament fins que no queden més files.
+ *
+ * @param {string} taula - nom de la taula
+ * @param {string} columnes - columnes a seleccionar (igual que .select())
+ * @param {function} aplicarFiltres - funció que rep la query i hi aplica .eq()/.gte()/.lte()/etc.
+ * @returns {Promise<Array>} totes les files trobades
+ */
+async function consultaPaginada(taula, columnes, aplicarFiltres) {
+    let tots = [];
+    let offset = 0;
+    const pageSize = 1000;
+    while (true) {
+        let query = supabaseClient.from(taula).select(columnes);
+        if (typeof aplicarFiltres === 'function') {
+            query = aplicarFiltres(query);
+        }
+        const { data, error } = await query.range(offset, offset + pageSize - 1);
+        if (error) {
+            console.error('Error a consultaPaginada (' + taula + '):', error);
+            break;
+        }
+        if (!data || data.length === 0) break;
+        tots = tots.concat(data);
+        if (data.length < pageSize) break; // última pàgina
+        offset += pageSize;
+    }
+    return tots;
+}
+
 // Demana a tots els proveïdors registrats els esdeveniments
 // del rang [dataInici, dataFi] (format 'YYYY-MM-DD', ambdós inclosos)
 // i els retorna tots junts, ordenats per data.

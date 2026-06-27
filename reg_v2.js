@@ -681,13 +681,11 @@ async function agendaProvider_reg(dataInici, dataFi) {
         .eq('actiu', true);
     if (errExp || !explotacions) return esdeveniments;
 
-    const { data: consums, error: errCons } = await supabaseClient
-    .from('reg')
-    .select('num_explotacio, data, consum_m3')
-    .gte('data', (anyActual - 1) + '-01-01')
-    .lte('data', anyActual + '-12-31')
-    .range(0, 9999);
-	if (errCons || !consums) return esdeveniments;
+    const consums = await consultaPaginada('reg', 'num_explotacio, data, consum_m3', function(query) {
+    return query
+        .gte('data', (anyActual - 1) + '-01-01')
+        .lte('data', anyActual + '-12-31');
+});
 
     // --- 1) "Dades pendents" (dia >= 25, mes en curs, dins temporada) ---
     if (diaActual >= 25 && mesActual >= 3 && mesActual <= 10) {
