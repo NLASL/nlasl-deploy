@@ -151,36 +151,7 @@ function crearModalTractamentV2() {
                 <!-- SELECCIÓ PARCEL·LES -->
                 <div class="form-group">
                     <label>Selecció Parcel·les *</label>
-                    <div style="display:flex; gap:15px; margin-top:8px; margin-bottom:12px;">
-                        <label style="flex:1; padding:10px; border:2px solid #4CAF50; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:8px; background:#e8f5e9;">
-                            <input type="radio" name="seleccio-tipus" value="finca" onchange="canviarTipusSeleccio()" checked style="margin:0;">
-                            <span style="font-weight:500;">🗺️ Per Finques</span>
-                        </label>
-                        <label style="flex:1; padding:10px; border:2px solid #ddd; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:8px; background:white;">
-                            <input type="radio" name="seleccio-tipus" value="varietat" onchange="canviarTipusSeleccio()" style="margin:0;">
-                            <span style="font-weight:500;">🌾 Per Varietat</span>
-                        </label>
-                    </div>
-                    <div id="seleccio-finca" class="form-group">
-                        <label style="font-size:13px; color:#666;">Selecciona Finques</label>
-                        <div id="tractament-finques-checks" style="display:block; margin-top:6px;"></div>
-                    </div>
-                    <div id="seleccio-varietat" class="form-group" style="display:none;">
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                            <div>
-                                <label style="font-size:13px; color:#666;">Finca</label>
-                                <select id="tractament-finca-varietat" onchange="actualitzarVarietatsDisponibles()">
-                                    <option value="">Seleccionar...</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style="font-size:13px; color:#666;">Varietat</label>
-                                <select id="tractament-varietat" onchange="actualitzarParcellesSeleccionades()">
-                                    <option value="">Seleccionar...</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+                    <div id="tractament-finques-checks" style="margin-top:8px;"></div>
                     <div style="background:#f5f5f5; padding:8px 12px; border-radius:6px; margin-top:8px; font-size:14px;">
                         Superfície total seleccionada: <strong><span id="superficie-total">0</span> Ha</strong>
                     </div>
@@ -351,23 +322,8 @@ async function obrirModalTractament() {
     const avui = new Date().toISOString().split('T')[0];
     document.getElementById('tractament-data').value = avui;
 
-    // Carregar checkboxes finques
-    const checksContainer = document.getElementById('tractament-finques-checks');
-    checksContainer.innerHTML = '';
-    (finques || []).forEach(function(finca) {
-        checksContainer.innerHTML +=
-            '<div style="padding:4px 0; display:flex; align-items:center; gap:8px;">' +
-            '<input type="checkbox" value="' + finca + '" onchange="actualitzarParcellesSeleccionades()" style="width:18px; height:18px;">' +
-            '<span style="font-size:13px;">' + finca + '</span>' +
-            '</div>';
-    });
-
-    // Carregar select finca-varietat
-    const selectFV = document.getElementById('tractament-finca-varietat');
-    selectFV.innerHTML = '<option value="">Seleccionar...</option>';
-    (finques || []).forEach(function(f) {
-        selectFV.innerHTML += '<option value="' + f + '">' + f + '</option>';
-    });
+    // Construir selector finca → varietat (regadiu)
+    construirSelectorFinques();
 
     // Inicialitzar línies de producte
     document.getElementById('linies-productes-container').innerHTML = '';
@@ -478,15 +434,14 @@ async function editarTractamentGrupV2(grupTractament) {
     document.getElementById('tractament-meteo').value = primer.condicions_meteo || '';
     document.getElementById('tractament-observacions').value = primer.observacions || '';
 
-    // Seleccionar finques
+    // Reconstruir selector amb preselecció de finca+varietat usades
     const finquesUsades = [...new Set(tractamentsGrup.map(function(t) {
         return t.parcelles ? t.parcelles.finca : null;
     }).filter(Boolean))];
-
-    document.querySelectorAll('#tractament-finques-checks input[type="checkbox"]').forEach(function(cb) {
-        cb.checked = finquesUsades.includes(cb.value);
-    });
-    actualitzarParcellesSeleccionades();
+    const varietatsUsades = tractamentsGrup.map(function(t) {
+        return { finca: t.parcelles ? t.parcelles.finca : null, varietat: t.parcelles ? t.parcelles.varietat : null };
+    }).filter(function(v) { return v.finca && v.varietat; });
+    construirSelectorFinques(finquesUsades, varietatsUsades);
 
     // Carregar productes
     const container = document.getElementById('linies-productes-container');
@@ -663,84 +618,110 @@ async function exportarDANCSV() {
 
 // ============================================================
 // FUNCIONS DE SELECCIÓ DE PARCEL·LES I SUPERFÍCIE
+// Selector en arbre: Finca → Varietats (només regadiu)
 // ============================================================
 
-function canviarTipusSeleccio() {
-    const tipus = document.querySelector('input[name="seleccio-tipus"]:checked').value;
-    const divFinca = document.getElementById('seleccio-finca');
-    const divVarietat = document.getElementById('seleccio-varietat');
+function construirSelectorFinques(finquesPreseleccionades, varietatsPreseleccionades) {
+    const container = document.getElementById('tractament-finques-checks');
+    if (!container) return;
 
-    if (divFinca) divFinca.style.display = tipus === 'finca' ? 'block' : 'none';
-    if (divVarietat) divVarietat.style.display = tipus === 'varietat' ? 'block' : 'none';
-
-    // Actualitzar estil dels radio buttons
-    document.querySelectorAll('input[name="seleccio-tipus"]').forEach(function(radio) {
-        const label = radio.parentElement;
-        if (radio.checked) {
-            label.style.background = '#e8f5e9';
-            label.style.borderColor = '#4CAF50';
-        } else {
-            label.style.background = 'white';
-            label.style.borderColor = '#ddd';
-        }
+    // Filtrar parcel·les de regadiu aptes
+    const parcellesRegadiu = (parcelles || []).filter(function(p) {
+        return p.regadiu === true && esParcellaApta(p);
     });
 
+    // Agrupar per finca → varietat
+    const arbre = {};
+    parcellesRegadiu.forEach(function(p) {
+        const finca = p.finca || 'Sense finca';
+        const varietat = p.varietat || 'Sense varietat';
+        if (!arbre[finca]) arbre[finca] = {};
+        if (!arbre[finca][varietat]) arbre[finca][varietat] = { hectarees: 0, count: 0 };
+        arbre[finca][varietat].hectarees += parseFloat(p.superficie) || 0;
+        arbre[finca][varietat].count++;
+    });
+
+    let html = '';
+    Object.keys(arbre).sort().forEach(function(finca) {
+        const varietats = Object.keys(arbre[finca]).sort();
+        const haFinca = Object.values(arbre[finca]).reduce(function(s, v) { return s + v.hectarees; }, 0);
+        const fincaId = 'finca-' + finca.replace(/[^a-zA-Z0-9]/g, '_');
+        // Per defecte tot marcat, o usar preselecció si ve d'edició
+        const fincaMarcada = !finquesPreseleccionades || finquesPreseleccionades.includes(finca);
+
+        html += '<div style="margin-bottom:8px; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden;">';
+        html += '<div style="background:#e8f5e9; padding:8px 12px; display:flex; align-items:center; gap:10px;">';
+        html += '<input type="checkbox" id="' + fincaId + '"' + (fincaMarcada ? ' checked' : '') + ' ';
+        html += 'onchange="toggleFinca('' + finca.replace(/'/g, "\'") + '', this.checked)" ';
+        html += 'style="width:18px; height:18px; cursor:pointer;">';
+        html += '<label for="' + fincaId + '" style="font-weight:600; cursor:pointer; flex:1; margin:0;">🏡 ' + finca + '</label>';
+        html += '<span style="font-size:12px; color:#555;">' + haFinca.toFixed(2) + ' Ha</span>';
+        html += '</div>';
+
+        html += '<div style="padding:6px 12px 8px 32px;">';
+        varietats.forEach(function(varietat) {
+            const info = arbre[finca][varietat];
+            const varId = 'var-' + finca.replace(/[^a-zA-Z0-9]/g, '_') + '-' + varietat.replace(/[^a-zA-Z0-9]/g, '_');
+            const varMarcada = fincaMarcada && (!varietatsPreseleccionades ||
+                varietatsPreseleccionades.some(function(v) { return v.finca === finca && v.varietat === varietat; }));
+            html += '<div style="display:flex; align-items:center; gap:8px; padding:3px 0;">';
+            html += '<input type="checkbox" id="' + varId + '"' + (varMarcada ? ' checked' : '') + ' ';
+            html += 'data-finca="' + finca.replace(/"/g, '&quot;') + '" data-varietat="' + varietat.replace(/"/g, '&quot;') + '" ';
+            html += 'onchange="actualitzarCheckFinca('' + finca.replace(/'/g, "\'") + '')" class="check-varietat" ';
+            html += 'style="width:16px; height:16px; cursor:pointer;">';
+            html += '<label for="' + varId + '" style="cursor:pointer; margin:0; font-size:14px;">' + varietat + '</label>';
+            html += '<span style="font-size:12px; color:#888; margin-left:auto;">' + info.hectarees.toFixed(2) + ' Ha · ' + info.count + ' parc.</span>';
+            html += '</div>';
+        });
+        html += '</div></div>';
+    });
+
+    container.innerHTML = html || '<p style="color:#999;">No hi ha parcel·les de regadiu disponibles</p>';
     actualitzarParcellesSeleccionades();
 }
 
-function actualitzarVarietatsDisponibles() {
-    const finca = document.getElementById('tractament-finca-varietat').value;
-    const selectVarietat = document.getElementById('tractament-varietat');
+function toggleFinca(finca, marcat) {
+    document.querySelectorAll('.check-varietat[data-finca="' + finca + '"]').forEach(function(cb) {
+        cb.checked = marcat;
+    });
+    const fincaId = 'finca-' + finca.replace(/[^a-zA-Z0-9]/g, '_');
+    const cbFinca = document.getElementById(fincaId);
+    if (cbFinca) cbFinca.indeterminate = false;
+    actualitzarParcellesSeleccionades();
+}
 
-    if (!finca) {
-        selectVarietat.innerHTML = '<option value="">Seleccionar...</option>';
-        return;
+function actualitzarCheckFinca(finca) {
+    const totes = document.querySelectorAll('.check-varietat[data-finca="' + finca + '"]');
+    const marcades = document.querySelectorAll('.check-varietat[data-finca="' + finca + '"]:checked');
+    const fincaId = 'finca-' + finca.replace(/[^a-zA-Z0-9]/g, '_');
+    const cbFinca = document.getElementById(fincaId);
+    if (cbFinca) {
+        cbFinca.checked = marcades.length > 0;
+        cbFinca.indeterminate = marcades.length > 0 && marcades.length < totes.length;
     }
-
-    const parcellesFinca = (parcelles || []).filter(function(p) { return p.finca === finca; });
-    const varietatsMap = {};
-    parcellesFinca.forEach(function(p) {
-        if (p.varietat) varietatsMap[p.varietat] = true;
-    });
-
-    selectVarietat.innerHTML = '<option value="">Seleccionar...</option>';
-    Object.keys(varietatsMap).sort().forEach(function(v) {
-        selectVarietat.innerHTML += '<option value="' + v + '">' + v + '</option>';
-    });
+    actualitzarParcellesSeleccionades();
 }
 
 function actualitzarParcellesSeleccionades() {
-    const tipus = document.querySelector('input[name="seleccio-tipus"]:checked');
-    if (!tipus) return;
-
-    let parcellesSeleccionades = [];
-
-    if (tipus.value === 'finca') {
-        const checks = document.querySelectorAll('#tractament-finques-checks input[type="checkbox"]:checked');
-        const finquesSeleccionades = Array.from(checks).map(function(c) { return c.value; });
-        parcellesSeleccionades = (parcelles || []).filter(function(p) {
-            return finquesSeleccionades.includes(p.finca) && esParcellaApta(p);
-        });
-    } else if (tipus.value === 'varietat') {
-        const finca = document.getElementById('tractament-finca-varietat').value;
-        const varietat = document.getElementById('tractament-varietat').value;
-        if (finca && varietat) {
-            parcellesSeleccionades = (parcelles || []).filter(function(p) {
-                return p.finca === finca && p.varietat === varietat && esParcellaApta(p);
-            });
-        }
-    }
-
+    const parcellesSeleccionades = getParcellesSeleccionades();
     const superficie = parcellesSeleccionades.reduce(function(sum, p) {
         return sum + (parseFloat(p.superficie) || 0);
     }, 0);
-
     const spanSup = document.getElementById('superficie-total');
     if (spanSup) spanSup.textContent = superficie.toFixed(2);
-
-
 }
 
+function getParcellesSeleccionades() {
+    const seleccions = [];
+    document.querySelectorAll('.check-varietat:checked').forEach(function(cb) {
+        seleccions.push({ finca: cb.dataset.finca, varietat: cb.dataset.varietat });
+    });
+    return (parcelles || []).filter(function(p) {
+        return esParcellaApta(p) && p.regadiu === true && seleccions.some(function(s) {
+            return s.finca === p.finca && s.varietat === p.varietat;
+        });
+    });
+}
 function esParcellaApta(p) {
     if (!p.cultiu) return false;
     const c = p.cultiu.trim().toUpperCase();
