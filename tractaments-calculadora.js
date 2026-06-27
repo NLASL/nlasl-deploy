@@ -1,12 +1,35 @@
 // ============================================================
-// CALCULADORA DE TRACTAMENTS — Modal reutilitzable
+// CALCULADORA DE TRACTAMENTS — Modal reutilitzable (Amb Mode Invers)
 // Ús: obrirCalculadoraTractament(config) on config és:
 //   { superficie, onConfirm, producteNom }
-// onConfirm(dosi, unitat) s'executa quan l'usuari confirma
 // ============================================================
 
-// 1. LÒGICA MATEMÀTICA (Es manté intacta com la tenies)
-function calcularLlogicaTractament({ superficie, capacitatCuba, metode, producte, gastoCaldoHa }) {
+// 1. LÒGICA MATEMÀTICA (Ampliada amb el càlcul des de botes)
+function calcularLlogicaTractament({ superficie, capacitatCuba, metode, producte, gastoCaldoHa, modeCamp, numBotes, productePerBota }) {
+    // MODE INVERS: El pagès et diu què ha tirat
+    if (modeCamp) {
+        const producteTotalFinca = numBotes * productePerBota;
+        const dosiFinalRegistar = producteTotalFinca / superficie;
+        const aiguaTotal = numBotes * capacitatCuba;
+
+        const cubades = [];
+        for (let i = 0; i < numBotes; i++) {
+            cubades.push({
+                tipus: 'Plena',
+                litres_aigua: capacitatCuba,
+                producte_a_afegir: productePerBota
+            });
+        }
+
+        return {
+            aigua_total_finca: Math.round(aiguaTotal),
+            producte_total_finca: Number(producteTotalFinca.toFixed(2)),
+            dosi_per_a_app_produccio: Number(dosiFinalRegistar.toFixed(3)),
+            desglos_cubades: cubades
+        };
+    }
+
+    // MODE ESTÀNDARD: Tu li dius la dosi d'etiqueta i calcula les botes
     let caldoPerHa = gastoCaldoHa;
     if (metode === 'goteig_pinyol') {
         caldoPerHa = capacitatCuba / superficie;
@@ -58,7 +81,7 @@ function calcularLlogicaTractament({ superficie, capacitatCuba, metode, producte
     };
 }
 
-// 2. INTERFÍCIE DEL MODAL (Substitueix la teva funció antiga per incloure els dos camps de Ha)
+// 2. INTERFÍCIE DEL MODAL
 function obrirCalculadoraTractament(config) {
     const superficieBase = parseFloat(config.superficie) || 0;
     const onConfirm = config.onConfirm || function() {};
@@ -72,12 +95,17 @@ function obrirCalculadoraTractament(config) {
 
     const html = `
     <div id="modal-calculadora-tractament" class="modal" style="display:block; z-index:9999; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); overflow-y:auto; padding:10px;">
-        <div class="modal-content" style="max-width:560px; background:#fff; margin:30px auto; padding:20px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.15); position:relative;">
+        <div class="modal-content" style="max-width:560px; background:#fff; margin:30px auto; padding:20px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.15); position:relative; font-family:sans-serif;">
             <span class="close" onclick="tancarCalculadoraTractament()" style="position:absolute; right:15px; top:10px; font-size:24px; cursor:pointer; color:#999;">&times;</span>
             <h2 style="font-size:20px; margin-bottom:5px; color:#1b5e20;">🧮 Calculadora de Cubes i Varietats</h2>
             <p style="color:#666; margin-bottom:12px; font-size:14px;">
                 <strong>Producte:</strong> ${producteNom}
             </p>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-bottom:14px; background:#eee; padding:4px; border-radius:6px;">
+                <button id="btn-mode-standard" onclick="canviarModeCalculadora(false, '${unitatDefecte}')" style="padding:8px; border:none; border-radius:4px; font-weight:bold; cursor:pointer; background:#fff; color:#333;">📋 Dosi Etiqueta</button>
+                <button id="btn-mode-camp" onclick="canviarModeCalculadora(true, '${unitatDefecte}')" style="padding:8px; border:none; border-radius:4px; font-weight:bold; cursor:pointer; background:transparent; color:#666;">🚜 Des de Camp (Botes)</button>
+            </div>
 
             <div style="background:#e3f2fd; padding:12px; border-radius:8px; margin-bottom:14px; border-left:4px solid #1e88e5;">
                 <strong style="font-size:13px; display:block; margin-bottom:6px; color:#0d47a1;">📐 Superfície del Tractament:</strong>
@@ -96,7 +124,7 @@ function obrirCalculadoraTractament(config) {
                 </div>
             </div>
 
-            <div style="background:#f5f5f5; padding:14px; border-radius:8px; margin-bottom:14px;">
+            <div id="wrapper-inputs-standard" style="background:#f5f5f5; padding:14px; border-radius:8px; margin-bottom:14px;">
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
                     <div class="form-group" style="margin:0;">
                         <label style="display:block; font-size:12px; font-weight:bold; margin-bottom:4px;">Mètode tractament</label>
@@ -117,7 +145,7 @@ function obrirCalculadoraTractament(config) {
                         <input type="number" id="calc-gasto" value="800" step="50" style="padding:10px; width:100%; border:1px solid #ddd; border-radius:4px; font-size:15px;">
                     </div>
                     <div class="form-group" style="margin:0;">
-                        <label style="display:block; font-size:12px; font-weight:bold; margin-bottom:4px;">Unitat i Tipus de Dosi</label>
+                        <label style="display:block; font-size:12px; font-weight:bold; margin-bottom:4px;">Tipus de Dosi</label>
                         <select id="calc-tipus-dosi" onchange="calcCanviTipusDosi('${unitatDefecte}')" style="padding:10px; width:100%; border:1px solid #ddd; border-radius:4px; font-size:15px; background:#fff;">
                             <option value="per_ha">Per Hectàrea (${unitatDefecte}/ha)</option>
                             <option value="percentatge">Percentatge (%)</option>
@@ -130,34 +158,74 @@ function obrirCalculadoraTractament(config) {
                 </div>
             </div>
 
-            <button class="btn btn-primary" style="width:100%; margin-bottom:12px; padding:12px; font-weight:bold; font-size:15px; cursor:pointer;" onclick="calcExecutarRutaDinamic('${unitatDefecte}')">
-                Calcular Recepta de Cubes
+            <div id="wrapper-inputs-camp" style="background:#fff3e0; padding:14px; border-radius:8px; margin-bottom:14px; border-left:4px solid #ff9800; display:none;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                    <div class="form-group" style="margin:0;">
+                        <label style="display:block; font-size:12px; font-weight:bold; margin-bottom:4px;">Litres bota (Capacitat)</label>
+                        <input type="number" id="calc-camp-cuba" value="2000" step="500" style="padding:10px; width:100%; border:1px solid #ddd; border-radius:4px; font-size:15px;">
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label style="display:block; font-size:12px; font-weight:bold; margin-bottom:4px;">Nº de botes aplicades</label>
+                        <input type="number" id="calc-camp-botes" value="3" min="1" style="padding:10px; width:100%; border:1px solid #ddd; border-radius:4px; font-size:15px;">
+                    </div>
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label style="display:block; font-size:12px; font-weight:bold; margin-bottom:4px;">Producte per cada bota (${unitatDefecte})</label>
+                    <input type="number" id="calc-camp-prod-bota" value="1.0" step="0.1" min="0" style="padding:10px; width:100%; border:1px solid #ddd; border-radius:4px; font-size:15px;">
+                </div>
+            </div>
+
+            <button class="btn btn-primary" style="width:100%; margin-bottom:12px; padding:12px; font-weight:bold; font-size:15px; cursor:pointer; background:#1b5e20; color:white; border:none; border-radius:4px;" onclick="calcExecutarRutaDinamic('${unitatDefecte}')">
+                Calcular i Processar Dades
             </button>
 
             <div id="calc-resultats" style="display:none;">
                 <div style="background:#e8f5e9; padding:12px; border-radius:8px; margin-bottom:12px;">
-                    <div style="margin-bottom:6px; font-size:15px;">💧 Aigua total: <strong id="calc-res-aigua">0</strong> L</div>
-                    <div style="margin-bottom:6px; font-size:15px;">🧪 Producte total: <strong id="calc-res-producte">0</strong> <span>${unitatDefecte}</span></div>
+                    <div style="margin-bottom:6px; font-size:15px;">💧 Aigua total tirada: <strong id="calc-res-aigua">0</strong> L</div>
+                    <div style="margin-bottom:6px; font-size:15px;">🧪 Producte total gastat: <strong id="calc-res-producte">0</strong> <span>${unitatDefecte}</span></div>
                     <div style="background:#fff; border-left:4px solid #e65100; padding:10px; border-radius:4px; margin-top:8px;">
-                        💡 <strong>Dosi unificada per a l'App:</strong>
+                        💡 <strong>Dosi real a desar a SAÓ 365:</strong>
                         <span id="calc-res-dosi" style="font-size:18px; font-weight:bold; color:#e65100; display:block; margin-top:4px;">0 ${unitatDefecte}/ha</span>
                     </div>
                 </div>
                 <div id="calc-cubes" style="margin-bottom:14px;"></div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                     <button class="btn btn-secondary" style="padding:10px; cursor:pointer;" onclick="tancarCalculadoraTractament()">Cancel·lar</button>
-                    <button class="btn btn-primary" style="padding:10px; font-weight:bold; cursor:pointer;" onclick="calcConfirmar()">✅ Usar aquesta dosi unificada</button>
+                    <button class="btn btn-primary" style="padding:10px; font-weight:bold; cursor:pointer; background:#1b5e20; color:white; border:none; border-radius:4px;" onclick="calcConfirmar()">✅ Enviar dosi traduïda a l'app</button>
                 </div>
             </div>
         </div>
     </div>`;
 
     document.body.insertAdjacentHTML('beforeend', html);
-    calcCanviTipusDosi(unitatDefecte);
+    window._calcModeCamp = false; // Per defecte obre en estàndard
     window._calcOnConfirm = onConfirm;
 }
 
-// 3. NOVES FUNCIONS AUXILIARS (S'afegeixen al final)
+// Canviar visualment de pestanya/mode
+function canviarModeCalculadora(isCamp, unitatDefecte) {
+    window._calcModeCamp = isCamp;
+    const btnStandard = document.getElementById('btn-mode-standard');
+    const btnCamp = document.getElementById('btn-mode-camp');
+    const wrapStandard = document.getElementById('wrapper-inputs-standard');
+    const wrapCamp = document.getElementById('wrapper-inputs-camp');
+    const resDiv = document.getElementById('calc-resultats');
+
+    resDiv.style.display = 'none'; // Amagar resultats vells
+
+    if (isCamp) {
+        btnStandard.style.background = 'transparent'; btnStandard.style.color = '#666';
+        btnCamp.style.background = '#fff'; btnCamp.style.color = '#333';
+        wrapStandard.style.display = 'none';
+        wrapCamp.style.display = 'block';
+    } else {
+        btnStandard.style.background = '#fff'; btnStandard.style.color = '#333';
+        btnCamp.style.background = 'transparent'; btnCamp.style.color = '#666';
+        wrapStandard.style.display = 'block';
+        wrapCamp.style.display = 'none';
+    }
+}
+
 function recalcularSuperficieTotal() {
     const base = parseFloat(document.getElementById('calc-sup-base').value) || 0;
     const varietat = parseFloat(document.getElementById('calc-sup-varietat').value) || 0;
@@ -167,10 +235,68 @@ function recalcularSuperficieTotal() {
 function calcExecutarRutaDinamic(unitatDefecte) {
     const base = parseFloat(document.getElementById('calc-sup-base').value) || 0;
     const varietat = parseFloat(document.getElementById('calc-sup-varietat').value) || 0;
-    calcExecutar(base + varietat, unitatDefecte);
+    const superficieTotal = base + varietat;
+
+    if (!superficieTotal || superficieTotal <= 0) {
+        alert('Superfície no vàlida.');
+        return;
+    }
+
+    let resultats;
+
+    if (window._calcModeCamp) {
+        // LLEGIR DADES DEL NOU MODE CAMP
+        const capacitatCuba = parseFloat(document.getElementById('calc-camp-cuba').value) || 2000;
+        const numBotes = parseFloat(document.getElementById('calc-camp-botes').value) || 1;
+        const productePerBota = parseFloat(document.getElementById('calc-camp-prod-bota').value) || 0;
+
+        resultats = calcularLlogicaTractament({
+            superficie: superficieTotal,
+            capacitatCuba: capacitatCuba,
+            modeCamp: true,
+            numBotes: numBotes,
+            productePerBota: productePerBota
+        });
+    } else {
+        // RECOLLIR DADES DEL MODE ESTÀNDARD
+        const metode = document.getElementById('calc-metode').value;
+        const capacitatCuba = parseFloat(document.getElementById('calc-cuba').value);
+        const gastoCaldoHa = parseFloat(document.getElementById('calc-gasto').value) || 800;
+        const tipusDosi = document.getElementById('calc-tipus-dosi').value;
+        const valorDosi = parseFloat(document.getElementById('calc-valor-dosi').value);
+
+        resultats = calcularLlogicaTractament({
+            superficie: superficieTotal,
+            capacitatCuba: capacitatCuba,
+            metode: metode,
+            gastoCaldoHa: gastoCaldoHa,
+            producte: { tipus_dosi: tipusDosi, valor: valorDosi },
+            modeCamp: false
+        });
+    }
+
+    // PINTAR CODI DE RESULTATS
+    document.getElementById('calc-res-aigua').textContent = resultats.aigua_total_finca;
+    document.getElementById('calc-res-producte').textContent = resultats.producte_total_finca + ' ' + unitatDefecte;
+    document.getElementById('calc-res-dosi').textContent = resultats.dosi_per_a_app_produccio + ' ' + unitatDefecte + '/ha';
+
+    window._calcDosiResultat = resultats.dosi_per_a_app_produccio;
+    window._calcUnitatResultat = `${unitatDefecte}/Ha`;
+
+    const cubesDiv = document.getElementById('calc-cubes');
+    cubesDiv.innerHTML = '<strong style="display:block; margin-bottom:8px; font-size:14px; color:#333;">Resum de cubades executades:</strong>';
+    
+    resultats.desglos_cubades.forEach(function(cuba, i) {
+        cubesDiv.innerHTML += `
+            <div style="border-left:4px solid #ff9800; background:#f9f9f9; padding:10px; border-radius:4px; margin-bottom:6px; font-size:14px;">
+                <strong>BOTA ${i + 1}</strong>: 💧 ${cuba.litres_aigua} L d'aigua + 🧪 <strong>${cuba.producte_a_afegir} ${unitatDefecte}</strong> de producte
+            </div>`;
+    });
+
+    document.getElementById('calc-resultats').style.display = 'block';
 }
 
-// 4. FUNCIONS MANTINGUDES (Amb petits ajustos interns de control de text)
+// (La resta de funcions es mantenen per compatibilitat amb el mode estàndard)
 function calcCanviMetode() {
     const metode = document.getElementById('calc-metode').value;
     const groupGasto = document.getElementById('calc-group-gasto');
@@ -196,6 +322,7 @@ function calcCanviTipusDosi(unitat = 'L') {
     const tipus = document.getElementById('calc-tipus-dosi').value;
     const label = document.getElementById('calc-label-dosi');
     const input = document.getElementById('calc-valor-dosi');
+    if (!label) return;
 
     if (tipus === 'percentatge') {
         label.textContent = 'Percentatge (% a la cuba):';
@@ -206,51 +333,6 @@ function calcCanviTipusDosi(unitat = 'L') {
         if (input.value === '0.15') input.value = '2.5';
         input.step = '0.1';
     }
-}
-
-function calcExecutar(superficie, unitatDefecte = 'L') {
-    const metode = document.getElementById('calc-metode').value;
-    const capacitatCuba = parseFloat(document.getElementById('calc-cuba').value);
-    const gastoCaldoHa = parseFloat(document.getElementById('calc-gasto').value) || 800;
-    const tipusDosi = document.getElementById('calc-tipus-dosi').value;
-    const valorDosi = parseFloat(document.getElementById('calc-valor-dosi').value);
-
-    if (!superficie || superficie <= 0) {
-        alert('Superfície no vàlida.');
-        return;
-    }
-
-    const resultats = calcularLlogicaTractament({
-        superficie,
-        capacitatCuba,
-        metode,
-        gastoCaldoHa,
-        producte: { tipus_dosi: tipusDosi, valor: valorDosi }
-    });
-
-    document.getElementById('calc-res-aigua').textContent = resultats.aigua_total_finca;
-    document.getElementById('calc-res-producte').textContent = resultats.producte_total_finca + ' ' + (tipusDosi === 'percentatge' ? 'L o Kg' : unitatDefecte);
-
-    const unitatText = tipusDosi === 'percentatge' ? 'L o Kg/ha (conversió)' : (unitatDefecte + '/ha');
-    document.getElementById('calc-res-dosi').textContent = resultats.dosi_per_a_app_produccio + ' ' + unitatText;
-
-    window._calcDosiResultat = resultats.dosi_per_a_app_produccio;
-    window._calcUnitatResultat = `${unitatDefecte}/Ha`;
-
-    const cubesDiv = document.getElementById('calc-cubes');
-    cubesDiv.innerHTML = '<strong style="display:block; margin-bottom:8px; font-size:14px; color:#333;">Distribució de barreges per bota:</strong>';
-    
-    resultats.desglos_cubades.forEach(function(cuba, i) {
-        const color = cuba.tipus === 'Plena' ? '#2e7d32' : '#e65100';
-        cubesDiv.innerHTML += `
-            <div style="border-left:4px solid ${color}; background:#f9f9f9; padding:10px; border-radius:4px; margin-bottom:6px; font-size:14px;">
-                <strong>BOTA ${i + 1} (${cuba.tipus})</strong><br>
-                💧 Aigua: <strong>${cuba.litres_aigua} L</strong> &nbsp;&nbsp;|&nbsp;&nbsp;
-                🧪 Afegir: <strong style="color:${color};">${cuba.producte_a_afegir} ${unitatDefecte}</strong>
-            </div>`;
-    });
-
-    document.getElementById('calc-resultats').style.display = 'block';
 }
 
 function calcConfirmar() {
