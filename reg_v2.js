@@ -642,4 +642,135 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+/**
+ * Proveïdor d'agenda per a Reg: dades pendents + desviació de consum.
+ * Temporada de reg: març(3) a octubre(10).
+ */
+async function agendaProvider_reg(dataInici, dataFi) {
+    const esdeveniments = [];
+    const avui = new Date();
+    const anyActual = avui.getFullYear();
+    const diaActual = avui.getDate();
+    const mesActual = avui.getMonth() + 1;
+
+    function formatDataISO(any, mes, dia) {
+        return any + '-' + String(mes).padStart(2, '0') + '-' + String(dia).padStart(2, '0');
+    }
+
+    function ferClickReg(numExplotacio, mes, any) {
+        return function() {
+            canviarVista('reg');
+            setTimeout(function() {
+                const selExp = document.getElementById('reg-filtre-explotacio');
+                const selMes = document.getElementById('reg-filtre-mes');
+                const selAny = document.getElementById('reg-filtre-any');
+                if (selExp) selExp.value = numExplotacio;
+                if (selMes) selMes.value = String(mes).padStart(2, '0');
+                if (selAny) selAny.value = any;
+                if (typeof carregarTaulaReg === 'function') carregarTaulaReg();
+            }, 150);
+        };
+    }
+
+    const { data: explotacions, error: errExp } = await supabaseClient
+        .from('reg_configuracio')
+        .select('num_explotacio, nom_finca')
+        .eq('actiu', true);
+    if (errExp || !explotacions) return esdeveniments;
+
+    const { data: consums, error: errCons } = await supabaseClient
+        .from('reg')
+        .select('num_explotacio, data, consum_m3')
+        .gte('data', (anyActual - 1) + '-01-01')
+        .lte('data', anyActual + '-12-31');
+    if (errCons || !consums) return esdeveniments;
+
+    // --- 1) "Dades pendents" (dia >= 25, mes en curs, dins temporada) ---
+    if (diaActual >= 25 && mesActual >= 3 && mesActual <= 10) {
+        const dataEventStr = formatDataISO(anyActual, mesActual, 25);
+        if (dataDinsRangDate(new Date(anyActual, mesActual - 1, 25), dataInici, dataFi)) {
+            explotacions.forEach(function(exp) {
+                const diesAmbDades = new Set(
+                    consums
+                        .filter(function(c) {
+                            const d = new Date(c.data);
+                            return c.num_explotacio === exp.num_explotacio
+                                && d.getFullYear() === anyActual
+                                && d.getMonth() + 1 === mesActual
+                                && d.getDate() <= 25
+                                && c.consum_m3 !== null;
+                        })
+                        .map(function(c) { return c.data; })
+                ).size;
+
+                if (diesAmbDades < 10) {
+                    esdeveniments.push({
+                        data: dataEventStr,
+                        tipus: 'reg_dades_pendents',
+                        titol: 'Reg: dades pendents — ' + exp.nom_finca,
+                        detall: 'Només ' + diesAmbDades + ' de 25 dies informats al mes',
+                        estat: 'avis',
+                        modulOrigen: 'reg',
+                        idOrigen: exp.num_explotacio + '-' + dataEventStr,
+                        accioClick: ferClickReg(exp.num_explotacio, mesActual, anyActual)
+                    });
+                }
+            });
+        }
+    }
+
+    // --- 2) "Desviació de consum" (dia >= 5, mes anterior tancat, dins temporada) ---
+    let mesTancat = mesActual - 1;
+    let anyMesTancat = anyActual;
+    if (mesTancat === 0) { mesTancat = 12; anyMesTancat = anyActual - 1; }
+
+    if (diaActual >= 5 && mesTancat >= 3 && mesTancat <= 10) {
+        const dataEventStr = formatDataISO(anyActual, mesActual, 5);
+        if (dataDinsRangDate(new Date(anyActual, mesActual - 1, 5), dataInici, dataFi)) {
+            explotacions.forEach(function(exp) {
+                const consumActual = consums
+                    .filter(function(c) {
+                        const d = new Date(c.data);
+                        return c.num_explotacio === exp.num_explotacio
+                            && d.getFullYear() === anyMesTancat
+                            && d.getMonth() + 1 === mesTancat
+                            && c.consum_m3 !== null;
+                    })
+                    .reduce(function(s, c) { return s + Number(c.consum_m3); }, 0);
+
+                const consumAnterior = consums
+                    .filter(function(c) {
+                        const d = new Date(c.data);
+                        return c.num_explotacio === exp.num_explotacio
+                            && d.getFullYear() === anyMesTancat - 1
+                            && d.getMonth() + 1 === mesTancat
+                            && c.consum_m3 !== null;
+                    })
+                    .reduce(function(s, c) { return s + Number(c.consum_m3); }, 0);
+
+                if (consumAnterior > 0) {
+                    const desviacio = (consumActual - consumAnterior) / consumAnterior * 100;
+                    if (Math.abs(desviacio) > 20) {
+                        esdeveniments.push({
+                            data: dataEventStr,
+                            tipus: 'reg_desviacio_consum',
+                            titol: 'Reg: desviació de consum — ' + exp.nom_finca,
+                            detall: 'Consum ' + mesTancat + '/' + anyMesTancat + ': '
+                                + (desviacio > 0 ? '+' : '') + desviacio.toFixed(1) + '% vs any anterior',
+                            estat: 'avis',
+                            modulOrigen: 'reg',
+                            idOrigen: exp.num_explotacio + '-' + dataEventStr,
+                            accioClick: ferClickReg(exp.num_explotacio, mesTancat, anyMesTancat)
+                        });
+                    }
+                }
+            });
+        }
+    }
+
+    return esdeveniments;
+}
+
+registrarProveidorAgenda(agendaProvider_reg);
+
 console.log('✅ Reg v2 carregat');
