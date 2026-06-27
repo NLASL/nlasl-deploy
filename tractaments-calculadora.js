@@ -231,4 +231,39 @@ function calcExecutar(superficie, unitatDefecte = 'L') {
     document.getElementById('calc-res-aigua').textContent = resultats.aigua_total_finca;
     document.getElementById('calc-res-producte').textContent = resultats.producte_total_finca + ' ' + (tipusDosi === 'percentatge' ? 'L o Kg' : unitatDefecte);
 
-    const unitatText = tipusDosi === 'percentatge
+    const unitatText = tipusDosi === 'percentatge' ? 'L o Kg/ha (conversió)' : (unitatDefecte + '/ha');
+    document.getElementById('calc-res-dosi').textContent = resultats.dosi_per_a_app_produccio + ' ' + unitatText;
+
+    window._calcDosiResultat = resultats.dosi_per_a_app_produccio;
+    window._calcUnitatResultat = `${unitatDefecte}/Ha`;
+
+    const cubesDiv = document.getElementById('calc-cubes');
+    cubesDiv.innerHTML = '<strong style="display:block; margin-bottom:8px; font-size:14px; color:#333;">Distribució de barreges per bota:</strong>';
+    
+    resultats.desglos_cubades.forEach(function(cuba, i) {
+        const color = cuba.tipus === 'Plena' ? '#2e7d32' : '#e65100';
+        cubesDiv.innerHTML += `
+            <div style="border-left:4px solid ${color}; background:#f9f9f9; padding:10px; border-radius:4px; margin-bottom:6px; font-size:14px;">
+                <strong>BOTA ${i + 1} (${cuba.tipus})</strong><br>
+                💧 Aigua: <strong>${cuba.litres_aigua} L</strong> &nbsp;&nbsp;|&nbsp;&nbsp;
+                🧪 Afegir: <strong style="color:${color};">${cuba.producte_a_afegir} ${unitatDefecte}</strong>
+            </div>`;
+    });
+
+    document.getElementById('calc-resultats').style.display = 'block';
+}
+
+function calcConfirmar() {
+    if (window._calcOnConfirm && window._calcDosiResultat !== undefined) {
+        window._calcOnConfirm(window._calcDosiResultat, window._calcUnitatResultat);
+    }
+    tancarCalculadoraTractament();
+}
+
+function tancarCalculadoraTractament() {
+    const modal = document.getElementById('modal-calculadora-tractament');
+    if (modal) modal.remove();
+    window._calcOnConfirm = null;
+    window._calcDosiResultat = undefined;
+    window._calcUnitatResultat = undefined;
+}
