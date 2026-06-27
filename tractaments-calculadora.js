@@ -239,3 +239,16 @@ function tancarCalculadoraTractament() {
     window._calcDosiResultat = undefined;
     window._calcUnitatResultat = undefined;
 }
+
+async function getCultiusTractables() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('cultius_tractables')
+            .select('cultiu');
+        if (error) throw error;
+        return (data || []).map(function(r) { return r.cultiu.toUpperCase(); });
+    } catch (error) {
+        console.warn('⚠️ No s\'han pogut carregar cultius tractables:', error.message);
+        return [];
+    }
+}
