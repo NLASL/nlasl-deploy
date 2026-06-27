@@ -262,7 +262,7 @@ function afegirLiniaProducte(dades) {
                         style="flex:1; padding:8px; border:1px solid #ddd; border-radius:4px;"
                         onchange="actualitzarDataLimitEfectiva()">
                     <button type="button" title="Calculadora" style="background:#fff; border:1px solid #ddd; border-radius:4px; padding:6px 8px; cursor:pointer; font-size:14px;"
-                        onclick="obrirCalculadoraPerLinia(this, ${superficie})">🧮</button>
+                        onclick="obrirCalculadoraPerLinia(this)">🧮</button>
                 </div>
             </div>
             <div>
@@ -319,7 +319,8 @@ function actualitzarDataLimitEfectiva() {
     }
 }
 
-function obrirCalculadoraPerLinia(btn, superficie) {
+function obrirCalculadoraPerLinia(btn) {
+    const superficie = parseFloat(document.getElementById('superficie-total').textContent) || 0;
     const linia = btn.closest('.linia-producte');
     const producteId = linia.querySelector('.lp-producte').value;
     const producte = (fitosanitaris || []).find(function(f) { return f.id === producteId; });
@@ -644,4 +645,95 @@ async function exportarDANCSV() {
     a.click();
     URL.revokeObjectURL(url);
     mostrarNotificacio('✅ DAN exportada correctament', 'success');
+}
+
+// ============================================================
+// FUNCIONS DE SELECCIÓ DE PARCEL·LES I SUPERFÍCIE
+// ============================================================
+
+function canviarTipusSeleccio() {
+    const tipus = document.querySelector('input[name="seleccio-tipus"]:checked').value;
+    const divFinca = document.getElementById('seleccio-finca');
+    const divVarietat = document.getElementById('seleccio-varietat');
+
+    if (divFinca) divFinca.style.display = tipus === 'finca' ? 'block' : 'none';
+    if (divVarietat) divVarietat.style.display = tipus === 'varietat' ? 'block' : 'none';
+
+    // Actualitzar estil dels radio buttons
+    document.querySelectorAll('input[name="seleccio-tipus"]').forEach(function(radio) {
+        const label = radio.parentElement;
+        if (radio.checked) {
+            label.style.background = '#e8f5e9';
+            label.style.borderColor = '#4CAF50';
+        } else {
+            label.style.background = 'white';
+            label.style.borderColor = '#ddd';
+        }
+    });
+
+    actualitzarParcellesSeleccionades();
+}
+
+function actualitzarVarietatsDisponibles() {
+    const finca = document.getElementById('tractament-finca-varietat').value;
+    const selectVarietat = document.getElementById('tractament-varietat');
+
+    if (!finca) {
+        selectVarietat.innerHTML = '<option value="">Seleccionar...</option>';
+        return;
+    }
+
+    const parcellesFinca = (parcelles || []).filter(function(p) { return p.finca === finca; });
+    const varietatsMap = {};
+    parcellesFinca.forEach(function(p) {
+        if (p.varietat) varietatsMap[p.varietat] = true;
+    });
+
+    selectVarietat.innerHTML = '<option value="">Seleccionar...</option>';
+    Object.keys(varietatsMap).sort().forEach(function(v) {
+        selectVarietat.innerHTML += '<option value="' + v + '">' + v + '</option>';
+    });
+}
+
+function actualitzarParcellesSeleccionades() {
+    const tipus = document.querySelector('input[name="seleccio-tipus"]:checked');
+    if (!tipus) return;
+
+    let parcellesSeleccionades = [];
+
+    if (tipus.value === 'finca') {
+        const checks = document.querySelectorAll('#tractament-finques-checks input[type="checkbox"]:checked');
+        const finquesSeleccionades = Array.from(checks).map(function(c) { return c.value; });
+        parcellesSeleccionades = (parcelles || []).filter(function(p) {
+            return finquesSeleccionades.includes(p.finca) && esParcellaApta(p);
+        });
+    } else if (tipus.value === 'varietat') {
+        const finca = document.getElementById('tractament-finca-varietat').value;
+        const varietat = document.getElementById('tractament-varietat').value;
+        if (finca && varietat) {
+            parcellesSeleccionades = (parcelles || []).filter(function(p) {
+                return p.finca === finca && p.varietat === varietat && esParcellaApta(p);
+            });
+        }
+    }
+
+    const superficie = parcellesSeleccionades.reduce(function(sum, p) {
+        return sum + (parseFloat(p.superficie) || 0);
+    }, 0);
+
+    const spanSup = document.getElementById('superficie-total');
+    if (spanSup) spanSup.textContent = superficie.toFixed(2);
+
+
+}
+
+function esParcellaApta(p) {
+    if (!p.cultiu) return false;
+    const c = p.cultiu.trim().toUpperCase();
+    const cultiusAptes = [
+        'PRÉSSEC', 'PRESSEC', 'PRÉSSEC PLA', 'PRESSEC PLA',
+        'NECTARINA', 'ALBERCOC', 'PESOL', 'PÈSOL',
+        'BLAT', 'BLAT TOU', 'ORDI', 'CIVADA', 'TRITICALE'
+    ];
+    return cultiusAptes.includes(c);
 }
