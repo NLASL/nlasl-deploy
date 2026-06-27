@@ -653,6 +653,9 @@ async function agendaProvider_reg(dataInici, dataFi) {
     const diaActual = avui.getDate();
     const mesActual = avui.getMonth() + 1;
 
+    const dataIniciObj = new Date(dataInici);
+    const dataFiObj = new Date(dataFi);
+
     function formatDataISO(any, mes, dia) {
         return any + '-' + String(mes).padStart(2, '0') + '-' + String(dia).padStart(2, '0');
     }
@@ -688,7 +691,7 @@ async function agendaProvider_reg(dataInici, dataFi) {
     // --- 1) "Dades pendents" (dia >= 25, mes en curs, dins temporada) ---
     if (diaActual >= 25 && mesActual >= 3 && mesActual <= 10) {
         const dataEventStr = formatDataISO(anyActual, mesActual, 25);
-        if (dataDinsRangDate(new Date(anyActual, mesActual - 1, 25), dataInici, dataFi)) {
+        if (dataDinsRangDate(new Date(anyActual, mesActual - 1, 25), dataIniciObj, dataFiObj)) {
             explotacions.forEach(function(exp) {
                 const diesAmbDades = new Set(
                     consums
@@ -726,7 +729,7 @@ async function agendaProvider_reg(dataInici, dataFi) {
 
     if (diaActual >= 5 && mesTancat >= 3 && mesTancat <= 10) {
         const dataEventStr = formatDataISO(anyActual, mesActual, 5);
-        if (dataDinsRangDate(new Date(anyActual, mesActual - 1, 5), dataInici, dataFi)) {
+        if (dataDinsRangDate(new Date(anyActual, mesActual - 1, 5), dataIniciObj, dataFiObj)) {
             explotacions.forEach(function(exp) {
                 const consumActual = consums
                     .filter(function(c) {
