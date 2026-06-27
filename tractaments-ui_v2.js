@@ -398,10 +398,16 @@ async function veureTractamentGrupV2(grupTractament) {
 
     let htmlProductes = '';
     if (productes.length) {
-        htmlProductes = '<table class="data-table" style="margin-top:8px;"><thead><tr><th>Producte</th><th>Dosi</th><th>Unitat</th><th>Data Límit</th></tr></thead><tbody>';
+        htmlProductes = '<table class="data-table" style="margin-top:8px;"><thead><tr><th>Producte</th><th>Dosi</th><th>Unitat</th><th>Qtitat Total</th><th>Data Límit</th><th></th></tr></thead><tbody>';
         productes.forEach(function(p) {
             const nom = p.fitosanitaris ? p.fitosanitaris.nom : '—';
-            htmlProductes += '<tr><td>' + nom + '</td><td>' + p.dosi + '</td><td>' + p.unitat + '</td><td>' + (p.data_limit ? formatData(p.data_limit) : '—') + '</td></tr>';
+            const producteId = p.producte_id || '';
+            const quantitatTotal = (parseFloat(p.dosi) || 0) * superficieTotal;
+            const unitatBase = (p.unitat || '').split('/')[0];
+            const botoFitxa = producteId
+                ? '<button class="btn btn-sm" style="background:#e8f5e9;border:1px solid #c8e6c9;color:#2e7d32;padding:3px 8px;font-size:12px;" onclick="veureFitxaFitosanitari(\'' + producteId + '\')">📋 Fitxa</button>'
+                : '';
+            htmlProductes += '<tr><td><strong>' + nom + '</strong></td><td>' + p.dosi + '</td><td>' + p.unitat + '</td><td><strong>' + quantitatTotal.toFixed(2) + ' ' + unitatBase + '</strong></td><td>' + (p.data_limit ? formatData(p.data_limit) : '—') + '</td><td>' + botoFitxa + '</td></tr>';
         });
         htmlProductes += '</tbody></table>';
     } else {
