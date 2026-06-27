@@ -239,9 +239,13 @@ function afegirLiniaProducte(dades) {
         <div style="display:grid; grid-template-columns:2fr 1fr 1fr 1fr auto; gap:8px; align-items:end;">
             <div>
                 <label style="font-size:12px; color:#666; display:block; margin-bottom:4px;">Producte *</label>
-                <select class="lp-producte" onchange="actualitzarDataLimitLinia(this)" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                    ${optionsHtml}
-                </select>
+                <div style="display:flex; gap:4px;">
+                    <select class="lp-producte" onchange="actualitzarDataLimitLinia(this)" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                        ${optionsHtml}
+                    </select>
+                    <button type="button" title="Veure fitxa del producte" style="background:#e8f5e9; border:1px solid #c8e6c9; border-radius:4px; padding:6px 8px; cursor:pointer; font-size:14px; white-space:nowrap;"
+                        onclick="veureFitxaFitosanitariPerSelect(this)">📋</button>
+                </div>
             </div>
             <div>
                 <label style="font-size:12px; color:#666; display:block; margin-bottom:4px;">Dosi *</label>
@@ -796,4 +800,14 @@ function veureFitxaFitosanitari(producteId) {
     </div>`;
 
     document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function veureFitxaFitosanitariPerSelect(btn) {
+    const linia = btn.closest('.linia-producte');
+    const producteId = linia.querySelector('.lp-producte').value;
+    if (!producteId) {
+        mostrarNotificacio('Selecciona primer un producte', 'error');
+        return;
+    }
+    veureFitxaFitosanitari(producteId);
 }
