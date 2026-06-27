@@ -698,10 +698,15 @@ function construirSelectorFinques(finquesPreseleccionades, varietatsPreseleccion
         return campanyaP === anyFinca;
     });
 
-    // Agrupar per finca → varietat
+    // Agrupar per finca → varietat (excloure parcel·les sense finca assignada)
     const arbre = {};
+    let countSenseFinca = 0;
     parcellesFiltrades.forEach(function(p) {
-        const finca = p.finca || 'Sense finca';
+        if (!p.finca || !p.finca.trim()) {
+            countSenseFinca++;
+            return;
+        }
+        const finca = p.finca.trim();
         const varietat = p.varietat || 'Sense varietat';
         if (!arbre[finca]) arbre[finca] = {};
         if (!arbre[finca][varietat]) arbre[finca][varietat] = { hectarees: 0, count: 0 };
@@ -757,6 +762,9 @@ function construirSelectorFinques(finquesPreseleccionades, varietatsPreseleccion
         html += '</div></div>';
     });
 
+    if (countSenseFinca > 0) {
+        html += '<p style="color:#aaa; font-size:12px; margin-top:6px; padding:4px 8px;">⚠️ ' + countSenseFinca + ' parcel·la/es sense finca assignada — no es mostren fins que s\'assignin a Supabase</p>';
+    }
     container.innerHTML = html || '<p style="color:#999;">' + missatgeBuit + '</p>';
     actualitzarParcellesSeleccionades();
 }
