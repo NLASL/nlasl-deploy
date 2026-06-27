@@ -652,7 +652,7 @@ function construirSelectorFinques(finquesPreseleccionades, varietatsPreseleccion
         html += '<div style="margin-bottom:8px; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden;">';
         html += '<div style="background:#e8f5e9; padding:8px 12px; display:flex; align-items:center; gap:10px;">';
         html += '<input type="checkbox" id="' + fincaId + '"' + (fincaMarcada ? ' checked' : '') + ' ';
-        html += 'onchange="toggleFinca('' + finca.replace(/'/g, "\'") + '', this.checked)" ';
+        html += 'onchange="toggleFinca(this)" ';
         html += 'style="width:18px; height:18px; cursor:pointer;">';
         html += '<label for="' + fincaId + '" style="font-weight:600; cursor:pointer; flex:1; margin:0;">🏡 ' + finca + '</label>';
         html += '<span style="font-size:12px; color:#555;">' + haFinca.toFixed(2) + ' Ha</span>';
@@ -667,7 +667,7 @@ function construirSelectorFinques(finquesPreseleccionades, varietatsPreseleccion
             html += '<div style="display:flex; align-items:center; gap:8px; padding:3px 0;">';
             html += '<input type="checkbox" id="' + varId + '"' + (varMarcada ? ' checked' : '') + ' ';
             html += 'data-finca="' + finca.replace(/"/g, '&quot;') + '" data-varietat="' + varietat.replace(/"/g, '&quot;') + '" ';
-            html += 'onchange="actualitzarCheckFinca('' + finca.replace(/'/g, "\'") + '')" class="check-varietat" ';
+            html += 'onchange="actualitzarCheckFinca(this)" class="check-varietat" ';
             html += 'style="width:16px; height:16px; cursor:pointer;">';
             html += '<label for="' + varId + '" style="cursor:pointer; margin:0; font-size:14px;">' + varietat + '</label>';
             html += '<span style="font-size:12px; color:#888; margin-left:auto;">' + info.hectarees.toFixed(2) + ' Ha · ' + info.count + ' parc.</span>';
@@ -680,17 +680,18 @@ function construirSelectorFinques(finquesPreseleccionades, varietatsPreseleccion
     actualitzarParcellesSeleccionades();
 }
 
-function toggleFinca(finca, marcat) {
+function toggleFinca(cbFinca) {
+    const finca = cbFinca.dataset.finca;
+    const marcat = cbFinca.checked;
     document.querySelectorAll('.check-varietat[data-finca="' + finca + '"]').forEach(function(cb) {
         cb.checked = marcat;
     });
-    const fincaId = 'finca-' + finca.replace(/[^a-zA-Z0-9]/g, '_');
-    const cbFinca = document.getElementById(fincaId);
-    if (cbFinca) cbFinca.indeterminate = false;
+    cbFinca.indeterminate = false;
     actualitzarParcellesSeleccionades();
 }
 
-function actualitzarCheckFinca(finca) {
+function actualitzarCheckFinca(cbVarietat) {
+    const finca = cbVarietat.dataset.finca;
     const totes = document.querySelectorAll('.check-varietat[data-finca="' + finca + '"]');
     const marcades = document.querySelectorAll('.check-varietat[data-finca="' + finca + '"]:checked');
     const fincaId = 'finca-' + finca.replace(/[^a-zA-Z0-9]/g, '_');
