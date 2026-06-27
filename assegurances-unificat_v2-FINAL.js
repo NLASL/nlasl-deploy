@@ -862,11 +862,27 @@ async function agendaProvider_assegurances(dataInici, dataFi) {
     const polissesPerId = {};
     polisses.forEach(function(p) { polissesPerId[p.id] = p; });
 
-    // --- 1) RENOVACIÓ: X dies abans de data_venciment ---
-    polisses.forEach(function(p) {
-        if (!p.data_venciment) return;
+    // El camp data_venciment de la pòlissa NO s'actualitza en renovar-se
+    // (es queda congelat amb el venciment original). La vigència real la
+    // marca el data_fi_cobertura de l'última quota. Calculem, per a cada
+    // pòlissa, quina és la data de "proper venciment real": la més tardana
+    // entre totes les seves quotes; si no en té cap encara, fem servir
+    // data_venciment com a fallback.
+    const ultimVencimentRealPerPolissa = {};
+    quotes.forEach(function(q) {
+        if (!q.data_fi_cobertura) return;
+        const actual = ultimVencimentRealPerPolissa[q.asseguranca_id];
+        if (!actual || q.data_fi_cobertura > actual) {
+            ultimVencimentRealPerPolissa[q.asseguranca_id] = q.data_fi_cobertura;
+        }
+    });
 
-        const dataVenciment = new Date(p.data_venciment);
+    // --- 1) RENOVACIÓ: X dies abans del venciment real (quota) o, si no n'hi ha, data_venciment de la pòlissa ---
+    polisses.forEach(function(p) {
+        const dataVencimentRealStr = ultimVencimentRealPerPolissa[p.id] || p.data_venciment;
+        if (!dataVencimentRealStr) return;
+
+        const dataVenciment = new Date(dataVencimentRealStr);
         const dataAvis = restarDiesAsseg(dataVenciment, ASSEG_DIES_AVIS_RENOVACIO);
 
         if (dataDinsRangDate(dataAvis, dataIniciObj, dataFiObj)) {
@@ -877,10 +893,10 @@ async function agendaProvider_assegurances(dataInici, dataFi) {
                 data: formatDataISOAsseg(dataAvis),
                 tipus: 'asseg_renovacio',
                 titol: 'Renovació a revisar — ' + nomCompanyia,
-                detall: etiquetaCategoria + ' · ' + (p.num_polissa || '') + ' · venç el ' + formatData(p.data_venciment),
+                detall: etiquetaCategoria + ' · ' + (p.num_polissa || '') + ' · venç el ' + formatData(dataVencimentRealStr),
                 estat: 'avis',
                 modulOrigen: 'assegurances',
-                idOrigen: p.id + '-renovacio',
+                idOrigen: p.id + '-renovacio-' + dataVencimentRealStr,
                 accioClick: ferClickAsseguranca(p.id, p.categoria)
             });
         }

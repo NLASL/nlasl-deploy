@@ -151,7 +151,17 @@ function crearModalTractamentV2() {
                 <!-- SELECCIÓ PARCEL·LES -->
                 <div class="form-group">
                     <label>Selecció Parcel·les *</label>
-                    <div id="tractament-finques-checks" style="margin-top:8px;"></div>
+                    <div style="display:flex; gap:8px; margin-top:8px; margin-bottom:8px;">
+                        <button type="button" id="btn-regadiu" onclick="canviarTipusReg('regadiu')"
+                            style="padding:6px 14px; border-radius:20px; border:2px solid #1565c0; background:#1565c0; color:#fff; font-size:13px; cursor:pointer; font-weight:600;">
+                            💧 Regadiu
+                        </button>
+                        <button type="button" id="btn-seca" onclick="canviarTipusReg('seca')"
+                            style="padding:6px 14px; border-radius:20px; border:2px solid #bbb; background:#fff; color:#555; font-size:13px; cursor:pointer;">
+                            🌾 Secà
+                        </button>
+                    </div>
+                    <div id="tractament-finques-checks" style="margin-top:4px;"></div>
                     <div style="background:#f5f5f5; padding:8px 12px; border-radius:6px; margin-top:8px; font-size:14px;">
                         Superfície total seleccionada: <strong><span id="superficie-total">0</span> Ha</strong>
                     </div>
@@ -322,8 +332,9 @@ async function obrirModalTractament() {
     const avui = new Date().toISOString().split('T')[0];
     document.getElementById('tractament-data').value = avui;
 
-    // Construir selector finca → varietat (regadiu)
-    construirSelectorFinques();
+    // Reset tipus reg a regadiu i construir selector (res marcat per defecte)
+    _tipusRegActual = 'regadiu';
+    construirSelectorFinques(null, null);
 
     // Inicialitzar línies de producte
     document.getElementById('linies-productes-container').innerHTML = '';
@@ -441,6 +452,14 @@ async function editarTractamentGrupV2(grupTractament) {
     const varietatsUsades = tractamentsGrup.map(function(t) {
         return { finca: t.parcelles ? t.parcelles.finca : null, varietat: t.parcelles ? t.parcelles.varietat : null };
     }).filter(function(v) { return v.finca && v.varietat; });
+
+    // Detectar tipus de reg de les parcel·les del tractament (la primera és suficient)
+    const primeraParcella = (parcelles || []).find(function(p) {
+        return tractamentsGrup[0].parcella_id === p.id;
+    });
+    _tipusRegActual = (primeraParcella && primeraParcella.regadiu === false) ? 'seca' : 'regadiu';
+    // Actualitzar estil botons toggle sense reconstruir el selector
+    actualitzarEstilToggleReg();
     construirSelectorFinques(finquesUsades, varietatsUsades);
 
     // Carregar productes
@@ -618,21 +637,70 @@ async function exportarDANCSV() {
 
 // ============================================================
 // FUNCIONS DE SELECCIÓ DE PARCEL·LES I SUPERFÍCIE
-// Selector en arbre: Finca → Varietats (només regadiu)
+// Selector en arbre: Finca → Varietats (regadiu o secà)
 // ============================================================
+
+// Estat global del tipus de reg seleccionat al modal
+var _tipusRegActual = 'regadiu';
+
+function actualitzarEstilToggleReg() {
+    const btnReg = document.getElementById('btn-regadiu');
+    const btnSeca = document.getElementById('btn-seca');
+    if (!btnReg || !btnSeca) return;
+    if (_tipusRegActual === 'regadiu') {
+        btnReg.style.cssText = 'padding:6px 14px; border-radius:20px; border:2px solid #1565c0; background:#1565c0; color:#fff; font-size:13px; cursor:pointer; font-weight:600;';
+        btnSeca.style.cssText = 'padding:6px 14px; border-radius:20px; border:2px solid #bbb; background:#fff; color:#555; font-size:13px; cursor:pointer;';
+    } else {
+        btnSeca.style.cssText = 'padding:6px 14px; border-radius:20px; border:2px solid #795548; background:#795548; color:#fff; font-size:13px; cursor:pointer; font-weight:600;';
+        btnReg.style.cssText = 'padding:6px 14px; border-radius:20px; border:2px solid #bbb; background:#fff; color:#555; font-size:13px; cursor:pointer;';
+    }
+}
+
+function canviarTipusReg(tipus) {
+    _tipusRegActual = tipus;
+    actualitzarEstilToggleReg();
+    // Reconstruir selector sense preselecció (nou tractament)
+    construirSelectorFinques(null, null);
+}
 
 function construirSelectorFinques(finquesPreseleccionades, varietatsPreseleccionades) {
     const container = document.getElementById('tractament-finques-checks');
     if (!container) return;
 
-    // Filtrar parcel·les de regadiu aptes
-    const parcellesRegadiu = (parcelles || []).filter(function(p) {
-        return p.regadiu === true && esParcellaApta(p);
+    const esRegadiu = _tipusRegActual === 'regadiu';
+
+    // Determinar campanya activa: el màxim any present a parcelles, per cada finca
+    // Si no hi ha parcel·les de l'any en curs, baixar a l'anterior
+    const anyActual = getCampanyaDefecte();
+
+    // Filtrar parcel·les pel tipus de reg i cultius aptes
+    const parcellesTipus = (parcelles || []).filter(function(p) {
+        return p.regadiu === esRegadiu && esParcellaApta(p);
+    });
+
+    // Per cada finca, trobar el màxim any de campanya disponible
+    // (usem p.campanya si existeix, altrament considerem totes vàlides)
+    const anyPerFinca = {};
+    parcellesTipus.forEach(function(p) {
+        const finca = p.finca || 'Sense finca';
+        const campanya = p.campanya ? parseInt(p.campanya) : anyActual;
+        if (!anyPerFinca[finca] || campanya > anyPerFinca[finca]) {
+            anyPerFinca[finca] = campanya;
+        }
+    });
+
+    // Seleccionar l'any a mostrar per cada finca: anyActual si existeix, si no l'anterior
+    // Filtrar parcel·les: per cada finca, agafar les de l'any corresponent
+    const parcellesFiltrades = parcellesTipus.filter(function(p) {
+        const finca = p.finca || 'Sense finca';
+        const anyFinca = anyPerFinca[finca] || anyActual;
+        const campanyaP = p.campanya ? parseInt(p.campanya) : anyActual;
+        return campanyaP === anyFinca;
     });
 
     // Agrupar per finca → varietat
     const arbre = {};
-    parcellesRegadiu.forEach(function(p) {
+    parcellesFiltrades.forEach(function(p) {
         const finca = p.finca || 'Sense finca';
         const varietat = p.varietat || 'Sense varietat';
         if (!arbre[finca]) arbre[finca] = {};
@@ -641,20 +709,32 @@ function construirSelectorFinques(finquesPreseleccionades, varietatsPreseleccion
         arbre[finca][varietat].count++;
     });
 
+    const colorFinca = esRegadiu ? '#e8f5e9' : '#fef9e7';
+    const emojiFinca = esRegadiu ? '💧' : '🌾';
+    const missatgeBuit = esRegadiu
+        ? 'No hi ha parcel·les de regadiu disponibles'
+        : 'No hi ha parcel·les de secà disponibles';
+
+    // Mode edició: preselecció passada per paràmetre
+    // Mode nou: res marcat per defecte
+    const modeEdicio = finquesPreseleccionades !== null && finquesPreseleccionades !== undefined;
+
     let html = '';
     Object.keys(arbre).sort().forEach(function(finca) {
         const varietats = Object.keys(arbre[finca]).sort();
         const haFinca = Object.values(arbre[finca]).reduce(function(s, v) { return s + v.hectarees; }, 0);
         const fincaId = 'finca-' + finca.replace(/[^a-zA-Z0-9]/g, '_');
-        // Per defecte tot marcat, o usar preselecció si ve d'edició
-        const fincaMarcada = !finquesPreseleccionades || finquesPreseleccionades.includes(finca);
+
+        // En edició: marcat si estava preseleccionat. En nou: res marcat.
+        const fincaMarcada = modeEdicio && finquesPreseleccionades.includes(finca);
 
         html += '<div style="margin-bottom:8px; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden;">';
-        html += '<div style="background:#e8f5e9; padding:8px 12px; display:flex; align-items:center; gap:10px;">';
+        html += '<div style="background:' + colorFinca + '; padding:8px 12px; display:flex; align-items:center; gap:10px;">';
         html += '<input type="checkbox" id="' + fincaId + '"' + (fincaMarcada ? ' checked' : '') + ' ';
+        html += 'data-finca="' + finca.replace(/"/g, '&quot;') + '" ';
         html += 'onchange="toggleFinca(this)" ';
         html += 'style="width:18px; height:18px; cursor:pointer;">';
-        html += '<label for="' + fincaId + '" style="font-weight:600; cursor:pointer; flex:1; margin:0;">🏡 ' + finca + '</label>';
+        html += '<label for="' + fincaId + '" style="font-weight:600; cursor:pointer; flex:1; margin:0;">' + emojiFinca + ' ' + finca + '</label>';
         html += '<span style="font-size:12px; color:#555;">' + haFinca.toFixed(2) + ' Ha</span>';
         html += '</div>';
 
@@ -662,8 +742,9 @@ function construirSelectorFinques(finquesPreseleccionades, varietatsPreseleccion
         varietats.forEach(function(varietat) {
             const info = arbre[finca][varietat];
             const varId = 'var-' + finca.replace(/[^a-zA-Z0-9]/g, '_') + '-' + varietat.replace(/[^a-zA-Z0-9]/g, '_');
-            const varMarcada = fincaMarcada && (!varietatsPreseleccionades ||
-                varietatsPreseleccionades.some(function(v) { return v.finca === finca && v.varietat === varietat; }));
+            // En edició: marcat si finca+varietat estava preseleccionada. En nou: res marcat.
+            const varMarcada = modeEdicio && fincaMarcada && varietatsPreseleccionades &&
+                varietatsPreseleccionades.some(function(v) { return v.finca === finca && v.varietat === varietat; });
             html += '<div style="display:flex; align-items:center; gap:8px; padding:3px 0;">';
             html += '<input type="checkbox" id="' + varId + '"' + (varMarcada ? ' checked' : '') + ' ';
             html += 'data-finca="' + finca.replace(/"/g, '&quot;') + '" data-varietat="' + varietat.replace(/"/g, '&quot;') + '" ';
@@ -676,7 +757,7 @@ function construirSelectorFinques(finquesPreseleccionades, varietatsPreseleccion
         html += '</div></div>';
     });
 
-    container.innerHTML = html || '<p style="color:#999;">No hi ha parcel·les de regadiu disponibles</p>';
+    container.innerHTML = html || '<p style="color:#999;">' + missatgeBuit + '</p>';
     actualitzarParcellesSeleccionades();
 }
 
@@ -717,8 +798,9 @@ function getParcellesSeleccionades() {
     document.querySelectorAll('.check-varietat:checked').forEach(function(cb) {
         seleccions.push({ finca: cb.dataset.finca, varietat: cb.dataset.varietat });
     });
+    const esRegadiu = _tipusRegActual === 'regadiu';
     return (parcelles || []).filter(function(p) {
-        return esParcellaApta(p) && p.regadiu === true && seleccions.some(function(s) {
+        return esParcellaApta(p) && p.regadiu === esRegadiu && seleccions.some(function(s) {
             return s.finca === p.finca && s.varietat === p.varietat;
         });
     });
