@@ -693,17 +693,15 @@ async function agendaProvider_reg(dataInici, dataFi) {
         if (dataDinsRangDate(new Date(anyActual, mesActual - 1, 25), dataIniciObj, dataFiObj)) {
             explotacions.forEach(function(exp) {
                 const diesAmbDades = new Set(
-                    consums
-                        .filter(function(c) {
-                            const d = new Date(c.data);
-                            return c.num_explotacio === exp.num_explotacio
-                                && d.getFullYear() === anyActual
-                                && d.getMonth() + 1 === mesActual
-                                && d.getDate() <= 25
-                                && c.consum_m3 !== null;
-                        })
-                        .map(function(c) { return c.data; })
-                ).size;
+				consums
+					.filter(function(c) {
+						return c.num_explotacio === exp.num_explotacio
+							&& c.data >= formatDataISO(anyActual, mesActual, 1)
+							&& c.data <= formatDataISO(anyActual, mesActual, 25)
+							&& Number(c.consum_m3) > 0;
+					})
+					.map(function(c) { return c.data; })
+				).size;
 
                 if (diesAmbDades < 10) {
                     esdeveniments.push({
