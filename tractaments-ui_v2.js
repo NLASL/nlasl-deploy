@@ -379,7 +379,7 @@ async function veureTractamentGrupV2(grupTractament) {
     const productes = await getProductesByGrup(grupTractament);
     const tractamentsGrup = (await supabaseClient
         .from('tractaments')
-        .select('*, parcelles(nom, cultiu, sigpac)')
+        .select('*, parcelles(nom, finca, varietat, cultiu, sigpac, superficie)')
         .eq('grup_tractament', grupTractament)
         .eq('estat', 'actiu')).data || [];
 
@@ -421,10 +421,14 @@ async function veureTractamentGrupV2(grupTractament) {
             ${htmlProductes}
             <h3 style="margin-top:16px;">🗺️ Parcel·les tractades</h3>
             <div class="table-container">
-                <table class="data-table"><thead><tr><th>Parcel·la</th><th>Cultiu</th><th>Superfície (Ha)</th></tr></thead><tbody>
+                <table class="data-table"><thead><tr><th>Finca / Varietat</th><th>SIGPAC</th><th>Sup. (Ha)</th></tr></thead><tbody>
                 ${tractamentsGrup.map(function(t) {
                     const p = t.parcelles || {};
-                    return '<tr><td>' + (p.nom || '—') + '</td><td>' + (p.cultiu || '—') + '</td><td>' + t.superficie_tractada + '</td></tr>';
+                    const finca = p.finca || 'Sense finca';
+                    const varietat = p.varietat || '';
+                    const nomMostrar = finca + (varietat ? ' - ' + varietat : '');
+                    const sigpac = p.sigpac || '—';
+                    return '<tr><td>' + nomMostrar + '</td><td style="font-size:12px;color:#666;">' + sigpac + '</td><td>' + t.superficie_tractada + '</td></tr>';
                 }).join('')}
                 </tbody></table>
             </div>
@@ -736,4 +740,60 @@ function esParcellaApta(p) {
         'BLAT', 'BLAT TOU', 'ORDI', 'CIVADA', 'TRITICALE'
     ];
     return cultiusAptes.includes(c);
+}
+
+// ============================================================
+// FITXA FITOSANITARI — Modal informatiu des del detall
+// ============================================================
+
+function veureFitxaFitosanitari(producteId) {
+    const producte = (fitosanitaris || []).find(function(f) { return f.id === producteId; });
+    if (!producte) {
+        mostrarNotificacio('Producte no trobat', 'error');
+        return;
+    }
+
+    const anterior = document.getElementById('modal-fitxa-fitosanitari');
+    if (anterior) anterior.remove();
+
+    const camps = [
+        { label: '🏷️ Nom', valor: producte.nom },
+        { label: '🔬 Matèria Activa', valor: producte.materia_activa },
+        { label: '📋 Tipus', valor: producte.tipus },
+        { label: '🔢 Nº Registre MAPA', valor: producte.registre || '⚠️ Pendent' },
+        { label: '⏰ PLAC (dies)', valor: producte.plac != null ? producte.plac + ' dies' : '—' },
+        { label: '🧪 IRAC', valor: producte.irac },
+        { label: '📦 Unitat estoc', valor: producte.unitat_stock },
+        { label: '📝 Observacions', valor: producte.observacions },
+    ];
+
+    let htmlCamps = '';
+    camps.forEach(function(c) {
+        if (!c.valor) return;
+        const estil = c.label.includes('Registre') && c.valor.includes('Pendent')
+            ? 'color:red; font-weight:bold;'
+            : '';
+        htmlCamps += '<div style="display:flex; gap:12px; padding:8px 0; border-bottom:1px solid #f0f0f0;">' +
+            '<span style="min-width:160px; color:#666; font-size:14px;">' + c.label + '</span>' +
+            '<span style="font-size:14px; ' + estil + '">' + c.valor + '</span>' +
+            '</div>';
+    });
+
+    const html = `
+    <div id="modal-fitxa-fitosanitari" class="modal" style="display:block; z-index:10000;">
+        <div class="modal-content" style="max-width:520px;">
+            <span class="close" onclick="document.getElementById('modal-fitxa-fitosanitari').remove()">&times;</span>
+            <h2>📋 Fitxa: ${producte.nom}</h2>
+            <div style="margin:16px 0;">
+                ${htmlCamps || '<p style="color:#999;">Sense dades addicionals</p>'}
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-secondary" onclick="document.getElementById('modal-fitxa-fitosanitari').remove()">
+                    ← Tornar
+                </button>
+            </div>
+        </div>
+    </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', html);
 }
