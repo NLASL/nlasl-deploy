@@ -125,7 +125,7 @@ async function guardarTractament(event) {
                 estat: 'actiu',
                 campanya,
                 grup_tractament: grupTractament,
-                created_by: currentUser ? currentUser.id : null
+                creat_per: currentUser ? currentUser.id : null
             };
 
             const creat = await createTractament(nouTractament);
@@ -161,7 +161,7 @@ async function guardarTractament(event) {
                     unitat: unitatBase,
                     referencia_id: g.referenciaId,
                     observacions: 'Tractament a ' + g.finca + ' – ' + g.varietat + ' (' + g.superficieTotal.toFixed(2) + ' Ha)',
-                    created_by: currentUser ? currentUser.id : null
+                    creat_per: currentUser ? currentUser.id : null
                 });
             });
         });

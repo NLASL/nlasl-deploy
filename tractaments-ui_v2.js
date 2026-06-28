@@ -324,10 +324,20 @@ function obrirCalculadoraPerLinia(btn) {
 }
 
 async function obrirModalTractament() {
+    // Protecció: si el modal no existeix al DOM (app en recàrrega), esperar i tornar a intentar
+    if (!document.getElementById('modal-tractament')) {
+        await new Promise(function(r) { setTimeout(r, 300); });
+        if (!document.getElementById('modal-tractament')) {
+            console.warn('obrirModalTractament: modal no disponible al DOM');
+            return;
+        }
+    }
+
     document.getElementById('modal-tractament-titol').textContent = 'Nou Tractament';
-    document.getElementById('form-tractament').reset();
-    document.getElementById('form-tractament').dataset.editMode = 'false';
-    document.getElementById('form-tractament').dataset.editGrup = '';
+    const form = document.getElementById('form-tractament');
+    form.reset();
+    form.dataset.editMode = 'false';
+    form.dataset.editGrup = '';
 
     const avui = new Date().toISOString().split('T')[0];
     document.getElementById('tractament-data').value = avui;
@@ -340,8 +350,10 @@ async function obrirModalTractament() {
     document.getElementById('linies-productes-container').innerHTML = '';
     afegirLiniaProducte();
 
-    document.getElementById('superficie-total').textContent = '0';
-    document.getElementById('data-limit-efectiva').style.display = 'none';
+    const supEl = document.getElementById('superficie-total');
+    if (supEl) supEl.textContent = '0';
+    const dlEl = document.getElementById('data-limit-efectiva');
+    if (dlEl) dlEl.style.display = 'none';
 
     document.getElementById('modal-tractament').style.display = 'block';
 }
