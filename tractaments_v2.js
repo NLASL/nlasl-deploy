@@ -65,7 +65,6 @@ async function deleteProductesGrup(grupTractament) {
 async function guardarTractament(event) {
     event.preventDefault();
 
-    const tipus = document.querySelector('input[name="seleccio-tipus"]:checked').value;
     const data = document.getElementById('tractament-data').value;
     const operador = document.getElementById('tractament-operador').value.trim();
     const maquinaria = document.getElementById('tractament-maquinaria').value.trim();
@@ -80,24 +79,10 @@ async function guardarTractament(event) {
         return;
     }
 
-    // Recollir parcel·les
-    let parcellesATractar = [];
-    if (tipus === 'finca') {
-        const checks = document.querySelectorAll('#tractament-finques-checks input[type="checkbox"]:checked');
-        const finquesSeleccionades = Array.from(checks).map(function(c) { return c.value; });
-        parcellesATractar = parcelles.filter(function(p) {
-            return finquesSeleccionades.includes(p.finca) && esParcellaApta(p);
-        });
-    } else if (tipus === 'varietat') {
-        const finca = document.getElementById('tractament-finca-varietat').value;
-        const varietat = document.getElementById('tractament-varietat').value;
-        parcellesATractar = parcelles.filter(function(p) {
-            return p.finca === finca && p.varietat === varietat && esParcellaApta(p);
-        });
-    }
-
+    // Recollir parcel·les via selector arbre (getParcellesSeleccionades filtra per campanya activa)
+    const parcellesATractar = getParcellesSeleccionades();
     if (!parcellesATractar.length) {
-        mostrarNotificacio('No hi ha parcel·les aptes seleccionades', 'error');
+        mostrarNotificacio('Cal seleccionar almenys una parcel·la', 'error');
         return;
     }
 
