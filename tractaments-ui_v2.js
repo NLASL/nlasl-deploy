@@ -673,39 +673,33 @@ function construirSelectorFinques(finquesPreseleccionades, varietatsPreseleccion
     // Si no hi ha parcel·les de l'any en curs, baixar a l'anterior
     const anyActual = getCampanyaDefecte();
 
-    // Filtrar parcel·les pel tipus de reg i cultius aptes
+    // Filtrar parcel·les pel tipus de reg, cultius aptes i amb finca assignada
+    // Les sense finca s'exclouen des del principi (no formen part de cap campanya coneguda)
     const parcellesTipus = (parcelles || []).filter(function(p) {
-        return p.regadiu === esRegadiu && esParcellaApta(p);
+        return p.regadiu === esRegadiu && esParcellaApta(p) && p.finca && p.finca.trim();
     });
 
     // Per cada finca, trobar el màxim any de campanya disponible
-    // (usem p.campanya si existeix, altrament considerem totes vàlides)
     const anyPerFinca = {};
     parcellesTipus.forEach(function(p) {
-        const finca = p.finca || 'Sense finca';
+        const finca = p.finca.trim();
         const campanya = p.campanya ? parseInt(p.campanya) : anyActual;
         if (!anyPerFinca[finca] || campanya > anyPerFinca[finca]) {
             anyPerFinca[finca] = campanya;
         }
     });
 
-    // Seleccionar l'any a mostrar per cada finca: anyActual si existeix, si no l'anterior
-    // Filtrar parcel·les: per cada finca, agafar les de l'any corresponent
+    // Per cada finca, agafar només les parcel·les de l'any més recent disponible
     const parcellesFiltrades = parcellesTipus.filter(function(p) {
-        const finca = p.finca || 'Sense finca';
+        const finca = p.finca.trim();
         const anyFinca = anyPerFinca[finca] || anyActual;
         const campanyaP = p.campanya ? parseInt(p.campanya) : anyActual;
         return campanyaP === anyFinca;
     });
 
-    // Agrupar per finca → varietat (excloure parcel·les sense finca assignada)
+    // Agrupar per finca → varietat
     const arbre = {};
-    let countSenseFinca = 0;
     parcellesFiltrades.forEach(function(p) {
-        if (!p.finca || !p.finca.trim()) {
-            countSenseFinca++;
-            return;
-        }
         const finca = p.finca.trim();
         const varietat = p.varietat || 'Sense varietat';
         if (!arbre[finca]) arbre[finca] = {};
@@ -762,9 +756,6 @@ function construirSelectorFinques(finquesPreseleccionades, varietatsPreseleccion
         html += '</div></div>';
     });
 
-    if (countSenseFinca > 0) {
-        html += '<p style="color:#aaa; font-size:12px; margin-top:6px; padding:4px 8px;">⚠️ ' + countSenseFinca + ' parcel·la/es sense finca assignada — no es mostren fins que s\'assignin a Supabase</p>';
-    }
     container.innerHTML = html || '<p style="color:#999;">' + missatgeBuit + '</p>';
     actualitzarParcellesSeleccionades();
 }
@@ -807,9 +798,30 @@ function getParcellesSeleccionades() {
         seleccions.push({ finca: cb.dataset.finca, varietat: cb.dataset.varietat });
     });
     const esRegadiu = _tipusRegActual === 'regadiu';
+    const anyActual = getCampanyaDefecte();
+
+    // Calcular el màxim any disponible per cada finca (mateix criteri que el selector)
+    const anyPerFinca = {};
+    (parcelles || []).forEach(function(p) {
+        if (!p.finca || !p.finca.trim() || p.regadiu !== esRegadiu || !esParcellaApta(p)) return;
+        const finca = p.finca.trim();
+        const campanya = p.campanya ? parseInt(p.campanya) : anyActual;
+        if (!anyPerFinca[finca] || campanya > anyPerFinca[finca]) {
+            anyPerFinca[finca] = campanya;
+        }
+    });
+
     return (parcelles || []).filter(function(p) {
-        return esParcellaApta(p) && p.regadiu === esRegadiu && seleccions.some(function(s) {
-            return s.finca === p.finca && s.varietat === p.varietat;
+        if (!p.finca || !p.finca.trim()) return false;
+        if (!esParcellaApta(p) || p.regadiu !== esRegadiu) return false;
+        const finca = p.finca.trim();
+        // Només parcel·les de la campanya més recent d'aquesta finca
+        const anyFinca = anyPerFinca[finca] || anyActual;
+        const campanyaP = p.campanya ? parseInt(p.campanya) : anyActual;
+        if (campanyaP !== anyFinca) return false;
+        // I que estiguin seleccionades al selector
+        return seleccions.some(function(s) {
+            return s.finca === finca && s.varietat === p.varietat;
         });
     });
 }

@@ -150,7 +150,23 @@ async function deleteQuotaU(id) {
 
 function obtenirQuotaVigentU(quotes) {
     if (!quotes || quotes.length === 0) return null;
-    // La vigent és la de data_fi_cobertura més recent (pagada o pendent, no importa)
+    const avui = new Date().toISOString().split('T')[0];
+
+    // 1) Prioritat: la quota que cobreix AVUI (data_inici_cobertura <= avui <= data_fi_cobertura).
+    //    Si n'hi ha diverses (no hauria de passar), la de fi_cobertura més recent.
+    const activesAvui = quotes.filter(q =>
+        q.data_inici_cobertura && q.data_fi_cobertura &&
+        q.data_inici_cobertura <= avui && q.data_fi_cobertura >= avui
+    );
+    if (activesAvui.length > 0) {
+        return activesAvui.reduce((vigent, q) =>
+            (!vigent || q.data_fi_cobertura > vigent.data_fi_cobertura) ? q : vigent
+        , null);
+    }
+
+    // 2) Si no n'hi ha cap activa avui (vençuda sense renovar, o totes futures),
+    //    la de fi_cobertura més recent serveix de fallback — incloent-hi quotes
+    //    futures ja informades per planificació, que és el comportament que hi havia abans.
     return quotes.reduce((vigent, q) => {
         if (!q.data_fi_cobertura) return vigent;
         if (!vigent || !vigent.data_fi_cobertura) return q;

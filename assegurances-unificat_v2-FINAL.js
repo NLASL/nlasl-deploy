@@ -864,22 +864,42 @@ async function agendaProvider_assegurances(dataInici, dataFi) {
 
     // El camp data_venciment de la pòlissa NO s'actualitza en renovar-se
     // (es queda congelat amb el venciment original). La vigència real la
-    // marca el data_fi_cobertura de l'última quota. Calculem, per a cada
-    // pòlissa, quina és la data de "proper venciment real": la més tardana
-    // entre totes les seves quotes; si no en té cap encara, fem servir
-    // data_venciment com a fallback.
-    const ultimVencimentRealPerPolissa = {};
-    quotes.forEach(function(q) {
-        if (!q.data_fi_cobertura) return;
-        const actual = ultimVencimentRealPerPolissa[q.asseguranca_id];
-        if (!actual || q.data_fi_cobertura > actual) {
-            ultimVencimentRealPerPolissa[q.asseguranca_id] = q.data_fi_cobertura;
+    // marca el data_fi_cobertura de la quota VIGENT AVUI (la que cobreix la
+    // data d'avui), no la de fi_cobertura més llunyà — una quota futura ja
+    // introduïda per planificació (p. ex. consultada a la web de la
+    // companyia) no ha de fer-se passar per "la vigent" abans de començar.
+    // Si no n'hi ha cap que cobreixi avui (vençuda sense renovar encara, o
+    // totes futures), es fa servir la de fi_cobertura més recent com a
+    // fallback; en últim cas, data_venciment de la pòlissa.
+    function obtenirVencimentRealAssegPerAgenda(quotesPolissa) {
+        if (!quotesPolissa || quotesPolissa.length === 0) return null;
+        const avuiStr = formatDataISOAsseg(avui);
+
+        const activesAvui = quotesPolissa.filter(function(q) {
+            return q.data_inici_cobertura && q.data_fi_cobertura &&
+                q.data_inici_cobertura <= avuiStr && q.data_fi_cobertura >= avuiStr;
+        });
+        if (activesAvui.length > 0) {
+            return activesAvui.reduce(function(vigent, q) {
+                return (!vigent || q.data_fi_cobertura > vigent.data_fi_cobertura) ? q : vigent;
+            }, null).data_fi_cobertura;
         }
+
+        return quotesPolissa.reduce(function(vigent, q) {
+            if (!q.data_fi_cobertura) return vigent;
+            if (!vigent || q.data_fi_cobertura > vigent) return q.data_fi_cobertura;
+            return vigent;
+        }, null);
+    }
+
+    const quotesPerPolissa = {};
+    quotes.forEach(function(q) {
+        (quotesPerPolissa[q.asseguranca_id] = quotesPerPolissa[q.asseguranca_id] || []).push(q);
     });
 
-    // --- 1) RENOVACIÓ: X dies abans del venciment real (quota) o, si no n'hi ha, data_venciment de la pòlissa ---
+    // --- 1) RENOVACIÓ: X dies abans del venciment real (quota vigent avui) o, si no n'hi ha, data_venciment de la pòlissa ---
     polisses.forEach(function(p) {
-        const dataVencimentRealStr = ultimVencimentRealPerPolissa[p.id] || p.data_venciment;
+        const dataVencimentRealStr = obtenirVencimentRealAssegPerAgenda(quotesPerPolissa[p.id]) || p.data_venciment;
         if (!dataVencimentRealStr) return;
 
         const dataVenciment = new Date(dataVencimentRealStr);
