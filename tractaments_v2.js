@@ -125,7 +125,7 @@ async function guardarTractament(event) {
                 estat: 'actiu',
                 campanya,
                 grup_tractament: grupTractament,
-                creat_per: currentUser ? currentUser.id : null
+                created_by: currentUser ? currentUser.id : null
             };
 
             const creat = await createTractament(nouTractament);
