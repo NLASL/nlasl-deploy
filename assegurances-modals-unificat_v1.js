@@ -164,9 +164,21 @@ function obtenirQuotaVigentU(quotes) {
         , null);
     }
 
-    // 2) Si no n'hi ha cap activa avui (vençuda sense renovar, o totes futures),
-    //    la de fi_cobertura més recent serveix de fallback — incloent-hi quotes
-    //    futures ja informades per planificació, que és el comportament que hi havia abans.
+    // 2) Si no n'hi ha cap activa avui, però hi ha quotes pendents (encara no
+    //    cobreixen avui perquè no hi ha quota anterior informada, o ja han
+    //    vençut sense pagar), la més urgent és la pendent amb data_pagament
+    //    més propera — no la de fi_cobertura més llunyà. Això evita que una
+    //    quota futura ja pre-carregada per planificació faci caure la pòlissa
+    //    al final de la llista quan en realitat el proper pagament és aviat.
+    const pendents = quotes.filter(q => q.estat === 'pendent' && q.data_pagament);
+    if (pendents.length > 0) {
+        return pendents.reduce((vigent, q) =>
+            (!vigent || q.data_pagament < vigent.data_pagament) ? q : vigent
+        , null);
+    }
+
+    // 3) Últim fallback: la de fi_cobertura més recent (vençuda sense renovar,
+    //    sense cap quota pendent informada).
     return quotes.reduce((vigent, q) => {
         if (!q.data_fi_cobertura) return vigent;
         if (!vigent || !vigent.data_fi_cobertura) return q;
@@ -301,8 +313,22 @@ async function mostrarVistaLlistatU(categoria, containerId) {
                     }
                     case 'venciment':
                     default: {
-                        const fiA = a._quotaVigent?.data_fi_cobertura || '9999-99-99';
-                        const fiB = b._quotaVigent?.data_fi_cobertura || '9999-99-99';
+                        const avuiStr = new Date().toISOString().split('T')[0];
+                        function clauOrdenacioVenciment(p) {
+                            const qv = p._quotaVigent;
+                            if (!qv) return p.data_venciment || '9999-99-99';
+                            // Si la quota triada encara no ha començat (és una
+                            // pendent pre-carregada per planificació, sense cap
+                            // quota activa avui), el que importa per ordenar és
+                            // quan toca pagar-la (data_pagament), no quan
+                            // acabarà la cobertura un any després.
+                            if (qv.data_inici_cobertura && qv.data_inici_cobertura > avuiStr && qv.data_pagament) {
+                                return qv.data_pagament;
+                            }
+                            return qv.data_fi_cobertura || p.data_venciment || '9999-99-99';
+                        }
+                        const fiA = clauOrdenacioVenciment(a);
+                        const fiB = clauOrdenacioVenciment(b);
                         return fiA.localeCompare(fiB);
                     }
                 }
@@ -316,7 +342,12 @@ async function mostrarVistaLlistatU(categoria, containerId) {
                 const quotaVigent = ass._quotaVigent;
                 const primaVigent = quotaVigent?.prima_anual ?? ass.prima_anual;
                 const prima = (primaVigent || 0).toLocaleString('ca-ES', { style: 'currency', currency: 'EUR' });
-                const venciment = quotaVigent?.data_fi_cobertura || ass.data_venciment;
+                const avuiStrCard = new Date().toISOString().split('T')[0];
+                const quotaPendentSenseComençar = quotaVigent?.data_inici_cobertura && quotaVigent.data_inici_cobertura > avuiStrCard && quotaVigent.data_pagament;
+                const venciment = quotaPendentSenseComençar
+                    ? quotaVigent.data_pagament
+                    : (quotaVigent?.data_fi_cobertura || ass.data_venciment);
+                const etiquetaVenciment = quotaPendentSenseComençar ? 'Proper pagament' : 'Venciment';
                 const immInfo = ass.immobilitzat_material
                     ? ass.immobilitzat_material.descripció + (ass.immobilitzat_material.matrícula ? ` (${ass.immobilitzat_material.matrícula})` : '')
                     : null;
@@ -346,7 +377,7 @@ async function mostrarVistaLlistatU(categoria, containerId) {
                             <p><strong>Pòlissa:</strong> ${ass.num_polissa}</p>
                             ${liniesExtra}
                             ${avisVencuda}
-                            <p><strong>Venciment:</strong> ${formatDataU(venciment)}</p>
+                            <p><strong>${etiquetaVenciment}:</strong> ${formatDataU(venciment)}</p>
                             <p><strong>Prima vigent:</strong> ${prima}</p>
                         </div>
                         <div class="card-footer">
