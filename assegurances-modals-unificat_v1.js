@@ -274,7 +274,7 @@ async function mostrarVistaLlistatU(categoria, containerId) {
         if (ids.length > 0) {
             const { data: quotesData, error: errorQuotes } = await supabaseClient
                 .from('assegurances_altres_quotes')
-                .select('asseguranca_id, prima_anual, data_fi_cobertura, estat')
+                .select('asseguranca_id, prima_anual, data_inici_cobertura, data_fi_cobertura, data_pagament, estat')
                 .in('asseguranca_id', ids);
             if (errorQuotes) throw errorQuotes;
             totesQuotes = quotesData || [];
