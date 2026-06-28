@@ -167,6 +167,9 @@ function canviarVista(vista) {
         case 'tractaments':
             carregarVistaTractaments();
             break;
+		case 'recomanacionsT':
+			carregarVistaRecomanacions();
+			break;	
         case 'fertilitzacions':
             carregarVistaFertilitzacions();
             break;
