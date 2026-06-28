@@ -11,7 +11,7 @@ async function carregarVistaTractaments() {
     html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">';
     html += '<h2>🌱 Tractaments Fitosanitaris</h2>';
     html += '<div style="display:flex; gap:8px; align-items:center;">';
-    html += '<button class="btn btn-secondary" onclick="navegarA('recomanacionsT')">📋 Recomanacions RT</button>';
+    html += '<button class="btn btn-secondary" onclick="navegarA(\'recomanacionsT\')">📋 Recomanacions RT</button>';
     if (podeCrear) {
         html += '<button class="btn btn-primary" onclick="obrirModalTractament()">➕ Nou Tractament</button>';
     }
