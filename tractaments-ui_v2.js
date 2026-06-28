@@ -16,6 +16,7 @@ async function carregarVistaTractaments() {
         html += '<button class="btn btn-primary" onclick="obrirModalTractament()">➕ Nou Tractament</button>';
     }
     html += '</div>';
+    html += '</div>'; // tanca justify-content:space-between
 
     // Filtre campanya
     html += '<div style="margin-bottom:15px; background:#f5f5f5; padding:12px; border-radius:8px; display:flex; align-items:center; gap:10px;">';
