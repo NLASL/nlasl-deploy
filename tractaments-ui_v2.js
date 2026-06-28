@@ -324,13 +324,11 @@ function obrirCalculadoraPerLinia(btn) {
 }
 
 async function obrirModalTractament() {
-    // Protecció: si el modal no existeix al DOM (app en recàrrega), esperar i tornar a intentar
+    // Si el modal no és al DOM, injectar-lo (pot passar si la vista s'ha recarregat)
     if (!document.getElementById('modal-tractament')) {
-        await new Promise(function(r) { setTimeout(r, 300); });
-        if (!document.getElementById('modal-tractament')) {
-            console.warn('obrirModalTractament: modal no disponible al DOM');
-            return;
-        }
+        const div = document.createElement('div');
+        div.innerHTML = crearModalTractamentV2();
+        document.body.appendChild(div);
     }
 
     document.getElementById('modal-tractament-titol').textContent = 'Nou Tractament';
