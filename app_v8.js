@@ -3816,41 +3816,78 @@ async function carregarVistaInformes() {
 // HELPER - Dates per campanya
 // ============================================================
  
+// ============================================================
+// FIX — Llibre de Fertilitzacions (campanya agrícola Oct→Set)
+// Substitueix les funcions equivalents a app_v8.js
+//
+// Canvis respecte la versió original:
+//  1) Filtre de dates: ara usa getDatesCampanyaInformes(any) en lloc
+//     de any+'-01-01' / any+'-12-31' (any natural).
+//  2) Resolució de parcel·la: ja NO depèn de l'array global `parcelles`
+//     (que només té carregada la campanya de gestió en curs). Es fa
+//     un fetch exprés de les parcel·les de les DUES campanyes naturals
+//     que pot tocar el rang (any-1 i any), i es resol amb un Map local.
+// ============================================================
+
+// (getDatesCampanyaInformes ja existeix igual que abans, sense canvis)
 function getDatesCampanyaInformes(campanya) {
     return {
         dataInici: (campanya - 1) + '-10-01',
         dataFinal: campanya + '-09-30'
     };
 }
- 
+
+/**
+ * Carrega les parcel·les de les campanyes naturals (any-1) i (any)
+ * — les úniques que poden aparèixer en un rang Oct(any-1)→Set(any) —
+ * i retorna un Map<id, parcella> per a resolució O(1).
+ * No toca ni depèn de l'array global `parcelles`.
+ */
+async function getParcellesPerInformeCampanyaAgricola(any) {
+    const campanyaInt = parseInt(any);
+    const { data, error } = await supabaseClient
+        .from('parcelles')
+        .select('*')
+        .in('campanya', [campanyaInt - 1, campanyaInt]);
+    if (error) throw error;
+
+    const mapa = new Map();
+    (data || []).forEach(function(p) { mapa.set(p.id, p); });
+    return mapa;
+}
 
 async function generarLlibreFertilitzacions() {
     const any = document.getElementById('informe-fert-any').value;
     const finca = document.getElementById('informe-fert-finca').value;
     const container = document.getElementById('taula-llibre-fertilitzacions');
-    
+
     container.innerHTML = '<p>Carregant...</p>';
-    
+
     try {
-        const { data, error } = await supabaseClient
-            .from('fertilitzacions')
-            .select('*')
-            .gte('data', any + '-01-01')
-            .lte('data', any + '-12-31')
-            .order('data');
+        const { dataInici, dataFinal } = getDatesCampanyaInformes(any);
+
+        const [{ data, error }, parcellesMapa] = await Promise.all([
+            supabaseClient
+                .from('fertilitzacions')
+                .select('*')
+                .gte('data', dataInici)
+                .lte('data', dataFinal)
+                .order('data'),
+            getParcellesPerInformeCampanyaAgricola(any)
+        ]);
         if (error) throw error;
 
         let registres = data || [];
-        
+
         if (finca) {
             registres = registres.filter(function(r) {
-                const p = parcelles.find(function(pa) { return pa.id === r.parcella_id; });
+                const p = parcellesMapa.get(r.parcella_id);
                 return p && p.finca === finca;
             });
         }
 
         if (registres.length === 0) {
-            container.innerHTML = '<p style="color:#999;">No hi ha fertilitzacions per aquest any/finca</p>';
+            container.innerHTML = '<p style="color:#999;">No hi ha fertilitzacions per aquesta campanya/finca (' + dataInici + ' a ' + dataFinal + ')</p>';
             return;
         }
 
@@ -3864,9 +3901,9 @@ async function generarLlibreFertilitzacions() {
         let totalN = 0, totalP = 0, totalK = 0, totalSup = 0;
 
         registres.forEach(function(r) {
-            const p = parcelles.find(function(pa) { return pa.id === r.parcella_id; });
+            const p = parcellesMapa.get(r.parcella_id);
             const prod = fertilitzants.find(function(f) { return f.id === r.producte_id; });
-            
+
             const fincaNom = p ? (p.finca || '-') : '-';
             const parcellaNom = p ? (p.nom || '-') : '-';
             const sigpac = p ? (p.sigpac || '-') : '-';
@@ -3876,10 +3913,10 @@ async function generarLlibreFertilitzacions() {
             const nomProd = prod ? prod.nom : '-';
             const tipusProd = prod ? (prod.tipus || '-') : '-';
             const dosi = parseFloat(r.dosi) || 0;
-			const usTotal = dosi * sup;
-			const nKg = prod ? (parseFloat(prod.n) || 0) * usTotal / 100 : 0;
-			const pKg = prod ? (parseFloat(prod.p) || 0) * usTotal / 100 : 0;
-			const kKg = prod ? (parseFloat(prod.k) || 0) * usTotal / 100 : 0;
+            const usTotal = dosi * sup;
+            const nKg = prod ? (parseFloat(prod.n) || 0) * usTotal / 100 : 0;
+            const pKg = prod ? (parseFloat(prod.p) || 0) * usTotal / 100 : 0;
+            const kKg = prod ? (parseFloat(prod.k) || 0) * usTotal / 100 : 0;
 
             totalN += nKg;
             totalP += pKg;
@@ -3918,7 +3955,7 @@ async function generarLlibreFertilitzacions() {
         html += '</tr>';
 
         html += '</tbody></table></div>';
-        html += '<p style="color:#999;font-size:12px;margin-top:8px;">' + registres.length + ' registres — Any ' + any + '</p>';
+        html += '<p style="color:#999;font-size:12px;margin-top:8px;">' + registres.length + ' registres — Campanya ' + any + ' (' + dataInici + ' a ' + dataFinal + ')</p>';
         container.innerHTML = html;
 
     } catch (error) {
@@ -3930,64 +3967,74 @@ async function exportarLlibreFertilitzacionsCSV() {
     const any = document.getElementById('informe-fert-any').value;
     const finca = document.getElementById('informe-fert-finca').value;
 
-    const { data, error } = await supabaseClient
-        .from('fertilitzacions')
-        .select('*')
-        .gte('data', any + '-01-01')
-        .lte('data', any + '-12-31')
-        .order('data');
-    if (error) { mostrarNotificacio('Error: ' + error.message, 'error'); return; }
+    try {
+        const { dataInici, dataFinal } = getDatesCampanyaInformes(any);
 
-    let registres = data || [];
-    if (finca) {
-        registres = registres.filter(function(r) {
-            const p = parcelles.find(function(pa) { return pa.id === r.parcella_id; });
-            return p && p.finca === finca;
+        const [{ data, error }, parcellesMapa] = await Promise.all([
+            supabaseClient
+                .from('fertilitzacions')
+                .select('*')
+                .gte('data', dataInici)
+                .lte('data', dataFinal)
+                .order('data'),
+            getParcellesPerInformeCampanyaAgricola(any)
+        ]);
+        if (error) throw error;
+
+        let registres = data || [];
+        if (finca) {
+            registres = registres.filter(function(r) {
+                const p = parcellesMapa.get(r.parcella_id);
+                return p && p.finca === finca;
+            });
+        }
+
+        if (registres.length === 0) { mostrarNotificacio('No hi ha dades per exportar', 'error'); return; }
+
+        let csv = 'Data;Finca;Parcel·la;SIGPAC;Cultiu;Varietat;Superfície (Ha);Producte;Tipus;Dosi;Unitat;Quantitat Total;N (kg);P (kg);K (kg);Mètode;Operador\n';
+
+        registres.forEach(function(r) {
+            const p = parcellesMapa.get(r.parcella_id);
+            const prod = fertilitzants.find(function(f) { return f.id === r.producte_id; });
+            const sup = parseFloat(r.superficie_tractada) || 0;
+            const dosi = parseFloat(r.dosi) || 0;
+            const usTotal = dosi * sup;
+            const nKg = prod ? (parseFloat(prod.n) || 0) * usTotal / 100 : 0;
+            const pKg = prod ? (parseFloat(prod.p) || 0) * usTotal / 100 : 0;
+            const kKg = prod ? (parseFloat(prod.k) || 0) * usTotal / 100 : 0;
+            csv += [
+                r.data,
+                p ? (p.finca || '') : '',
+                p ? (p.nom || '') : '',
+                p ? (p.sigpac || '') : '',
+                p ? (p.cultiu || '') : '',
+                p ? (p.varietat || '') : '',
+                sup.toFixed(2),
+                prod ? prod.nom : '',
+                prod ? (prod.tipus || '') : '',
+                r.dosi || '',
+                r.unitat || '',
+                usTotal.toFixed(2),
+                nKg.toFixed(2),
+                pKg.toFixed(2),
+                kKg.toFixed(2),
+                r.metode || '',
+                r.operador || ''
+            ].join(';') + '\n';
         });
+
+        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'llibre_fertilitzacions_' + any + (finca ? '_' + finca : '') + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        mostrarNotificacio('✅ Exportació completada', 'success');
+
+    } catch (error) {
+        mostrarNotificacio('Error: ' + error.message, 'error');
     }
-
-    if (registres.length === 0) { mostrarNotificacio('No hi ha dades per exportar', 'error'); return; }
-
-    let csv = 'Data;Finca;Parcel·la;SIGPAC;Cultiu;Varietat;Superfície (Ha);Producte;Tipus;Dosi;Unitat;Quantitat Total;N (kg);P (kg);K (kg);Mètode;Operador\n';
-
-    registres.forEach(function(r) {
-        const p = parcelles.find(function(pa) { return pa.id === r.parcella_id; });
-        const prod = fertilitzants.find(function(f) { return f.id === r.producte_id; });
-        const sup = parseFloat(r.superficie_tractada) || 0;
-        const dosi = parseFloat(r.dosi) || 0;
-        const usTotal = dosi * sup;
-        const nKg = prod ? (parseFloat(prod.n) || 0) * usTotal / 100 : 0;
-        const pKg = prod ? (parseFloat(prod.p) || 0) * usTotal / 100 : 0;
-        const kKg = prod ? (parseFloat(prod.k) || 0) * usTotal / 100 : 0;
-        csv += [
-            r.data,
-            p ? (p.finca || '') : '',
-            p ? (p.nom || '') : '',
-            p ? (p.sigpac || '') : '',
-            p ? (p.cultiu || '') : '',
-            p ? (p.varietat || '') : '',
-            sup.toFixed(2),
-            prod ? prod.nom : '',
-            prod ? (prod.tipus || '') : '',
-            r.dosi || '',
-            r.unitat || '',
-            usTotal.toFixed(2),
-            nKg.toFixed(2),
-            pKg.toFixed(2),
-            kKg.toFixed(2),
-            r.metode || '',
-            r.operador || ''
-        ].join(';') + '\n';
-    });
-
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'llibre_fertilitzacions_' + any + (finca ? '_' + finca : '') + '.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-    mostrarNotificacio('✅ Exportació completada', 'success');
 }
 let compresFacturesTotes = [];
 
