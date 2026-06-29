@@ -68,11 +68,12 @@ async function carregarTaulaTractaments() {
                     data_limit_efectiva: t.data_limit_efectiva,
                     productes: t.productes || [],
                     num_productes: t.num_productes || 0,
-                    finca: p.finca || '-',
+                    finques: new Set(),
                     tractaments: [],
                     superficie_total: 0
                 };
             }
+            if (p.finca) grups[gt].finques.add(p.finca);
             grups[gt].tractaments.push(t);
             grups[gt].superficie_total += parseFloat(t.superficie_tractada) || 0;
         });
@@ -99,7 +100,23 @@ async function carregarTaulaTractaments() {
             html += '<tr>';
             html += '<td><strong>' + formatData(g.data) + '</strong></td>';
             html += '<td>' + nomsProductes + badgeProductes + '</td>';
-            html += '<td>' + g.finca + '</td>';
+            // Lògica B: una finca → nom, múltiples → "X finques"
+            const fincesArr = Array.from(g.finques);
+            let fincaTxt;
+            if (fincesArr.length === 0) {
+                fincaTxt = '—';
+            } else if (fincesArr.length === 1) {
+                fincaTxt = fincesArr[0];
+            } else {
+                // Extreure prefix curt (fins al primer guió)
+                const prefixos = [...new Set(fincesArr.map(function(f) {
+                    return f.split(' - ')[0];
+                }))];
+                fincaTxt = prefixos.length === 1
+                    ? prefixos[0] + ' <span style="color:#888; font-size:12px;">(' + fincesArr.length + ' finques)</span>'
+                    : '<span style="color:#555; font-size:13px;">' + fincesArr.length + ' finques</span>';
+            }
+            html += '<td>' + fincaTxt + '</td>';
             html += '<td>' + g.tractaments.length + ' parcel·les</td>';
             html += '<td>' + g.superficie_total.toFixed(2) + '</td>';
             html += '<td>' + dataLimitTxt + '</td>';

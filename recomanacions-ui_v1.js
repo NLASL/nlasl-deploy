@@ -21,7 +21,10 @@ async function carregarVistaRecomanacions() {
 
     let html = '<div class="view-recomanacions">';
     html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">';
-    html += '<h2>📋 Recomanacions Tècniques (RT)</h2>';
+    html += '<div style="display:flex; align-items:center; gap:10px;">';
+    html += '<button class="btn btn-secondary" onclick="canviarVista('tractaments')">← Tractaments</button>';
+    html += '<h2 style="margin:0;">📋 Recomanacions Tècniques (RT)</h2>';
+    html += '</div>';
     if (podeCrear) {
         html += '<button class="btn btn-primary" onclick="obrirModalRecomanacio()">➕ Nova RT</button>';
     }
