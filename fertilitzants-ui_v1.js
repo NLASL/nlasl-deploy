@@ -399,6 +399,11 @@ async function guardarFertilitzacio(event) {
                 n_total:            parseFloat(npk.n.toFixed(4)),
                 p_total:            parseFloat(npk.p.toFixed(4)),
                 k_total:            parseFloat(npk.k.toFixed(4)),
+                // Camps de compatibilitat amb el Llibre actual (llegeix dosi/producte_id directes)
+                // S'eliminarà quan el Llibre es migri per llegir de fertilitzacions_productes
+                producte_id:        liniesProducte[0].producte_id || null,
+                dosi:               parseFloat(liniesProducte[0].dosi) || 0,
+                unitat:             liniesProducte[0].unitat || 'kg/Ha',
                 created_by:         (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null
             };
 
@@ -1060,5 +1065,11 @@ function obrirCalculadoraFertPerLinia(btn) {
             var selectUnitat = linia.querySelector('.lp-fert-unitat');
             if (selectUnitat) selectUnitat.value = unitat;
         }
+    });
+
+    // Patch z-index: la calculadora ha de quedar per sobre del menú de navegació
+    requestAnimationFrame(function() {
+        var modalCalc = document.getElementById('modal-calculadora-tractament');
+        if (modalCalc) modalCalc.style.zIndex = '99999';
     });
 }
