@@ -770,28 +770,41 @@ async function veureFertilitzacioGrupV2(grupFertilitzacio) {
         htmlProductes = '<p style="color:#999;">Sense productes assignats</p>';
     }
 
-    // Taula parcel·les amb NPK
+    // Taula parcel·les agrupada per finca+varietat amb NPK
     var nTotal = 0, pTotal = 0, kTotal = 0;
+
+    // Agrupar per finca+varietat
+    var grupsFincaVar = {};
+    fertGrup.forEach(function(f) {
+        var par      = f.parcelles || {};
+        var sup      = parseFloat(f.superficie_tractada) || 0;
+        var finca    = par.finca    || 'Sense finca';
+        var varietat = par.varietat || 'Sense varietat';
+        var clau     = finca + '§' + varietat;
+        if (!grupsFincaVar[clau]) {
+            grupsFincaVar[clau] = { finca: finca, varietat: varietat, sup: 0, numParcelles: 0 };
+        }
+        grupsFincaVar[clau].sup          += sup;
+        grupsFincaVar[clau].numParcelles += 1;
+    });
+
     var htmlParcelles = '<table class="data-table" style="margin-top:8px;">';
-    htmlParcelles += '<thead><tr><th>Finca / Varietat</th><th>SIGPAC</th><th>Sup. (Ha)</th><th>N</th><th>P</th><th>K</th></tr></thead>';
+    htmlParcelles += '<thead><tr><th>Finca</th><th>Varietat</th><th>Parc.</th><th>Sup. (Ha)</th><th>N</th><th>P</th><th>K</th></tr></thead>';
     htmlParcelles += '<tbody>';
 
-    fertGrup.forEach(function(f) {
-        var par     = f.parcelles || {};
-        var sup     = parseFloat(f.superficie_tractada) || 0;
-        var finca   = par.finca   || 'Sense finca';
-        var varietat = par.varietat || '';
-        var nomMostrar = finca + (varietat ? ' - ' + varietat : '');
-
-        var npk = calcularNPKGrup(productes, sup);
+    Object.values(grupsFincaVar).sort(function(a, b) {
+        return (a.finca + a.varietat).localeCompare(b.finca + b.varietat);
+    }).forEach(function(g) {
+        var npk = calcularNPKGrup(productes, g.sup);
         nTotal += npk.n;
         pTotal += npk.p;
         kTotal += npk.k;
 
         htmlParcelles += '<tr>';
-        htmlParcelles += '<td>' + nomMostrar + '</td>';
-        htmlParcelles += '<td style="font-size:12px; color:#666;">' + (par.sigpac || '—') + '</td>';
-        htmlParcelles += '<td>' + sup.toFixed(2) + '</td>';
+        htmlParcelles += '<td>' + g.finca + '</td>';
+        htmlParcelles += '<td>' + g.varietat + '</td>';
+        htmlParcelles += '<td style="text-align:center; color:#666;">' + g.numParcelles + '</td>';
+        htmlParcelles += '<td>' + g.sup.toFixed(2) + '</td>';
         htmlParcelles += '<td>' + npk.n.toFixed(2) + '</td>';
         htmlParcelles += '<td>' + npk.p.toFixed(2) + '</td>';
         htmlParcelles += '<td>' + npk.k.toFixed(2) + '</td>';
@@ -800,7 +813,7 @@ async function veureFertilitzacioGrupV2(grupFertilitzacio) {
 
     // Fila totals
     htmlParcelles += '<tr style="background:#e8f5e9; font-weight:bold;">';
-    htmlParcelles += '<td colspan="2"><strong>TOTALS</strong></td>';
+    htmlParcelles += '<td colspan="3"><strong>TOTALS</strong></td>';
     htmlParcelles += '<td><strong>' + superficieTotal.toFixed(2) + '</strong></td>';
     htmlParcelles += '<td><strong>' + nTotal.toFixed(2) + '</strong></td>';
     htmlParcelles += '<td><strong>' + pTotal.toFixed(2) + '</strong></td>';
