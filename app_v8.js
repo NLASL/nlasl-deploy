@@ -2436,6 +2436,13 @@ async function editarControlHorari(id) {
     const registre = controlHorari.find(function(r) { return r.id === id; });
     if (!registre) return;
 
+    // Si el modal no és al DOM (vista reconstruïda), reinjectar-lo
+    if (!document.getElementById('modal-control-horari')) {
+        const div = document.createElement('div');
+        div.innerHTML = crearModalControlHorari();
+        document.body.appendChild(div);
+    }
+
     document.getElementById('modal-control-horari-titol').textContent = 'Editar Registre';
     document.getElementById('control-horari-id').value = id;
 
@@ -2838,14 +2845,8 @@ async function guardarControlHorari(event) {
             
             const hores = (sortida - entrada) / 3600000;
             
-            // Si és UPDATE, agafar num_persones del registre original
-            let persones = numPersones;
-            if (id) {
-                const registreOriginal = controlHorari.find(function(r) { return r.id === id; });
-                persones = registreOriginal ? (registreOriginal.num_persones || 1) : 1;
-            }
-            
-            cost = hores * treballador.preu_hora * persones;
+            // Usar num_persones del formulari (permet editar en temporers)
+            cost = hores * treballador.preu_hora * numPersones;
         }
     }
     
@@ -2869,9 +2870,10 @@ async function guardarControlHorari(event) {
         dades.hora_entrada = horaEntrada;
         dades.num_persones = numPersones;
     } else {
-        // UPDATE admin — permetre editar hora entrada i data
+        // UPDATE admin — permetre editar hora entrada, data i num_persones
         dades.hora_entrada = horaEntrada;
         dades.data = document.getElementById('control-horari-data').value;
+        dades.num_persones = numPersones;
     }
 
     try {
