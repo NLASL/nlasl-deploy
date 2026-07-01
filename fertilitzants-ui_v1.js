@@ -1,939 +1,950 @@
-// fertilitzants-ui_v1.js — UI mòdul fertilitzants
-// Quadern de Camp NLASL · v1.0
-// Depèn de: fertilitzants_v1.js (window.Fertilitzants), supabase-client_v5.js, app_v8.js
+// ============================================================
+// FERTILITZANTS UI V1 — Formulari multi-producte + selector arbre
+// Substituteix fertilitzants-ui_v1.js
+// Arquitectura: fertilitzacions (capçalera per parcel·la) +
+//               fertilitzacions_productes (N productes per grup)
+// ============================================================
+//
+// FIXME globals a resoldre abans de posar en producció:
+//   1. Noms camps NPK a la taula `fertilitzants`:
+//      Buscar a la consola: Object.keys(window.Fertilitzants[0])
+//      Ajustar les constants NPK_CAMP_* al bloc de configuració
+//   2. Opcions del select `fertilitzacio-metode`: afegir/treure
+//      les opcions que no existeixin a la vostra BD
+// ============================================================
 
-'use strict';
+// ─── Configuració camps NPK (ajustar si els noms difereixen) ─
+var NPK_CAMP_N = 'nitrogen';  // FIXME: nom columna % N  a fertilitzants
+var NPK_CAMP_P = 'fosfor';    // FIXME: nom columna % P  a fertilitzants
+var NPK_CAMP_K = 'potasi';    // FIXME: nom columna % K  a fertilitzants
 
-// ─────────────────────────────────────────────
-// ESTAT LOCAL DEL MÒDUL
-// ─────────────────────────────────────────────
+// ─── Estat global modal ──────────────────────────────────────
+var _tipusRegFertActual = 'regadiu';
 
-let _fertilitzants     = [];   // cache llista completa
-let _seleccionats      = new Set(); // ids seleccionats per comparar
-let _fase              = 'NKP';
-let _ordre             = 'puntuacio';
-let _nomesFerri        = false;
-let _fertilitzantActiu = null; // objecte en edició al modal tècnic
+// ============================================================
+// HELPERS NPK
+// ============================================================
 
-// ─────────────────────────────────────────────
-// PUNT D'ENTRADA — cridar des de canviarVista()
-// ─────────────────────────────────────────────
-
-async function carregarVistaFertilitzants() {
-  const main = document.getElementById('view-container');
-  if (!main) return;
-
-  main.innerHTML = renderEsquelet();
-  _seleccionats.clear();
-
-  try {
-    _fertilitzants = await Fertilitzants.getComplet();
-    renderTot();
-  } catch (e) {
-    main.innerHTML = `<p class="error-msg">Error carregant fertilitzants: ${e.message}</p>`;
-  }
+function getNPKFertilitzant(producteId) {
+    // Lookup des del catàleg global window.Fertilitzants
+    const f = (window.Fertilitzants || []).find(function(x) { return x.id === producteId; });
+    if (!f) return { n: 0, p: 0, k: 0 };
+    return {
+        n: parseFloat(f[NPK_CAMP_N]) || 0,
+        p: parseFloat(f[NPK_CAMP_P]) || 0,
+        k: parseFloat(f[NPK_CAMP_K]) || 0
+    };
 }
 
-// ─────────────────────────────────────────────
-// RENDER PRINCIPAL
-// ─────────────────────────────────────────────
-
-function renderEsquelet() {
-  return `
-  <div id="fert-wrap" class="fert-wrap">
-    <div class="fert-header">
-      <div class="fert-header-esq">
-        <button class="btn-ghost btn-sm" onclick="canviarVista('fertilitzacions')">← Tornar</button>
-        <h1 class="fert-titol">Fertilitzants</h1>
-      </div>
-      <div class="fert-header-accions">
-        <button class="btn-secondary btn-sm" onclick="canviarVista('fertilitzants-tecnics')">
-          <i class="ti ti-settings"></i> Dades tècniques
-        </button>
-        ${hasPermission('insert') ? `<button class="btn-secondary btn-sm" onclick="obrirModalTecnic(null)">
-          <i class="ti ti-plus"></i> Nou fertilitzant
-        </button>` : ''}
-      </div>
-    </div>
-
-    <!-- Tabs -->
-    <div class="fert-tabs" role="tablist">
-      <button class="fert-tab fert-tab--actiu" role="tab" aria-selected="true"
-        onclick="canviarTab('comparador', this)" id="tab-comparador">
-        <i class="ti ti-chart-bar"></i> Comparador
-      </button>
-      <button class="fert-tab" role="tab" aria-selected="false"
-        onclick="canviarTab('cataleg', this)" id="tab-cataleg">
-        <i class="ti ti-list"></i> Catàleg
-      </button>
-    </div>
-
-    <!-- Contingut tabs -->
-    <div id="tab-content-comparador" class="tab-content tab-content--actiu">
-      <div id="fert-metriques"></div>
-      <div class="fert-filtres" id="fert-filtres"></div>
-      <div id="fert-cards"></div>
-      <div id="fert-comparativa"></div>
-    </div>
-
-    <div id="tab-content-cataleg" class="tab-content" style="display:none">
-      <div id="fert-taula"></div>
-    </div>
-  </div>
-
-  <!-- Modal dades tècniques -->
-  <div id="modal-fert-tecnic" class="modal" style="display:none" role="dialog" aria-modal="true">
-    <div class="modal-overlay" onclick="tancarModalTecnic()"></div>
-    <div class="modal-box modal-box--lg">
-      <div class="modal-header">
-        <h2 id="modal-fert-titol">Dades tècniques</h2>
-        <button class="modal-close" onclick="tancarModalTecnic()" aria-label="Tancar">
-          <i class="ti ti-x"></i>
-        </button>
-      </div>
-      <div class="modal-body" id="modal-fert-body"></div>
-    </div>
-  </div>`;
-}
-
-function renderTot() {
-  const processats = Fertilitzants.filtrarIOrdenar(_fertilitzants, {
-    fase:               _fase,
-    ordre:              _ordre,
-    nomesFertirrigacio: _nomesFerri,
-  });
-  const metriques = Fertilitzants.calcularMetriques(_fertilitzants);
-
-  renderMetriques(metriques);
-  renderFiltres();
-  renderCards(processats);
-  renderComparativa();
-  renderTaula();
-}
-
-// ─────────────────────────────────────────────
-// MÈTRIQUES
-// ─────────────────────────────────────────────
-
-function renderMetriques(m) {
-  const el = document.getElementById('fert-metriques');
-  if (!el) return;
-  el.innerHTML = `
-  <div class="metriques-grid">
-    <div class="metrica-card">
-      <div class="metrica-label">Productes al catàleg</div>
-      <div class="metrica-valor">${m.total}</div>
-    </div>
-    <div class="metrica-card">
-      <div class="metrica-label">Aptes fertirrigació</div>
-      <div class="metrica-valor">${m.aptesFerri}</div>
-      <div class="metrica-sub">${m.total > 0 ? Math.round((m.aptesFerri/m.total)*100) : 0}% del catàleg</div>
-    </div>
-    <div class="metrica-card ${m.millorCostN ? '' : 'metrica-card--buit'}">
-      <div class="metrica-label">Millor €/kg N</div>
-      <div class="metrica-valor">${m.millorCostN ? m.millorCostN.cost.toFixed(2)+'€' : '—'}</div>
-      <div class="metrica-sub">${m.millorCostN ? m.millorCostN.nom : 'Sense preus'}</div>
-    </div>
-    <div class="metrica-card ${m.millorCostK ? '' : 'metrica-card--buit'}">
-      <div class="metrica-label">Millor €/kg K₂O</div>
-      <div class="metrica-valor">${m.millorCostK ? m.millorCostK.cost.toFixed(2)+'€' : '—'}</div>
-      <div class="metrica-sub">${m.millorCostK ? m.millorCostK.nom : 'Sense preus'}</div>
-    </div>
-  </div>`;
-}
-
-// ─────────────────────────────────────────────
-// FILTRES
-// ─────────────────────────────────────────────
-
-function renderFiltres() {
-  const el = document.getElementById('fert-filtres');
-  if (!el) return;
-  el.innerHTML = `
-  <div class="filtres-row">
-    <div class="filtre-grup">
-      <label class="filtre-label">Fase / necessitat</label>
-      <select class="filtre-sel" onchange="canviarFase(this.value)">
-        <option value="NKP"          ${_fase==='NKP'?'selected':''}>Equilibrada (NPK)</option>
-        <option value="N"            ${_fase==='N'?'selected':''}>Nitrogenada (N dominant)</option>
-        <option value="K"            ${_fase==='K'?'selected':''}>Potàssica (K dominant)</option>
-        <option value="fertirrigacio"${_fase==='fertirrigacio'?'selected':''}>Fertirrigació</option>
-      </select>
-    </div>
-    <div class="filtre-grup">
-      <label class="filtre-label">Ordenar per</label>
-      <select class="filtre-sel" onchange="canviarOrdre(this.value)">
-        <option value="puntuacio" ${_ordre==='puntuacio'?'selected':''}>Millor puntuació</option>
-        <option value="cost_n"    ${_ordre==='cost_n'?'selected':''}>€/kg N</option>
-        <option value="cost_k"    ${_ordre==='cost_k'?'selected':''}>€/kg K₂O</option>
-        <option value="preu"      ${_ordre==='preu'?'selected':''}>Preu €/kg</option>
-      </select>
-    </div>
-    <div class="filtre-grup filtre-grup--check">
-      <label class="filtre-check-label">
-        <input type="checkbox" ${_nomesFerri?'checked':''} onchange="canviarFerri(this.checked)">
-        Només fertirrigació
-      </label>
-    </div>
-    ${_seleccionats.size > 0 ? `
-    <div class="filtre-grup filtre-grup--dreta">
-      <button class="btn-ghost btn-sm" onclick="netejarSeleccio()">
-        <i class="ti ti-x"></i> Netejar selecció (${_seleccionats.size})
-      </button>
-    </div>` : ''}
-  </div>`;
-}
-
-// ─────────────────────────────────────────────
-// CARDS COMPARADOR
-// ─────────────────────────────────────────────
-
-function renderCards(processats) {
-  const el = document.getElementById('fert-cards');
-  if (!el) return;
-
-  if (processats.length === 0) {
-    el.innerHTML = `<p class="fert-buit">Cap fertilitzant amb els filtres actuals.</p>`;
-    return;
-  }
-
-  el.innerHTML = `
-  <p class="fert-hint">
-    <i class="ti ti-hand-click"></i>
-    Fes clic a productes per comparar-los (seleccionats: ${_seleccionats.size})
-  </p>
-  <div class="fert-cards-grid">
-    ${processats.map(f => renderCard(f)).join('')}
-  </div>`;
-}
-
-function renderCard(f) {
-  const sel      = _seleccionats.has(f.id);
-  const preu     = f.preu_efectiu;
-  const costN    = f.costNutrient?.costN;
-  const costK    = f.costNutrient?.costK;
-  const badgeSol = badgeSolubilitat(f);
-  const origenBadge = preu ? badgeOrigenPreu(f.preu_origen) : '';
-
-  return `
-  <div class="fert-card ${sel ? 'fert-card--sel' : ''}"
-       onclick="toggleSelCard('${f.id}')"
-       role="button" tabindex="0"
-       aria-pressed="${sel}"
-       onkeydown="if(event.key==='Enter'||event.key===' ')toggleSelCard('${f.id}')">
-
-    ${sel ? '<i class="ti ti-check fert-card-check" aria-hidden="true"></i>' : ''}
-
-    <div class="fert-card-top">
-      ${badgeSol}
-      ${f.apta_fertirrigacio ? '<span class="badge badge-ferri">Fertirrigació</span>' : ''}
-    </div>
-
-    <div class="fert-card-nom">${f.nom}</div>
-    <div class="fert-card-fab">${f.fabricant || f.tipus || ''}${f.registre_mapa ? ' · MAPA' : ''}</div>
-
-    <div class="npk-row">
-      <div class="npk-pill npk-n"><span class="npk-lab">N</span>${f.n ?? 0}%</div>
-      <div class="npk-pill npk-p"><span class="npk-lab">P₂O₅</span>${f.p ?? 0}%</div>
-      <div class="npk-pill npk-k"><span class="npk-lab">K₂O</span>${f.k ?? 0}%</div>
-      ${(f.ca > 0) ? `<div class="npk-pill npk-ca"><span class="npk-lab">Ca</span>${f.ca}%</div>` : ''}
-    </div>
-
-    <div class="fert-card-preu">
-      ${preu
-        ? `<span class="preu-val">${parseFloat(preu).toFixed(2)}€</span>
-           <span class="preu-unit">/kg</span>
-           ${origenBadge}`
-        : `<span class="preu-buit">Sense preu
-             ${hasPermission('update') ? `<button class="btn-link btn-xs" onclick="event.stopPropagation();obrirModalPreu('${f.id}','${escapeHtml(f.nom)}')">
-               Afegir
-             </button>` : ''}
-           </span>`
-      }
-    </div>
-
-    ${preu ? `
-    <div class="cost-nutrients">
-      ${costN ? `<span class="cost-nut">€/N: ${costN.toFixed(2)}</span>` : ''}
-      ${costK ? `<span class="cost-nut">€/K: ${costK.toFixed(2)}</span>` : ''}
-    </div>` : ''}
-
-    <div class="adequacio-wrap">
-      <div class="adequacio-label">Adequació: ${f.puntuacioPct}%</div>
-      <div class="adequacio-bg"><div class="adequacio-fill" style="width:${f.puntuacioPct}%"></div></div>
-    </div>
-
-    ${hasPermission('update') ? `
-    <button class="btn-ghost btn-xs fert-card-edit"
-            onclick="event.stopPropagation();obrirModalTecnic('${f.id}')"
-            title="Editar dades tècniques">
-      <i class="ti ti-edit"></i>
-    </button>` : ''}
-  </div>`;
-}
-
-// ─────────────────────────────────────────────
-// TAULA COMPARATIVA
-// ─────────────────────────────────────────────
-
-function renderComparativa() {
-  const el = document.getElementById('fert-comparativa');
-  if (!el) return;
-
-  if (_seleccionats.size < 2) {
-    el.innerHTML = `
-    <div class="comparativa-buit">
-      <i class="ti ti-table" style="font-size:2rem;opacity:.3"></i>
-      <p>Selecciona 2 o més productes per veure la comparativa</p>
-    </div>`;
-    return;
-  }
-
-  const prods = _fertilitzants.filter(f => _seleccionats.has(f.id));
-  const files = [
-    { label: 'Nitrogen (N %)',       fn: f => f.n ?? 0,          fmt: v => v+'%',          max: true },
-    { label: 'Fòsfor (P₂O₅ %)',     fn: f => f.p ?? 0,          fmt: v => v+'%',          max: true },
-    { label: 'Potassi (K₂O %)',      fn: f => f.k ?? 0,          fmt: v => v+'%',          max: true },
-    { label: 'Calci (CaO %)',        fn: f => f.ca ?? 0,         fmt: v => v+'%',          max: true },
-    { label: 'Magnesi (MgO %)',      fn: f => f.mg ?? 0,         fmt: v => v+'%',          max: true },
-    { label: 'Sofre (SO₃ %)',        fn: f => f.s ?? 0,          fmt: v => v+'%',          max: true },
-    { label: 'Preu €/kg',            fn: f => f.preu_efectiu,    fmt: v => v?parseFloat(v).toFixed(2)+'€':'—', max: false },
-    { label: '€/kg N',               fn: f => Fertilitzants.calcularCostNutrient({...f, preu_efectiu: f.preu_efectiu}).costN,
-                                                                  fmt: v => v?v.toFixed(2)+'€':'—', max: false },
-    { label: '€/kg K₂O',            fn: f => Fertilitzants.calcularCostNutrient({...f, preu_efectiu: f.preu_efectiu}).costK,
-                                                                  fmt: v => v?v.toFixed(2)+'€':'—', max: false },
-    { label: 'Solubilitat',          fn: f => f.solubilitat,     fmt: v => v||'—',         max: null },
-    { label: 'Fertirrigació',        fn: f => f.apta_fertirrigacio, fmt: v => v?'✓ sí':'✗ no', max: null },
-    { label: 'Forma',                fn: f => f.forma_presentacio, fmt: v => v||'—',       max: null },
-    { label: 'pH (rang)',            fn: f => null,
-      fmt: (v, f) => (f.ph_minim||f.ph_maxim) ? `${f.ph_minim??'?'}–${f.ph_maxim??'?'}` : '—', max: null },
-    { label: 'Matèria orgànica',     fn: f => f.materia_organica, fmt: v => v?v+'%':'—',   max: true },
-    { label: 'Origen preu',          fn: f => f.preu_origen,     fmt: v => v||'—',         max: null },
-  ];
-
-  const capçaleres = prods.map(f =>
-    `<th class="comp-th">${f.nom}</th>`
-  ).join('');
-
-  const files_html = files.map(fila => {
-    const vals = prods.map(f => fila.fn(f));
-    let bestIdx = -1;
-
-    if (fila.max === true) {
-      const nums = vals.map(v => parseFloat(v) || 0);
-      const maxVal = Math.max(...nums);
-      if (maxVal > 0) bestIdx = nums.indexOf(maxVal);
-    } else if (fila.max === false) {
-      // mínim és millor (preu, cost)
-      const nums = vals.map(v => parseFloat(v) || null);
-      const valid = nums.filter(n => n !== null);
-      if (valid.length) {
-        const minVal = Math.min(...valid);
-        bestIdx = nums.indexOf(minVal);
-      }
-    }
-
-    const cels = prods.map((f, i) => {
-      const val     = fila.fn(f);
-      const display = fila.fmt.length === 2 ? fila.fmt(val, f) : fila.fmt(val);
-      const best    = i === bestIdx ? 'comp-td--best' : '';
-      return `<td class="comp-td ${best}">${display}</td>`;
-    }).join('');
-
-    return `<tr><td class="comp-td comp-td--label">${fila.label}</td>${cels}</tr>`;
-  }).join('');
-
-  el.innerHTML = `
-  <div class="comparativa-wrap">
-    <h3 class="comparativa-titol">Comparativa (${prods.length} productes)</h3>
-    <div class="comparativa-scroll">
-      <table class="comp-taula">
-        <thead><tr><th class="comp-th comp-th--label"></th>${capçaleres}</tr></thead>
-        <tbody>${files_html}</tbody>
-      </table>
-    </div>
-    <p class="comp-llegenda"><span class="comp-best-sample"></span> Millor valor de la fila</p>
-  </div>`;
-}
-
-// ─────────────────────────────────────────────
-// TAB CATÀLEG — llista completa editable
-// ─────────────────────────────────────────────
-
-function renderTaula() {
-  const el = document.getElementById('fert-taula');
-  if (!el) return;
-
-  if (_fertilitzants.length === 0) {
-    el.innerHTML = `<p class="fert-buit">Cap fertilitzant al catàleg.</p>`;
-    return;
-  }
-
-  const files = _fertilitzants.map(f => `
-  <tr class="taula-fila">
-    <td class="taula-td">${f.nom}</td>
-    <td class="taula-td">${f.tipus || '—'}</td>
-    <td class="taula-td taula-td--num">${f.n ?? 0}–${f.p ?? 0}–${f.k ?? 0}</td>
-    <td class="taula-td">${f.solubilitat || '—'}</td>
-    <td class="taula-td">${f.forma_presentacio || '—'}</td>
-    <td class="taula-td taula-td--num">
-      ${f.preu_efectiu
-        ? `${parseFloat(f.preu_efectiu).toFixed(2)}€ <small class="text-muted">(${f.preu_origen})</small>`
-        : '<span class="text-muted">—</span>'}
-    </td>
-    <td class="taula-td taula-td--num">${f.apta_fertirrigacio ? '✓' : ''}</td>
-    <td class="taula-td taula-td--accions">
-      ${hasPermission('update') ? `
-      <button class="btn-icon" onclick="obrirModalTecnic('${f.id}')" title="Editar dades tècniques">
-        <i class="ti ti-edit"></i>
-      </button>` : ''}
-    </td>
-  </tr>`).join('');
-
-  el.innerHTML = `
-  <div class="taula-wrap">
-    <table class="taula">
-      <thead>
-        <tr>
-          <th>Producte</th>
-          <th>Tipus</th>
-          <th>NPK</th>
-          <th>Solubilitat</th>
-          <th>Forma</th>
-          <th>Preu €/kg</th>
-          <th title="Apta fertirrigació">Ferri.</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>${files}</tbody>
-    </table>
-  </div>`;
-}
-
-// ─────────────────────────────────────────────
-// MODAL DADES TÈCNIQUES
-// ─────────────────────────────────────────────
-
-async function obrirModalTecnic(fertilitzantId) {
-  const modal = document.getElementById('modal-fert-tecnic');
-  const body  = document.getElementById('modal-fert-body');
-  const titol = document.getElementById('modal-fert-titol');
-  if (!modal) return;
-
-  body.innerHTML = '<p class="loading-msg"><i class="ti ti-loader ti-spin"></i> Carregant...</p>';
-  modal.style.display = 'flex';
-
-  try {
-    let fertilitzant = null;
-    let tecnic       = null;
-
-    if (fertilitzantId) {
-      fertilitzant = await Fertilitzants.getById(fertilitzantId);
-      tecnic       = await Fertilitzants.getTecnic(fertilitzantId);
-      _fertilitzantActiu = fertilitzant;
-      titol.textContent  = fertilitzant.nom;
-
-      // Suggerir preu des de compres si no en té
-      if (!fertilitzant.preu_kg_manual && !tecnic?.preu_kg) {
-        const darrCompra = await Fertilitzants.getDarrerPreuCompra(fertilitzantId);
-        if (darrCompra) {
-          fertilitzant._preu_suggerit = darrCompra.preu;
-          fertilitzant._preu_suggerit_data = darrCompra.data_albara;
+/**
+ * Calcula N/P/K total per a una superfície donada,
+ * sumant tots els productes del grup.
+ *
+ * liniesProducte pot venir de dues fonts:
+ *   a) recollirLiniesProducteFertilitzant()  → te producte_id, sense camps NPK directes
+ *   b) getProductesFertilitzacioGrup()       → te nitrogen/fosfor/potasi del join BD
+ * La funció suporta ambdós casos.
+ */
+function calcularNPKGrup(liniesProducte, superficieHa) {
+    var n = 0, p = 0, k = 0;
+    liniesProducte.forEach(function(lp) {
+        var nPct, pPct, kPct;
+        if (lp[NPK_CAMP_N] !== undefined) {
+            // Producte ja ve amb NPK del join BD
+            nPct = parseFloat(lp[NPK_CAMP_N]) || 0;
+            pPct = parseFloat(lp[NPK_CAMP_P]) || 0;
+            kPct = parseFloat(lp[NPK_CAMP_K]) || 0;
+        } else {
+            // Lookup des del catàleg global
+            var npk = getNPKFertilitzant(lp.producte_id);
+            nPct = npk.n;
+            pPct = npk.p;
+            kPct = npk.k;
         }
-      }
-    } else {
-      titol.textContent  = 'Nou fertilitzant';
-      _fertilitzantActiu = null;
+        var dosi = parseFloat(lp.dosi) || 0;
+        n += dosi * (nPct / 100) * superficieHa;
+        p += dosi * (pPct / 100) * superficieHa;
+        k += dosi * (kPct / 100) * superficieHa;
+    });
+    return { n: n, p: p, k: k };
+}
+
+// ============================================================
+// VISTA PRINCIPAL
+// ============================================================
+
+async function carregarVistaFertilitzacions() {
+    var container = document.getElementById('view-container');
+    var podeCrear = hasPermission('insert');
+    var campanyadefecte = getCampanyaDefecte();
+
+    var html = '<div class="view-fertilitzacions">';
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">';
+    html += '<h2>🌿 Fertilitzacions</h2>';
+    html += '<div style="display:flex; gap:8px; align-items:center;">';
+    if (podeCrear) {
+        html += '<button class="btn btn-primary" onclick="obrirModalFertilitzacio()">➕ Nova Fertilització</button>';
+    }
+    html += '</div></div>';
+
+    // Filtre campanya
+    html += '<div style="margin-bottom:15px; background:#f5f5f5; padding:12px; border-radius:8px; display:flex; align-items:center; gap:10px;">';
+    html += '<label><strong>Campanya:</strong></label>';
+    html += '<select id="filtre-campanya-fertilitzacions" style="padding:6px; border-radius:4px; border:1px solid #ddd;">';
+    [2024, 2025, 2026, 2027].forEach(function(c) {
+        html += '<option value="' + c + '"' + (c === campanyadefecte ? ' selected' : '') + '>' + c + '</option>';
+    });
+    html += '</select>';
+    html += '</div>';
+
+    html += '<div class="table-container"><table class="data-table">';
+    html += '<thead><tr><th>Data</th><th>Productes</th><th>Finca</th><th>Parcel·les</th><th>Superfície (Ha)</th><th>Accions</th></tr></thead>';
+    html += '<tbody id="tbody-fertilitzacions"><tr><td colspan="6">Carregant...</td></tr></tbody>';
+    html += '</table></div></div>';
+
+    html += crearModalFertilitzacioV2();
+
+    container.innerHTML = html;
+
+    document.getElementById('filtre-campanya-fertilitzacions').addEventListener('change', carregarTaulaFertilitzacions);
+    await carregarTaulaFertilitzacions();
+}
+
+async function carregarTaulaFertilitzacions() {
+    var tbody = document.getElementById('tbody-fertilitzacions');
+    if (!tbody) return;
+
+    var campanya = parseInt(document.getElementById('filtre-campanya-fertilitzacions')?.value) || getCampanyaDefecte();
+    var dates = getDatesCampanya(campanya);
+    var dataInici = dates.dataInici;
+    var dataFinal = dates.dataFinal;
+
+    try {
+        var res = await supabaseClient
+            .from('fertilitzacions_complet')
+            .select('*')
+            .eq('estat', 'actiu')
+            .gte('data', dataInici)
+            .lte('data', dataFinal)
+            .order('data', { ascending: false });
+        if (res.error) throw res.error;
+
+        var registres = res.data || [];
+
+        if (!registres.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No hi ha fertilitzacions per la campanya ' + campanya + '</td></tr>';
+            return;
+        }
+
+        // Agrupar per grup_fertilitzacio
+        var grups = {};
+        registres.forEach(function(f) {
+            var gt = f.grup_fertilitzacio;
+            if (!gt) return;
+            var p = parcelles.find(function(pa) { return pa.id === f.parcella_id; });
+            if (!grups[gt]) {
+                grups[gt] = {
+                    grup_fertilitzacio: gt,
+                    data: f.data,
+                    productes: f.productes || [],
+                    num_productes: f.num_productes || 0,
+                    finques: new Set(),
+                    registres: [],
+                    superficie_total: 0
+                };
+            }
+            if (p && p.finca) grups[gt].finques.add(p.finca);
+            grups[gt].registres.push(f);
+            grups[gt].superficie_total += parseFloat(f.superficie_tractada) || 0;
+        });
+
+        var podeEditar = hasPermission('update');
+        var podeEliminar = hasPermission('delete');
+        var html = '';
+
+        Object.values(grups).sort(function(a, b) {
+            return b.data.localeCompare(a.data);
+        }).forEach(function(g) {
+            var nomsProductes = (g.productes || [])
+                .map(function(p) { return p.nom || '—'; })
+                .join(', ') || '<span style="color:#999;">Sense producte</span>';
+
+            var badgeProductes = g.num_productes > 1
+                ? ' <span style="background:#e8f5e9; color:#2e7d32; padding:2px 6px; border-radius:10px; font-size:11px;">' + g.num_productes + ' prod.</span>'
+                : '';
+
+            var fincesArr = Array.from(g.finques);
+            var fincaTxt;
+            if (fincesArr.length === 0) {
+                fincaTxt = '—';
+            } else if (fincesArr.length === 1) {
+                fincaTxt = fincesArr[0];
+            } else {
+                var prefixos = [...new Set(fincesArr.map(function(f) { return f.split(' - ')[0]; }))];
+                fincaTxt = prefixos.length === 1
+                    ? prefixos[0] + ' <span style="color:#888; font-size:12px;">(' + fincesArr.length + ' finques)</span>'
+                    : '<span style="color:#555; font-size:13px;">' + fincesArr.length + ' finques</span>';
+            }
+
+            html += '<tr>';
+            html += '<td><strong>' + formatData(g.data) + '</strong></td>';
+            html += '<td>' + nomsProductes + badgeProductes + '</td>';
+            html += '<td>' + fincaTxt + '</td>';
+            html += '<td>' + g.registres.length + ' parcel·les</td>';
+            html += '<td>' + g.superficie_total.toFixed(2) + '</td>';
+            html += '<td>';
+            html += '<button class="btn btn-sm btn-primary" onclick="veureFertilitzacioGrupV2(\'' + g.grup_fertilitzacio + '\')">👁️</button>';
+            if (podeEditar) html += ' <button class="btn btn-sm btn-secondary" onclick="editarFertilitzacioGrupV2(\'' + g.grup_fertilitzacio + '\')">✏️</button>';
+            if (podeEliminar) html += ' <button class="btn btn-sm btn-danger" onclick="eliminarFertilitzacioGrup(\'' + g.grup_fertilitzacio + '\')">🗑️</button>';
+            html += '</td>';
+            html += '</tr>';
+        });
+
+        tbody.innerHTML = html;
+
+    } catch (error) {
+        console.error('carregarTaulaFertilitzacions:', error);
+        tbody.innerHTML = '<tr><td colspan="6">Error carregant dades</td></tr>';
+    }
+}
+
+// ============================================================
+// MODAL — HTML
+// ============================================================
+
+function crearModalFertilitzacioV2() {
+    return `
+    <div id="modal-fertilitzacio" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:860px;">
+            <span class="close" onclick="tancarModal('modal-fertilitzacio')">&times;</span>
+            <h2 id="modal-fertilitzacio-titol">Nova Fertilització</h2>
+            <form id="form-fertilitzacio" onsubmit="guardarFertilitzacio(event)">
+
+                <!-- CAPÇALERA -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+                    <div class="form-group">
+                        <label>Data *</label>
+                        <input type="date" id="fertilitzacio-data" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Mètode Aplicació</label>
+                        <select id="fertilitzacio-metode" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                            <option value="">Seleccionar...</option>
+                            <option value="abonat_cobertura">Abonat cobertura</option>
+                            <option value="abonat_fons">Abonat de fons</option>
+                            <option value="fertirrigacio">Fertirrigació</option>
+                            <option value="foliar">Foliar</option>
+                            <option value="localitzat">Localitzat</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Operador</label>
+                        <input type="text" id="fertilitzacio-operador">
+                    </div>
+                    <div class="form-group">
+                        <label>Maquinària</label>
+                        <input type="text" id="fertilitzacio-maquinaria">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Observacions</label>
+                    <textarea id="fertilitzacio-observacions" rows="2"></textarea>
+                </div>
+
+                <!-- SELECCIÓ PARCEL·LES -->
+                <div class="form-group">
+                    <label>Selecció Parcel·les *</label>
+                    <div style="display:flex; gap:8px; margin-top:8px; margin-bottom:8px;">
+                        <button type="button" id="fert-btn-regadiu" onclick="canviarTipusRegFertilitzacio('regadiu')"
+                            style="padding:6px 14px; border-radius:20px; border:2px solid #1565c0; background:#1565c0; color:#fff; font-size:13px; cursor:pointer; font-weight:600;">
+                            💧 Regadiu
+                        </button>
+                        <button type="button" id="fert-btn-seca" onclick="canviarTipusRegFertilitzacio('seca')"
+                            style="padding:6px 14px; border-radius:20px; border:2px solid #bbb; background:#fff; color:#555; font-size:13px; cursor:pointer;">
+                            🌾 Secà
+                        </button>
+                    </div>
+                    <div id="fertilitzacio-finques-checks" style="margin-top:4px;"></div>
+                    <div style="background:#f5f5f5; padding:8px 12px; border-radius:6px; margin-top:8px; font-size:14px;">
+                        Superfície total seleccionada: <strong><span id="superficie-total-fert">0</span> Ha</strong>
+                    </div>
+                </div>
+
+                <!-- LÍNIES DE PRODUCTE -->
+                <div class="form-group">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <label style="margin:0;">Productes *</label>
+                        <button type="button" class="btn btn-secondary" style="font-size:13px; padding:6px 12px;"
+                            onclick="afegirLiniaProducteFertilitzant()">
+                            ➕ Afegir producte
+                        </button>
+                    </div>
+                    <div id="linies-productes-fert-container"></div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="tancarModal('modal-fertilitzacio')">Cancel·lar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>`;
+}
+
+// ============================================================
+// MODAL — Obrir / Reset
+// ============================================================
+
+async function obrirModalFertilitzacio() {
+    if (!document.getElementById('modal-fertilitzacio')) {
+        var div = document.createElement('div');
+        div.innerHTML = crearModalFertilitzacioV2();
+        document.body.appendChild(div);
     }
 
-    body.innerHTML = renderFormulariTecnic(fertilitzant, tecnic);
-  } catch (e) {
-    body.innerHTML = `<p class="error-msg">Error: ${e.message}</p>`;
-  }
+    document.getElementById('modal-fertilitzacio-titol').textContent = 'Nova Fertilització';
+    var form = document.getElementById('form-fertilitzacio');
+    form.reset();
+    form.dataset.editMode = 'false';
+    form.dataset.editGrup = '';
+
+    var avui = new Date().toISOString().split('T')[0];
+    document.getElementById('fertilitzacio-data').value = avui;
+
+    _tipusRegFertActual = 'regadiu';
+    actualitzarEstilToggleRegFertilitzacio();
+    construirSelectorFertFinques(null, null);
+
+    document.getElementById('linies-productes-fert-container').innerHTML = '';
+    afegirLiniaProducteFertilitzant();
+
+    var supEl = document.getElementById('superficie-total-fert');
+    if (supEl) supEl.textContent = '0';
+
+    document.getElementById('modal-fertilitzacio').style.display = 'block';
 }
 
-function renderFormulariTecnic(f, t) {
-  const v = (camp, def = '') => t?.[camp] ?? def;
-  const modes = v('modes_aplicacio', []);
-
-  const preusuggerit = f?._preu_suggerit
-    ? `<small class="preu-suggerit">
-         Darrera compra: <strong>${parseFloat(f._preu_suggerit).toFixed(2)}€/kg</strong>
-         (${formatData(f._preu_suggerit_data)})
-         <button type="button" class="btn-link btn-xs"
-           onclick="document.getElementById('inp-preu-kg').value=${parseFloat(f._preu_suggerit).toFixed(4)}">
-           Usar aquest preu
-         </button>
-       </small>`
-    : '';
-
-  return `
-  <form id="form-fert-tecnic" onsubmit="guardarTecnic(event)">
-
-    <!-- Preu de referència -->
-    <fieldset class="form-fieldset">
-      <legend>Preu de referència</legend>
-      <div class="form-row">
-        <div class="form-grup">
-          <label class="form-label">Preu €/kg</label>
-          <input id="inp-preu-kg" type="number" step="0.0001" min="0"
-                 class="form-input"
-                 value="${f?.preu_kg_manual ?? t?.preu_kg ?? ''}"
-                 placeholder="0.0000">
-          ${preusuggerit}
-        </div>
-        <div class="form-grup">
-          <label class="form-label">Data referència</label>
-          <input type="date" id="inp-preu-data" class="form-input"
-                 value="${f?.preu_kg_manual_data ?? t?.preu_kg_data ?? ''}">
-        </div>
-      </div>
-    </fieldset>
-
-    <!-- Nutrients secundaris -->
-    <fieldset class="form-fieldset">
-      <legend>Nutrients secundaris (%)</legend>
-      <div class="form-row form-row--4">
-        <div class="form-grup">
-          <label class="form-label">CaO</label>
-          <input type="number" step="0.01" min="0" max="100" class="form-input"
-                 name="ca" value="${v('ca', 0)}">
-        </div>
-        <div class="form-grup">
-          <label class="form-label">MgO</label>
-          <input type="number" step="0.01" min="0" max="100" class="form-input"
-                 name="mg" value="${v('mg', 0)}">
-        </div>
-        <div class="form-grup">
-          <label class="form-label">SO₃</label>
-          <input type="number" step="0.01" min="0" max="100" class="form-input"
-                 name="s" value="${v('s', 0)}">
-        </div>
-        <div class="form-grup">
-          <label class="form-label">Matèria orgànica %</label>
-          <input type="number" step="0.01" min="0" max="100" class="form-input"
-                 name="materia_organica" value="${v('materia_organica', '')}">
-        </div>
-      </div>
-    </fieldset>
-
-    <!-- Propietats fisicoquímiques -->
-    <fieldset class="form-fieldset">
-      <legend>Propietats fisicoquímiques</legend>
-      <div class="form-row form-row--3">
-        <div class="form-grup">
-          <label class="form-label">Solubilitat</label>
-          <select class="form-input" name="solubilitat">
-            ${Fertilitzants.SOLUBILITAT.map(s =>
-              `<option value="${s}" ${v('solubilitat','desconeguda')===s?'selected':''}>${s}</option>`
-            ).join('')}
-          </select>
-        </div>
-        <div class="form-grup">
-          <label class="form-label">pH mínim</label>
-          <input type="number" step="0.1" min="0" max="14" class="form-input"
-                 name="ph_minim" value="${v('ph_minim', '')}">
-        </div>
-        <div class="form-grup">
-          <label class="form-label">pH màxim</label>
-          <input type="number" step="0.1" min="0" max="14" class="form-input"
-                 name="ph_maxim" value="${v('ph_maxim', '')}">
-        </div>
-      </div>
-      <div class="form-row form-row--2">
-        <div class="form-grup">
-          <label class="form-label">Forma presentació</label>
-          <select class="form-input" name="forma_presentacio">
-            <option value="">— seleccionar —</option>
-            ${Fertilitzants.FORMES.map(fo =>
-              `<option value="${fo}" ${v('forma_presentacio')===fo?'selected':''}>${fo}</option>`
-            ).join('')}
-          </select>
-        </div>
-      </div>
-    </fieldset>
-
-    <!-- Modes d'aplicació -->
-    <fieldset class="form-fieldset">
-      <legend>Modes d'aplicació</legend>
-      <div class="form-checks-row">
-        ${Fertilitzants.MODES.map(m => `
-        <label class="form-check-label">
-          <input type="checkbox" name="modes_aplicacio" value="${m}"
-                 ${modes.includes(m) ? 'checked' : ''}>
-          ${m}
-        </label>`).join('')}
-      </div>
-    </fieldset>
-
-    <!-- Identificació -->
-    <fieldset class="form-fieldset">
-      <legend>Identificació</legend>
-      <div class="form-row form-row--2">
-        <div class="form-grup">
-          <label class="form-label">Fabricant</label>
-          <input type="text" class="form-input" name="fabricant"
-                 value="${escapeHtml(v('fabricant', ''))}">
-        </div>
-        <div class="form-grup">
-          <label class="form-label">Núm. registre MAPA</label>
-          <input type="text" class="form-input" name="registre_mapa"
-                 value="${escapeHtml(v('registre_mapa', ''))}">
-        </div>
-      </div>
-      <div class="form-grup">
-        <label class="form-label">URL fitxa tècnica</label>
-        <input type="url" class="form-input" name="fitxa_tecnica_url"
-               value="${escapeHtml(v('fitxa_tecnica_url', ''))}"
-               placeholder="https://...">
-      </div>
-    </fieldset>
-
-    <div class="modal-footer">
-      <button type="button" class="btn-secondary" onclick="tancarModalTecnic()">Cancel·lar</button>
-      <button type="submit" class="btn-primary" id="btn-guardar-tecnic">
-        <i class="ti ti-device-floppy"></i> Guardar
-      </button>
-    </div>
-  </form>`;
+function resetFormulariFertilitzacions() {
+    var form = document.getElementById('form-fertilitzacio');
+    if (!form) return;
+    form.reset();
+    form.dataset.editMode = 'false';
+    form.dataset.editGrup = '';
+    var supEl = document.getElementById('superficie-total-fert');
+    if (supEl) supEl.textContent = '0';
+    var contenidor = document.getElementById('linies-productes-fert-container');
+    if (contenidor) contenidor.innerHTML = '';
+    afegirLiniaProducteFertilitzant();
 }
 
-async function guardarTecnic(event) {
-  event.preventDefault();
-  if (!_fertilitzantActiu) return;
+// ============================================================
+// GUARDAR
+// ============================================================
 
-  const btn  = document.getElementById('btn-guardar-tecnic');
-  const form = document.getElementById('form-fert-tecnic');
-  btn.disabled = true;
-  btn.innerHTML = '<i class="ti ti-loader ti-spin"></i> Guardant...';
+async function guardarFertilitzacio(event) {
+    event.preventDefault();
 
-  try {
-    const dades = Object.fromEntries(new FormData(form));
+    var data       = document.getElementById('fertilitzacio-data').value;
+    var metode     = document.getElementById('fertilitzacio-metode').value;
+    var operador   = document.getElementById('fertilitzacio-operador').value.trim();
+    var maquinaria = document.getElementById('fertilitzacio-maquinaria').value.trim();
+    var observacions = document.getElementById('fertilitzacio-observacions').value.trim();
+    var campanya   = getCampanyaDefecte().toString();
 
-    // Modes d'aplicació: multiple checkboxes
-    const modesChecked = [...form.querySelectorAll('[name="modes_aplicacio"]:checked')]
-      .map(cb => cb.value);
-    dades.modes_aplicacio = modesChecked;
+    var liniesProducte = recollirLiniesProducteFertilitzant();
+    if (!liniesProducte.length) {
+        mostrarNotificacio('Cal afegir almenys un producte', 'error');
+        return;
+    }
 
-    // Netejar camps buits → null
-    ['ph_minim','ph_maxim','materia_organica','registre_mapa','fabricant','fitxa_tecnica_url'].forEach(c => {
-      if (dades[c] === '') dades[c] = null;
+    var parcellesAFertilitzar = getParcellesFertilitzacioSeleccionades();
+    if (!parcellesAFertilitzar.length) {
+        mostrarNotificacio('Cal seleccionar almenys una parcel·la', 'error');
+        return;
+    }
+
+    var form = document.getElementById('form-fertilitzacio');
+    var editMode = form.dataset.editMode === 'true';
+    var editGrup = form.dataset.editGrup || null;
+
+    try {
+        if (editMode && editGrup) {
+            // Edició: esborrar registres anteriors del grup
+            await supabaseClient.from('fertilitzacions_productes').delete().eq('grup_fertilitzacio', editGrup);
+            await supabaseClient.from('fertilitzacions').delete().eq('grup_fertilitzacio', editGrup);
+        }
+
+        var grupFertilitzacio = crypto.randomUUID();
+
+        // Inserir una fila a `fertilitzacions` per cada parcel·la
+        for (var pi = 0; pi < parcellesAFertilitzar.length; pi++) {
+            var p = parcellesAFertilitzar[pi];
+            var superficieParcel = parseFloat(p.superficie) || 0;
+
+            // Calcular NPK agregat (suma de tots els productes) per aquesta parcel·la
+            // S'escriu a n_total/p_total/k_total per compatibilitat amb el Llibre actual.
+            // Quan el Llibre es migri per llegir de fertilitzacions_productes,
+            // aquests camps deixaran de ser necessaris.
+            var npk = calcularNPKGrup(liniesProducte, superficieParcel);
+
+            var novaFila = {
+                data:               data,
+                metode:             metode || null,
+                operador:           operador || null,
+                maquinaria:         maquinaria || null,
+                observacions:       observacions || null,
+                parcella_id:        p.id,
+                superficie_tractada: superficieParcel,
+                estat:              'actiu',
+                campanya:           campanya,
+                grup_fertilitzacio: grupFertilitzacio,
+                n_total:            parseFloat(npk.n.toFixed(4)),
+                p_total:            parseFloat(npk.p.toFixed(4)),
+                k_total:            parseFloat(npk.k.toFixed(4)),
+                created_by:         (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null
+            };
+
+            var res = await supabaseClient
+                .from('fertilitzacions')
+                .insert([novaFila])
+                .select()
+                .single();
+            if (res.error) throw res.error;
+        }
+
+        // Inserir línies de producte (una fila per producte, compartida per totes les parcel·les)
+        var rowsProductes = liniesProducte.map(function(lp) {
+            return {
+                grup_fertilitzacio:   grupFertilitzacio,
+                producte_id:          lp.producte_id || null,
+                dosi:                 parseFloat(lp.dosi) || 0,
+                unitat:               lp.unitat || 'kg/Ha',
+                observacions_producte: lp.observacions_producte || null
+            };
+        });
+
+        var resProds = await supabaseClient.from('fertilitzacions_productes').insert(rowsProductes);
+        if (resProds.error) throw resProds.error;
+
+        // NOTA ESTOC: quan s'activi el control d'estoc de fertilitzants,
+        // afegir aquí els moviments seguint el patró de guardarTractament:
+        //   un moviment per producte per finca|varietat, quantitat = -(superficieTotal × dosi)
+
+        mostrarNotificacio(editMode ? 'Fertilització actualitzada' : 'Fertilització registrada', 'success');
+        tancarModal('modal-fertilitzacio');
+        await carregarTaulaFertilitzacions();
+        resetFormulariFertilitzacions();
+
+    } catch (error) {
+        console.error('Error guardarFertilitzacio:', error);
+        mostrarNotificacio('Error en guardar: ' + error.message, 'error');
+    }
+}
+
+// ============================================================
+// LÍNIES DE PRODUCTE
+// ============================================================
+
+function afegirLiniaProducteFertilitzant(dades) {
+    // dades: { producte_id, dosi, unitat } (opcional, per edició)
+    var container = document.getElementById('linies-productes-fert-container');
+
+    var fertilitzantsOrdenats = (window.Fertilitzants || []).slice().sort(function(a, b) {
+        return (a.nom || '').localeCompare(b.nom || '');
     });
 
-    // Preu manual (camp separat a fertilitzants principal)
-    const preuKg   = document.getElementById('inp-preu-kg').value;
-    const preuData = document.getElementById('inp-preu-data').value;
+    var optionsHtml = '<option value="">Seleccionar...</option>';
+    fertilitzantsOrdenats.forEach(function(f) {
+        var sel = (dades && dades.producte_id === f.id) ? 'selected' : '';
+        optionsHtml += '<option value="' + f.id + '" ' + sel + '>' + f.nom + '</option>';
+    });
 
-    // Upsert dades tècniques
-    await Fertilitzants.upsertTecnic(_fertilitzantActiu.id, dades);
+    var unitatOpts = ['kg/Ha', 'L/Ha', 'g/Ha', 'mL/Ha'].map(function(u) {
+        return '<option value="' + u + '"' + (dades && dades.unitat === u ? ' selected' : '') + '>' + u + '</option>';
+    }).join('');
 
-    // Actualitzar preu principal si s'ha introduït
-    if (preuKg) {
-      await Fertilitzants.actualitzarPreu(_fertilitzantActiu.id, parseFloat(preuKg));
+    var dosiVal = dades ? (dades.dosi || '') : '';
+
+    var div = document.createElement('div');
+    div.className = 'linia-producte-fert';
+    div.style.cssText = 'border:1px solid #e0e0e0; border-radius:8px; padding:12px; margin-bottom:8px; background:#fafafa; position:relative;';
+    div.innerHTML = `
+        <div style="display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:8px; align-items:end;">
+            <div>
+                <label style="font-size:12px; color:#666; display:block; margin-bottom:4px;">Producte *</label>
+                <select class="lp-fert-producte" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    ${optionsHtml}
+                </select>
+            </div>
+            <div>
+                <label style="font-size:12px; color:#666; display:block; margin-bottom:4px;">Dosi *</label>
+                <input type="number" class="lp-fert-dosi" value="${dosiVal}" min="0" step="0.001"
+                    style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+            </div>
+            <div>
+                <label style="font-size:12px; color:#666; display:block; margin-bottom:4px;">Unitat</label>
+                <select class="lp-fert-unitat" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    ${unitatOpts}
+                </select>
+            </div>
+            <div>
+                <button type="button" onclick="eliminarLiniaProducteFertilitzant(this)"
+                    style="background:#ffebee; border:1px solid #ef9a9a; color:#c62828; border-radius:4px; padding:8px; cursor:pointer; font-size:14px; margin-top:18px;">🗑️</button>
+            </div>
+        </div>`;
+
+    container.appendChild(div);
+}
+
+function eliminarLiniaProducteFertilitzant(btn) {
+    var linia = btn.closest('.linia-producte-fert');
+    if (document.querySelectorAll('.linia-producte-fert').length <= 1) {
+        mostrarNotificacio('Cal tenir almenys un producte', 'error');
+        return;
+    }
+    linia.remove();
+}
+
+function recollirLiniesProducteFertilitzant() {
+    var linies = [];
+    document.querySelectorAll('.linia-producte-fert').forEach(function(row) {
+        var producteId = row.querySelector('.lp-fert-producte').value;
+        var dosi       = parseFloat(row.querySelector('.lp-fert-dosi').value);
+        var unitat     = row.querySelector('.lp-fert-unitat').value;
+        if (producteId && dosi > 0) {
+            linies.push({ producte_id: producteId, dosi: dosi, unitat: unitat });
+        }
+    });
+    return linies;
+}
+
+// ============================================================
+// SELECTOR EN ARBRE
+// ============================================================
+
+/**
+ * Retorna true si la parcel·la pot rebre fertilització.
+ * Exclou guaret, forestals i improductives: no s'abonen
+ * i inflarien els consums de la finca.
+ */
+function esParcellaAptaFertilitzacio(p) {
+    if (!p.cultiu) return true; // sense cultiu → s'inclou (transició de campanya)
+    var c = p.cultiu.trim().toUpperCase();
+    var exclosos = ['GUARET', 'FORESTAL', 'IMPRODUCTIU', 'IMPRODUCTIVA', 'ERM', 'ERMA'];
+    return !exclosos.some(function(ex) { return c.includes(ex); });
+}
+
+function canviarTipusRegFertilitzacio(tipus) {
+    _tipusRegFertActual = tipus;
+    actualitzarEstilToggleRegFertilitzacio();
+    construirSelectorFertFinques(null, null);
+}
+
+function actualitzarEstilToggleRegFertilitzacio() {
+    var btnReg  = document.getElementById('fert-btn-regadiu');
+    var btnSeca = document.getElementById('fert-btn-seca');
+    if (!btnReg || !btnSeca) return;
+    if (_tipusRegFertActual === 'regadiu') {
+        btnReg.style.cssText  = 'padding:6px 14px; border-radius:20px; border:2px solid #1565c0; background:#1565c0; color:#fff; font-size:13px; cursor:pointer; font-weight:600;';
+        btnSeca.style.cssText = 'padding:6px 14px; border-radius:20px; border:2px solid #bbb; background:#fff; color:#555; font-size:13px; cursor:pointer;';
+    } else {
+        btnSeca.style.cssText = 'padding:6px 14px; border-radius:20px; border:2px solid #795548; background:#795548; color:#fff; font-size:13px; cursor:pointer; font-weight:600;';
+        btnReg.style.cssText  = 'padding:6px 14px; border-radius:20px; border:2px solid #bbb; background:#fff; color:#555; font-size:13px; cursor:pointer;';
+    }
+}
+
+/**
+ * Construeix el selector en arbre Finca → Varietats.
+ * finquesPreseleccionades: array de noms de finca (mode edició) o null (nou)
+ * varietatsPreseleccionades: array de { finca, varietat }      (mode edició) o null (nou)
+ */
+function construirSelectorFertFinques(finquesPreseleccionades, varietatsPreseleccionades) {
+    var container = document.getElementById('fertilitzacio-finques-checks');
+    if (!container) return;
+
+    var esRegadiu = _tipusRegFertActual === 'regadiu';
+    var anyActual = getCampanyaDefecte();
+
+    // Filtrar per reg + aptitud + finca assignada
+    var parcellesTipus = (parcelles || []).filter(function(p) {
+        return p.regadiu === esRegadiu
+            && esParcellaAptaFertilitzacio(p)
+            && p.finca
+            && p.finca.trim();
+    });
+
+    // Per cada finca: màxim any de campanya disponible
+    var anyPerFinca = {};
+    parcellesTipus.forEach(function(p) {
+        var finca   = p.finca.trim();
+        var campanya = p.campanya ? parseInt(p.campanya) : anyActual;
+        if (!anyPerFinca[finca] || campanya > anyPerFinca[finca]) {
+            anyPerFinca[finca] = campanya;
+        }
+    });
+
+    // Quedar-se només amb les parcel·les de l'any més recent per cada finca
+    var parcellesFiltrades = parcellesTipus.filter(function(p) {
+        var finca    = p.finca.trim();
+        var anyFinca = anyPerFinca[finca] || anyActual;
+        var campanyaP = p.campanya ? parseInt(p.campanya) : anyActual;
+        return campanyaP === anyFinca;
+    });
+
+    // Agrupar en arbre finca → varietat
+    var arbre = {};
+    parcellesFiltrades.forEach(function(p) {
+        var finca   = p.finca.trim();
+        var varietat = p.varietat || 'Sense varietat';
+        if (!arbre[finca]) arbre[finca] = {};
+        if (!arbre[finca][varietat]) arbre[finca][varietat] = { hectarees: 0, count: 0 };
+        arbre[finca][varietat].hectarees += parseFloat(p.superficie) || 0;
+        arbre[finca][varietat].count++;
+    });
+
+    var colorFinca   = esRegadiu ? '#e8f5e9' : '#fef9e7';
+    var emojiFinca   = esRegadiu ? '💧' : '🌾';
+    var missatgeBuit = esRegadiu
+        ? 'No hi ha parcel·les de regadiu disponibles'
+        : 'No hi ha parcel·les de secà disponibles';
+
+    var modeEdicio = finquesPreseleccionades !== null && finquesPreseleccionades !== undefined;
+
+    var html = '';
+    Object.keys(arbre).sort().forEach(function(finca) {
+        var varietats = Object.keys(arbre[finca]).sort();
+        var haFinca   = Object.values(arbre[finca]).reduce(function(s, v) { return s + v.hectarees; }, 0);
+        var fincaId   = 'fert-finca-' + finca.replace(/[^a-zA-Z0-9]/g, '_');
+        var fincaMarcada = modeEdicio && finquesPreseleccionades.includes(finca);
+
+        html += '<div style="margin-bottom:8px; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden;">';
+        html += '<div style="background:' + colorFinca + '; padding:8px 12px; display:flex; align-items:center; gap:10px;">';
+        html += '<input type="checkbox" id="' + fincaId + '"' + (fincaMarcada ? ' checked' : '') + ' ';
+        html += 'data-finca="' + finca.replace(/"/g, '&quot;') + '" ';
+        html += 'onchange="toggleFincaFertilitzacio(this)" ';
+        html += 'style="width:18px; height:18px; cursor:pointer;">';
+        html += '<label for="' + fincaId + '" style="font-weight:600; cursor:pointer; flex:1; margin:0;">' + emojiFinca + ' ' + finca + '</label>';
+        html += '<span style="font-size:12px; color:#555;">' + haFinca.toFixed(2) + ' Ha</span>';
+        html += '</div>';
+
+        html += '<div style="padding:6px 12px 8px 32px;">';
+        varietats.forEach(function(varietat) {
+            var info  = arbre[finca][varietat];
+            var varId = 'fert-var-' + finca.replace(/[^a-zA-Z0-9]/g, '_') + '-' + varietat.replace(/[^a-zA-Z0-9]/g, '_');
+            var varMarcada = modeEdicio && fincaMarcada && varietatsPreseleccionades &&
+                varietatsPreseleccionades.some(function(v) { return v.finca === finca && v.varietat === varietat; });
+
+            html += '<div style="display:flex; align-items:center; gap:8px; padding:3px 0;">';
+            html += '<input type="checkbox" id="' + varId + '"' + (varMarcada ? ' checked' : '') + ' ';
+            html += 'data-finca="' + finca.replace(/"/g, '&quot;') + '" ';
+            html += 'data-varietat="' + varietat.replace(/"/g, '&quot;') + '" ';
+            html += 'onchange="actualitzarCheckFincaFertilitzacio(this)" class="fert-check-varietat" ';
+            html += 'style="width:16px; height:16px; cursor:pointer;">';
+            html += '<label for="' + varId + '" style="cursor:pointer; margin:0; font-size:14px;">' + varietat + '</label>';
+            html += '<span style="font-size:12px; color:#888; margin-left:auto;">' + info.hectarees.toFixed(2) + ' Ha · ' + info.count + ' parc.</span>';
+            html += '</div>';
+        });
+        html += '</div></div>';
+    });
+
+    container.innerHTML = html || '<p style="color:#999;">' + missatgeBuit + '</p>';
+    actualitzarParcellesFertilitzacioSeleccionades();
+}
+
+function toggleFincaFertilitzacio(cbFinca) {
+    var finca  = cbFinca.dataset.finca;
+    var marcat = cbFinca.checked;
+    document.querySelectorAll('.fert-check-varietat[data-finca="' + finca + '"]').forEach(function(cb) {
+        cb.checked = marcat;
+    });
+    cbFinca.indeterminate = false;
+    actualitzarParcellesFertilitzacioSeleccionades();
+}
+
+function actualitzarCheckFincaFertilitzacio(cbVarietat) {
+    var finca   = cbVarietat.dataset.finca;
+    var totes   = document.querySelectorAll('.fert-check-varietat[data-finca="' + finca + '"]');
+    var marcades = document.querySelectorAll('.fert-check-varietat[data-finca="' + finca + '"]:checked');
+    var fincaId = 'fert-finca-' + finca.replace(/[^a-zA-Z0-9]/g, '_');
+    var cbFinca = document.getElementById(fincaId);
+    if (cbFinca) {
+        cbFinca.checked       = marcades.length > 0;
+        cbFinca.indeterminate = marcades.length > 0 && marcades.length < totes.length;
+    }
+    actualitzarParcellesFertilitzacioSeleccionades();
+}
+
+function actualitzarParcellesFertilitzacioSeleccionades() {
+    var parcellesSeleccionades = getParcellesFertilitzacioSeleccionades();
+    var superficie = parcellesSeleccionades.reduce(function(sum, p) {
+        return sum + (parseFloat(p.superficie) || 0);
+    }, 0);
+    var spanSup = document.getElementById('superficie-total-fert');
+    if (spanSup) spanSup.textContent = superficie.toFixed(2);
+}
+
+function getParcellesFertilitzacioSeleccionades() {
+    var seleccions = [];
+    document.querySelectorAll('.fert-check-varietat:checked').forEach(function(cb) {
+        seleccions.push({ finca: cb.dataset.finca, varietat: cb.dataset.varietat });
+    });
+
+    var esRegadiu = _tipusRegFertActual === 'regadiu';
+    var anyActual = getCampanyaDefecte();
+
+    // Reconstruir anyPerFinca per filtrar per campanya màxima (mateix criteri que el selector)
+    var anyPerFinca = {};
+    (parcelles || []).forEach(function(p) {
+        if (!p.finca || !p.finca.trim()) return;
+        if (p.regadiu !== esRegadiu || !esParcellaAptaFertilitzacio(p)) return;
+        var finca   = p.finca.trim();
+        var campanya = p.campanya ? parseInt(p.campanya) : anyActual;
+        if (!anyPerFinca[finca] || campanya > anyPerFinca[finca]) {
+            anyPerFinca[finca] = campanya;
+        }
+    });
+
+    return (parcelles || []).filter(function(p) {
+        if (!p.finca || !p.finca.trim()) return false;
+        if (!esParcellaAptaFertilitzacio(p) || p.regadiu !== esRegadiu) return false;
+        var finca    = p.finca.trim();
+        var anyFinca = anyPerFinca[finca] || anyActual;
+        var campanyaP = p.campanya ? parseInt(p.campanya) : anyActual;
+        if (campanyaP !== anyFinca) return false;
+        return seleccions.some(function(s) {
+            return s.finca === finca && s.varietat === p.varietat;
+        });
+    });
+}
+
+// ============================================================
+// DETALL (veure)
+// ============================================================
+
+async function veureFertilitzacioGrupV2(grupFertilitzacio) {
+    var productes = await getProductesFertilitzacioGrup(grupFertilitzacio);
+
+    var res = await supabaseClient
+        .from('fertilitzacions')
+        .select('*, parcelles(id, nom, finca, varietat, cultiu, sigpac, superficie)')
+        .eq('grup_fertilitzacio', grupFertilitzacio)
+        .eq('estat', 'actiu');
+    var fertGrup = res.data || [];
+
+    if (!fertGrup.length) return;
+    var primer = fertGrup[0];
+    var superficieTotal = fertGrup.reduce(function(s, f) {
+        return s + (parseFloat(f.superficie_tractada) || 0);
+    }, 0);
+
+    // Taula productes
+    var htmlProductes = '';
+    if (productes.length) {
+        htmlProductes = '<table class="data-table" style="margin-top:8px;">';
+        htmlProductes += '<thead><tr><th>Producte</th><th>Dosi</th><th>Unitat</th><th>Qtitat Total</th></tr></thead><tbody>';
+        productes.forEach(function(p) {
+            var quantitatTotal = (parseFloat(p.dosi) || 0) * superficieTotal;
+            var unitatBase     = (p.unitat || '').split('/')[0];
+            htmlProductes += '<tr>';
+            htmlProductes += '<td><strong>' + (p.nom || '—') + '</strong></td>';
+            htmlProductes += '<td>' + p.dosi + '</td>';
+            htmlProductes += '<td>' + p.unitat + '</td>';
+            htmlProductes += '<td><strong>' + quantitatTotal.toFixed(2) + ' ' + unitatBase + '</strong></td>';
+            htmlProductes += '</tr>';
+        });
+        htmlProductes += '</tbody></table>';
+    } else {
+        htmlProductes = '<p style="color:#999;">Sense productes assignats</p>';
     }
 
-    mostrarNotificacio(`Dades tècniques de ${_fertilitzantActiu.nom} guardades`, 'success');
-    tancarModalTecnic();
+    // Taula parcel·les amb NPK
+    var nTotal = 0, pTotal = 0, kTotal = 0;
+    var htmlParcelles = '<table class="data-table" style="margin-top:8px;">';
+    htmlParcelles += '<thead><tr><th>Finca / Varietat</th><th>SIGPAC</th><th>Sup. (Ha)</th><th>N</th><th>P</th><th>K</th></tr></thead>';
+    htmlParcelles += '<tbody>';
 
-    // Recarregar llista
-    _fertilitzants = await Fertilitzants.getComplet();
-    renderTot();
+    fertGrup.forEach(function(f) {
+        var par     = f.parcelles || {};
+        var sup     = parseFloat(f.superficie_tractada) || 0;
+        var finca   = par.finca   || 'Sense finca';
+        var varietat = par.varietat || '';
+        var nomMostrar = finca + (varietat ? ' - ' + varietat : '');
 
-  } catch (e) {
-    mostrarNotificacio(`Error guardant: ${e.message}`, 'error');
-    btn.disabled = false;
-    btn.innerHTML = '<i class="ti ti-device-floppy"></i> Guardar';
-  }
+        var npk = calcularNPKGrup(productes, sup);
+        nTotal += npk.n;
+        pTotal += npk.p;
+        kTotal += npk.k;
+
+        htmlParcelles += '<tr>';
+        htmlParcelles += '<td>' + nomMostrar + '</td>';
+        htmlParcelles += '<td style="font-size:12px; color:#666;">' + (par.sigpac || '—') + '</td>';
+        htmlParcelles += '<td>' + sup.toFixed(2) + '</td>';
+        htmlParcelles += '<td>' + npk.n.toFixed(2) + '</td>';
+        htmlParcelles += '<td>' + npk.p.toFixed(2) + '</td>';
+        htmlParcelles += '<td>' + npk.k.toFixed(2) + '</td>';
+        htmlParcelles += '</tr>';
+    });
+
+    // Fila totals
+    htmlParcelles += '<tr style="background:#e8f5e9; font-weight:bold;">';
+    htmlParcelles += '<td colspan="2"><strong>TOTALS</strong></td>';
+    htmlParcelles += '<td><strong>' + superficieTotal.toFixed(2) + '</strong></td>';
+    htmlParcelles += '<td><strong>' + nTotal.toFixed(2) + '</strong></td>';
+    htmlParcelles += '<td><strong>' + pTotal.toFixed(2) + '</strong></td>';
+    htmlParcelles += '<td><strong>' + kTotal.toFixed(2) + '</strong></td>';
+    htmlParcelles += '</tr>';
+    htmlParcelles += '</tbody></table>';
+
+    var unitatNPK = productes.length > 0 ? (productes[0].unitat || 'kg').split('/')[0] : 'kg';
+
+    var html = `
+    <div id="modal-veure-fertilitzacio" class="modal" style="display:block;">
+        <div class="modal-content" style="max-width:780px;">
+            <span class="close" onclick="document.getElementById('modal-veure-fertilitzacio').remove()">&times;</span>
+            <h2>📋 Detall Fertilització</h2>
+
+            <div style="background:#f5f5f5; padding:15px; border-radius:8px; margin-bottom:16px;">
+                <div><strong>📅 Data:</strong> ${formatData(primer.data)}</div>
+                <div><strong>📏 Superfície total:</strong> ${superficieTotal.toFixed(2)} Ha (${fertGrup.length} parcel·les)</div>
+                ${primer.metode    ? '<div><strong>🌱 Mètode:</strong> '      + primer.metode    + '</div>' : ''}
+                ${primer.operador  ? '<div><strong>👤 Operador:</strong> '    + primer.operador  + '</div>' : ''}
+                ${primer.maquinaria ? '<div><strong>🚜 Maquinària:</strong> ' + primer.maquinaria + '</div>' : ''}
+                ${primer.observacions ? '<div><strong>📝 Obs.:</strong> '     + primer.observacions + '</div>' : ''}
+            </div>
+
+            <h3>🧪 Productes aplicats (${productes.length})</h3>
+            ${htmlProductes}
+
+            <div style="background:#e8f5e9; padding:10px 14px; border-radius:6px; margin:12px 0; font-size:14px;">
+                <strong>🌿 Unitats Fertilitzants totals (U.F.):</strong><br>
+                N total: <strong>${nTotal.toFixed(2)} ${unitatNPK}</strong> &nbsp;|&nbsp;
+                P total: <strong>${pTotal.toFixed(2)} ${unitatNPK}</strong> &nbsp;|&nbsp;
+                K total: <strong>${kTotal.toFixed(2)} ${unitatNPK}</strong>
+            </div>
+
+            <h3 style="margin-top:16px;">🗺️ Parcel·les Fertilitzades (${fertGrup.length})</h3>
+            ${htmlParcelles}
+
+            <div class="form-actions" style="margin-top:16px;">
+                <button class="btn btn-primary" onclick="document.getElementById('modal-veure-fertilitzacio').remove()">Tancar</button>
+            </div>
+        </div>
+    </div>`;
+
+    var anterior = document.getElementById('modal-veure-fertilitzacio');
+    if (anterior) anterior.remove();
+    document.body.insertAdjacentHTML('beforeend', html);
 }
 
-function tancarModalTecnic() {
-  const modal = document.getElementById('modal-fert-tecnic');
-  if (modal) modal.style.display = 'none';
-  _fertilitzantActiu = null;
-}
+// ============================================================
+// EDITAR
+// ============================================================
 
-// ─────────────────────────────────────────────
-// MODAL PREU RÀPID
-// ─────────────────────────────────────────────
+async function editarFertilitzacioGrupV2(grupFertilitzacio) {
+    var res = await supabaseClient
+        .from('fertilitzacions')
+        .select('*, parcelles(finca, varietat, regadiu)')
+        .eq('grup_fertilitzacio', grupFertilitzacio)
+        .eq('estat', 'actiu');
+    var fertGrup = res.data || [];
 
-async function obrirModalPreu(fertilitzantId, nom) {
-  const preu = prompt(`Preu €/kg per "${nom}":`);
-  if (preu === null || preu === '') return;
-  const valor = parseFloat(preu.replace(',', '.'));
-  if (isNaN(valor) || valor <= 0) {
-    mostrarNotificacio('Preu no vàlid', 'warning');
-    return;
-  }
-  try {
-    await Fertilitzants.actualitzarPreu(fertilitzantId, valor);
-    mostrarNotificacio(`Preu actualitzat: ${valor.toFixed(2)}€/kg`, 'success');
-    _fertilitzants = await Fertilitzants.getComplet();
-    renderTot();
-  } catch (e) {
-    mostrarNotificacio(`Error: ${e.message}`, 'error');
-  }
-}
+    if (!fertGrup.length) return;
 
-// ─────────────────────────────────────────────
-// EVENTS FILTRES / SELECCIÓ
-// ─────────────────────────────────────────────
+    var productes = await getProductesFertilitzacioGrup(grupFertilitzacio);
+    var primer    = fertGrup[0];
 
-function canviarTab(tab, btn) {
-  document.querySelectorAll('.fert-tab').forEach(t => {
-    t.classList.remove('fert-tab--actiu');
-    t.setAttribute('aria-selected', 'false');
-  });
-  document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+    await obrirModalFertilitzacio();
 
-  btn.classList.add('fert-tab--actiu');
-  btn.setAttribute('aria-selected', 'true');
-  const content = document.getElementById(`tab-content-${tab}`);
-  if (content) content.style.display = 'block';
-}
+    document.getElementById('modal-fertilitzacio-titol').textContent = 'Editar Fertilització';
+    var form = document.getElementById('form-fertilitzacio');
+    form.dataset.editMode = 'true';
+    form.dataset.editGrup = grupFertilitzacio;
 
-function canviarFase(val) {
-  _fase = val;
-  renderTot();
-}
+    document.getElementById('fertilitzacio-data').value        = primer.data;
+    document.getElementById('fertilitzacio-metode').value      = primer.metode || '';
+    document.getElementById('fertilitzacio-operador').value    = primer.operador || '';
+    document.getElementById('fertilitzacio-maquinaria').value  = primer.maquinaria || '';
+    document.getElementById('fertilitzacio-observacions').value = primer.observacions || '';
 
-function canviarOrdre(val) {
-  _ordre = val;
-  renderTot();
-}
+    // Detectar reg des de la primera parcel·la
+    var primeraParcella = (parcelles || []).find(function(p) { return fertGrup[0].parcella_id === p.id; });
+    _tipusRegFertActual = (primeraParcella && primeraParcella.regadiu === false) ? 'seca' : 'regadiu';
+    actualitzarEstilToggleRegFertilitzacio();
 
-function canviarFerri(val) {
-  _nomesFerri = val;
-  renderTot();
-}
+    // Reconstruir arbre amb preselecció
+    var finquesUsades = [...new Set(fertGrup.map(function(f) {
+        return f.parcelles ? f.parcelles.finca : null;
+    }).filter(Boolean))];
+    var varietatsUsades = fertGrup.map(function(f) {
+        return {
+            finca:   f.parcelles ? f.parcelles.finca   : null,
+            varietat: f.parcelles ? f.parcelles.varietat : null
+        };
+    }).filter(function(v) { return v.finca && v.varietat; });
 
-function toggleSelCard(id) {
-  if (_seleccionats.has(id)) {
-    _seleccionats.delete(id);
-  } else {
-    _seleccionats.add(id);
-  }
-  renderTot();
-}
+    construirSelectorFertFinques(finquesUsades, varietatsUsades);
 
-function netejarSeleccio() {
-  _seleccionats.clear();
-  renderTot();
-}
-
-// ─────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────
-
-function badgeSolubilitat(f) {
-  const sol = f.solubilitat;
-  if (!sol || sol === 'desconeguda') return '';
-  const cls = sol === 'total' ? 'badge-sol-total'
-            : sol === 'parcial' ? 'badge-sol-parcial'
-            : 'badge-sol-no';
-  return `<span class="badge ${cls}">${sol}</span>`;
-}
-
-function badgeOrigenPreu(origen) {
-  if (!origen || origen === 'sense preu') return '';
-  const cls = origen === 'manual' ? 'badge-preu-manual'
-            : origen === 'compres' ? 'badge-preu-compres'
-            : 'badge-preu-tecnic';
-  const label = origen === 'compres' ? 'compres' : origen;
-  return `<span class="badge ${cls} badge-xs">${label}</span>`;
-}
-
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-// ─────────────────────────────────────────────
-// ESTILS CSS DEL MÒDUL (injectats una sola vegada)
-// ─────────────────────────────────────────────
-
-function injectarEstilsFertilitzants() {
-  if (document.getElementById('style-fertilitzants')) return;
-  const style = document.createElement('style');
-  style.id = 'style-fertilitzants';
-  style.textContent = `
-    .fert-wrap { padding: 1rem; max-width: 1200px; }
-    .fert-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; }
-    .fert-titol { font-size:1.4rem; font-weight:600; }
-    .fert-header-accions { display:flex; gap:8px; }
-
-    /* Tabs */
-    .fert-tabs { display:flex; gap:4px; border-bottom:1px solid var(--color-border-tertiary); margin-bottom:1rem; }
-    .fert-tab { background:none; border:none; padding:8px 16px; cursor:pointer; font-size:14px;
-                color:var(--color-text-secondary); border-bottom:2px solid transparent; margin-bottom:-1px; }
-    .fert-tab--actiu { color:var(--color-text-primary); border-bottom-color:var(--color-border-info); font-weight:500; }
-
-    /* Mètriques */
-    .metriques-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:1.25rem; }
-    .metrica-card { background:var(--color-background-secondary); border-radius:var(--border-radius-lg);
-                    padding:.75rem 1rem; }
-    .metrica-card--buit { opacity:.6; }
-    .metrica-label { font-size:12px; color:var(--color-text-secondary); margin-bottom:4px; }
-    .metrica-valor { font-size:22px; font-weight:600; color:var(--color-text-primary); }
-    .metrica-sub   { font-size:11px; color:var(--color-text-secondary); margin-top:2px; }
-
-    /* Filtres */
-    .filtres-row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-bottom:1rem; }
-    .filtre-grup { display:flex; flex-direction:column; gap:4px; }
-    .filtre-grup--check { justify-content:flex-end; padding-bottom:4px; }
-    .filtre-grup--dreta { margin-left:auto; }
-    .filtre-label { font-size:12px; color:var(--color-text-secondary); }
-    .filtre-sel { font-size:13px; padding:6px 10px; border-radius:var(--border-radius-md);
-                  border:1px solid var(--color-border-secondary); background:var(--color-background-primary);
-                  color:var(--color-text-primary); }
-    .filtre-check-label { font-size:13px; display:flex; align-items:center; gap:6px;
-                          color:var(--color-text-primary); cursor:pointer; }
-    .fert-hint { font-size:12px; color:var(--color-text-secondary); margin-bottom:.75rem; }
-    .fert-buit { color:var(--color-text-secondary); font-size:14px; padding:2rem 0; text-align:center; }
-
-    /* Cards */
-    .fert-cards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:12px;
-                       margin-bottom:1.5rem; }
-    .fert-card { background:var(--color-background-primary); border:1px solid var(--color-border-tertiary);
-                 border-radius:var(--border-radius-lg); padding:1rem; cursor:pointer;
-                 position:relative; transition:border-color .15s, box-shadow .15s; outline:none; }
-    .fert-card:hover { border-color:var(--color-border-secondary); box-shadow:0 2px 8px rgba(0,0,0,.06); }
-    .fert-card:focus-visible { box-shadow:0 0 0 2px var(--color-border-info); }
-    .fert-card--sel { border:2px solid var(--color-border-info); background:var(--color-background-info); }
-    .fert-card-check { position:absolute; top:10px; right:10px; color:var(--color-text-info); font-size:16px; }
-    .fert-card-top { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px; min-height:22px; }
-    .fert-card-nom { font-size:13px; font-weight:500; color:var(--color-text-primary); margin-bottom:3px;
-                     line-height:1.3; }
-    .fert-card-fab { font-size:11px; color:var(--color-text-secondary); margin-bottom:10px; }
-    .fert-card-edit { position:absolute; bottom:8px; right:8px; opacity:0; transition:opacity .15s; }
-    .fert-card:hover .fert-card-edit { opacity:1; }
-
-    /* NPK pills */
-    .npk-row { display:flex; gap:5px; margin-bottom:10px; }
-    .npk-pill { flex:1; text-align:center; border-radius:var(--border-radius-md);
-                padding:3px 0; font-size:12px; font-weight:500; }
-    .npk-lab { display:block; font-size:10px; font-weight:400; }
-    .npk-n  { background:#E6F1FB; color:#0C447C; }
-    .npk-p  { background:#EAF3DE; color:#27500A; }
-    .npk-k  { background:#FAEEDA; color:#633806; }
-    .npk-ca { background:#F3E6FB; color:#4A0C7C; }
-
-    /* Preu */
-    .fert-card-preu { font-size:13px; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
-    .preu-val { font-size:15px; font-weight:600; color:var(--color-text-primary); }
-    .preu-unit { font-size:11px; color:var(--color-text-secondary); }
-    .preu-buit { font-size:12px; color:var(--color-text-secondary); display:flex; align-items:center; gap:6px; }
-    .preu-suggerit { display:block; font-size:11px; color:var(--color-text-secondary); margin-top:4px; }
-
-    /* Cost nutrients */
-    .cost-nutrients { display:flex; gap:8px; margin-bottom:6px; }
-    .cost-nut { font-size:11px; color:var(--color-text-secondary); }
-
-    /* Adequació */
-    .adequacio-wrap { margin-top:4px; }
-    .adequacio-label { font-size:11px; color:var(--color-text-secondary); margin-bottom:3px; }
-    .adequacio-bg { height:4px; background:var(--color-background-secondary); border-radius:2px; }
-    .adequacio-fill { height:4px; background:#1D9E75; border-radius:2px; transition:width .3s; }
-
-    /* Badges */
-    .badge { display:inline-block; font-size:11px; padding:2px 7px;
-             border-radius:var(--border-radius-md); font-weight:500; }
-    .badge-xs { font-size:10px; padding:1px 5px; }
-    .badge-sol-total   { background:var(--color-background-success); color:var(--color-text-success); }
-    .badge-sol-parcial { background:var(--color-background-warning); color:var(--color-text-warning); }
-    .badge-sol-no      { background:var(--color-background-secondary); color:var(--color-text-secondary); }
-    .badge-ferri       { background:var(--color-background-info); color:var(--color-text-info); }
-    .badge-preu-manual  { background:var(--color-background-secondary); color:var(--color-text-secondary); }
-    .badge-preu-compres { background:var(--color-background-warning); color:var(--color-text-warning); }
-    .badge-preu-tecnic  { background:var(--color-background-info); color:var(--color-text-info); }
-
-    /* Comparativa */
-    .comparativa-buit { text-align:center; padding:2rem; color:var(--color-text-secondary);
-                        background:var(--color-background-secondary); border-radius:var(--border-radius-lg);
-                        margin-bottom:1rem; display:flex; flex-direction:column; align-items:center; gap:8px; }
-    .comparativa-wrap { background:var(--color-background-secondary); border-radius:var(--border-radius-lg);
-                        padding:1.25rem; margin-bottom:1.5rem; }
-    .comparativa-titol { font-size:14px; font-weight:600; margin-bottom:1rem; }
-    .comparativa-scroll { overflow-x:auto; }
-    .comp-taula { width:100%; border-collapse:collapse; font-size:13px; }
-    .comp-th { text-align:left; padding:6px 10px; border-bottom:1px solid var(--color-border-tertiary);
-               color:var(--color-text-secondary); font-weight:500; font-size:12px; white-space:nowrap; }
-    .comp-th--label { min-width:140px; }
-    .comp-td { padding:7px 10px; border-bottom:1px solid var(--color-border-tertiary);
-               color:var(--color-text-primary); }
-    .comp-td--label { color:var(--color-text-secondary); font-size:12px; white-space:nowrap; }
-    .comp-td--best { font-weight:600; color:#0F6E56; }
-    .comp-llegenda { font-size:11px; color:var(--color-text-secondary); margin-top:8px;
-                     display:flex; align-items:center; gap:6px; }
-    .comp-best-sample { display:inline-block; width:12px; height:12px; background:#0F6E56;
-                        border-radius:2px; }
-
-    /* Taula catàleg */
-    .taula-wrap { overflow-x:auto; }
-    .taula { width:100%; border-collapse:collapse; font-size:13px; }
-    .taula thead th { text-align:left; padding:8px 12px; border-bottom:2px solid var(--color-border-secondary);
-                      font-size:12px; color:var(--color-text-secondary); font-weight:500; white-space:nowrap; }
-    .taula-fila:hover { background:var(--color-background-secondary); }
-    .taula-td { padding:9px 12px; border-bottom:1px solid var(--color-border-tertiary);
-                color:var(--color-text-primary); }
-    .taula-td--num { text-align:right; font-variant-numeric:tabular-nums; }
-    .taula-td--accions { text-align:right; width:50px; }
-
-    /* Modal */
-    .modal { display:none; position:fixed; inset:0; z-index:1000;
-             align-items:center; justify-content:center; }
-    .modal-overlay { position:absolute; inset:0; background:rgba(0,0,0,.4); }
-    .modal-box { position:relative; background:var(--color-background-primary);
-                 border-radius:var(--border-radius-lg); width:min(700px,95vw);
-                 max-height:90vh; overflow-y:auto; box-shadow:0 8px 32px rgba(0,0,0,.2); }
-    .modal-box--lg { width:min(760px,95vw); }
-    .modal-header { display:flex; justify-content:space-between; align-items:center;
-                    padding:1rem 1.25rem; border-bottom:1px solid var(--color-border-tertiary);
-                    position:sticky; top:0; background:var(--color-background-primary); z-index:1; }
-    .modal-header h2 { font-size:16px; font-weight:600; }
-    .modal-close { background:none; border:none; cursor:pointer; font-size:18px;
-                   color:var(--color-text-secondary); padding:4px; }
-    .modal-body { padding:1.25rem; }
-    .modal-footer { display:flex; justify-content:flex-end; gap:8px;
-                    padding-top:1rem; margin-top:1rem;
-                    border-top:1px solid var(--color-border-tertiary); }
-
-    /* Formulari */
-    .form-fieldset { border:1px solid var(--color-border-tertiary); border-radius:var(--border-radius-md);
-                     padding:1rem 1.1rem .75rem; margin-bottom:1rem; }
-    .form-fieldset legend { font-size:12px; color:var(--color-text-secondary);
-                             font-weight:500; padding:0 6px; }
-    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:.75rem; }
-    .form-row--3 { grid-template-columns:1fr 1fr 1fr; }
-    .form-row--4 { grid-template-columns:1fr 1fr 1fr 1fr; }
-    .form-row--2 { grid-template-columns:1fr 1fr; }
-    .form-grup { display:flex; flex-direction:column; gap:4px; }
-    .form-label { font-size:12px; color:var(--color-text-secondary); }
-    .form-input { padding:7px 10px; border-radius:var(--border-radius-md);
-                  border:1px solid var(--color-border-secondary);
-                  background:var(--color-background-primary); color:var(--color-text-primary);
-                  font-size:13px; width:100%; }
-    .form-input:focus { outline:none; border-color:var(--color-border-info); }
-    .form-checks-row { display:flex; flex-wrap:wrap; gap:12px; }
-    .form-check-label { display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; }
-
-    /* Responsive */
-    @media (max-width: 768px) {
-      .metriques-grid { grid-template-columns:repeat(2,1fr); }
-      .fert-cards-grid { grid-template-columns:1fr 1fr; }
-      .form-row--4 { grid-template-columns:1fr 1fr; }
-      .form-row--3 { grid-template-columns:1fr 1fr; }
+    // Carregar línies de producte
+    var container = document.getElementById('linies-productes-fert-container');
+    container.innerHTML = '';
+    if (productes.length) {
+        productes.forEach(function(p) {
+            afegirLiniaProducteFertilitzant({
+                producte_id: p.producte_id,
+                dosi:        p.dosi,
+                unitat:      p.unitat
+            });
+        });
+    } else {
+        afegirLiniaProducteFertilitzant();
     }
-    @media (max-width: 480px) {
-      .fert-cards-grid { grid-template-columns:1fr; }
-      .metriques-grid { grid-template-columns:1fr 1fr; }
-    }
-  `;
-  document.head.appendChild(style);
 }
 
-// Injectar estils en carregar el fitxer
-injectarEstilsFertilitzants();
+// ============================================================
+// ELIMINAR
+// ============================================================
+
+async function eliminarFertilitzacioGrup(grupFertilitzacio) {
+    if (!confirm('Segur que vols eliminar aquesta fertilització?')) return;
+
+    try {
+        await supabaseClient.from('fertilitzacions_productes').delete().eq('grup_fertilitzacio', grupFertilitzacio);
+        await supabaseClient.from('fertilitzacions').delete().eq('grup_fertilitzacio', grupFertilitzacio);
+        mostrarNotificacio('Fertilització eliminada', 'success');
+        await carregarTaulaFertilitzacions();
+    } catch (error) {
+        console.error('eliminarFertilitzacioGrup:', error);
+        mostrarNotificacio('Error eliminant fertilització', 'error');
+    }
+}
+
+// ============================================================
+// HELPER BD: carregar productes d'un grup
+// ============================================================
+
+async function getProductesFertilitzacioGrup(grupFertilitzacio) {
+    // FIXME: ajustar el .select() si els camps NPK s'anomenen diferent
+    var res = await supabaseClient
+        .from('fertilitzacions_productes')
+        .select('*, fertilitzants(id, nom, ' + NPK_CAMP_N + ', ' + NPK_CAMP_P + ', ' + NPK_CAMP_K + ')')
+        .eq('grup_fertilitzacio', grupFertilitzacio)
+        .order('created_at');
+    if (res.error) throw res.error;
+
+    // Aplanar per facilitar ús (camps NPK directament a l'objecte)
+    return (res.data || []).map(function(fp) {
+        var fert = fp.fertilitzants || {};
+        var obj = {
+            id:                   fp.id,
+            producte_id:          fp.producte_id,
+            nom:                  fert.nom || '—',
+            dosi:                 fp.dosi,
+            unitat:               fp.unitat,
+            observacions_producte: fp.observacions_producte
+        };
+        obj[NPK_CAMP_N] = parseFloat(fert[NPK_CAMP_N]) || 0;
+        obj[NPK_CAMP_P] = parseFloat(fert[NPK_CAMP_P]) || 0;
+        obj[NPK_CAMP_K] = parseFloat(fert[NPK_CAMP_K]) || 0;
+        return obj;
+    });
+}
