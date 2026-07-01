@@ -2467,13 +2467,26 @@ async function editarControlHorari(id) {
     const selFinca = document.getElementById('control-horari-finca');
     selFinca.innerHTML = '<option value="">Sense finca</option>';
     finques.forEach(function(f) {
-        selFinca.innerHTML += '<option value="' + f.nom + '">' + f.nom + '</option>';
+        const nomFinca = typeof f === 'object' ? f.nom : f;
+        selFinca.innerHTML += '<option value="' + nomFinca + '">' + nomFinca + '</option>';
     });
     selFinca.value = registre.finca || '';
 
     document.getElementById('control-horari-observacions').value = registre.observacions || '';
     document.getElementById('info-fitxatge').style.display = 'none';
     document.getElementById('btn-fitxar').textContent = 'Guardar canvis';
+
+    // Num persones i hores editables per temporers
+    const treballador = treballadors.find(function(t) { return t.id === registre.treballador_id; });
+    if (treballador && treballador.tipus === 'Temporal') {
+        document.getElementById('group-num-persones').style.display = 'block';
+        document.getElementById('control-horari-num-persones').value = registre.num_persones || 1;
+        document.getElementById('control-horari-hora-entrada').removeAttribute('readonly');
+        document.getElementById('control-horari-hora-sortida').removeAttribute('readonly');
+    } else {
+        document.getElementById('group-num-persones').style.display = 'none';
+    }
+
     document.getElementById('modal-control-horari').style.display = 'block';
 }
 function crearModalControlHorari() {
