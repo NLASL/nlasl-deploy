@@ -23,8 +23,8 @@ var _tipusRegFertActual = 'regadiu';
 // ============================================================
 
 function getNPKFertilitzant(producteId) {
-    // Lookup des del catàleg global window.Fertilitzants
-    const f = (window.Fertilitzants || []).find(function(x) { return x.id === producteId; });
+    // Lookup des del catàleg global `fertilitzants` (array carregat a app_v8.js)
+    const f = (fertilitzants || []).find(function(x) { return x.id === producteId; });
     if (!f) return { n: 0, p: 0, k: 0 };
     return {
         n: parseFloat(f[NPK_CAMP_N]) || 0,
@@ -82,7 +82,7 @@ async function carregarVistaFertilitzacions() {
     if (podeCrear) {
         html += '<button class="btn btn-primary" onclick="obrirModalFertilitzacio()">➕ Nova Fertilització</button>';
     }
-    html += '<button class="btn-recomanacions" onclick="canviarVista(\'productes\')"><i class="ti ti-chart-bar"></i> Comparador</button>';
+    html += '<button class="btn-recomanacions" onclick="canviarVista(\'fertilitzants-tecnics\')"><i class="ti ti-chart-bar"></i> Comparador</button>';
     html += '</div></div>';
 
     // Filtre campanya
@@ -470,14 +470,24 @@ function afegirLiniaProducteFertilitzant(dades) {
         <div style="display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:8px; align-items:end;">
             <div>
                 <label style="font-size:12px; color:#666; display:block; margin-bottom:4px;">Producte *</label>
-                <select class="lp-fert-producte" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                    ${optionsHtml}
-                </select>
+                <div style="display:flex; gap:4px;">
+                    <select class="lp-fert-producte" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                        ${optionsHtml}
+                    </select>
+                    <button type="button" title="Veure fitxa del producte"
+                        style="background:#e8f5e9; border:1px solid #c8e6c9; border-radius:4px; padding:6px 8px; cursor:pointer; font-size:14px; white-space:nowrap;"
+                        onclick="veureFitxaFertilitzantPerSelect(this)">📋</button>
+                </div>
             </div>
             <div>
                 <label style="font-size:12px; color:#666; display:block; margin-bottom:4px;">Dosi *</label>
-                <input type="number" class="lp-fert-dosi" value="${dosiVal}" min="0" step="0.001"
-                    style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                <div style="display:flex; gap:4px;">
+                    <input type="number" class="lp-fert-dosi" value="${dosiVal}" min="0" step="0.001"
+                        style="flex:1; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    <button type="button" title="Calculadora de dosi"
+                        style="background:#fff; border:1px solid #ddd; border-radius:4px; padding:6px 8px; cursor:pointer; font-size:14px;"
+                        onclick="obrirCalculadoraFertPerLinia(this)">🧮</button>
+                </div>
             </div>
             <div>
                 <label style="font-size:12px; color:#666; display:block; margin-bottom:4px;">Unitat</label>
@@ -943,5 +953,112 @@ async function getProductesFertilitzacioGrup(grupFertilitzacio) {
         obj[NPK_CAMP_P] = parseFloat(fert[NPK_CAMP_P]) || 0;
         obj[NPK_CAMP_K] = parseFloat(fert[NPK_CAMP_K]) || 0;
         return obj;
+    });
+}
+
+// ============================================================
+// FITXA FERTILITZANT
+// ============================================================
+
+function veureFitxaFertilitzantPerSelect(btn) {
+    const linia = btn.closest('.linia-producte-fert');
+    const producteId = linia.querySelector('.lp-fert-producte').value;
+    if (!producteId) {
+        mostrarNotificacio('Selecciona primer un producte', 'error');
+        return;
+    }
+    veureFitxaFertilitzant(producteId);
+}
+
+function veureFitxaFertilitzant(producteId) {
+    const producte = (fertilitzants || []).find(function(f) { return f.id === producteId; });
+    if (!producte) {
+        mostrarNotificacio('Producte no trobat', 'error');
+        return;
+    }
+
+    const anterior = document.getElementById('modal-fitxa-fertilitzant');
+    if (anterior) anterior.remove();
+
+    // Barra visual NPK
+    var maxNPK = Math.max(parseFloat(producte.n) || 0, parseFloat(producte.p) || 0, parseFloat(producte.k) || 0, 1);
+    function barraNPK(valor, color) {
+        var pct = Math.round(((parseFloat(valor) || 0) / maxNPK) * 100);
+        return '<div style="display:flex; align-items:center; gap:8px;">' +
+            '<div style="flex:1; background:#eee; border-radius:4px; height:10px;">' +
+            '<div style="width:' + pct + '%; background:' + color + '; border-radius:4px; height:10px;"></div>' +
+            '</div>' +
+            '<span style="min-width:36px; text-align:right; font-size:13px;">' + (parseFloat(valor) || 0).toFixed(1) + '%</span>' +
+            '</div>';
+    }
+
+    var preuText = producte.preu_kg
+        ? parseFloat(producte.preu_kg).toFixed(4) + ' €/kg'
+        : '<span style="color:#999;">Sense preu</span>';
+
+    var camps = [
+        { label: '🏷️ Nom',          valor: producte.nom },
+        { label: '📋 Tipus',         valor: producte.tipus },
+        { label: '📦 Unitat estoc',  valor: producte.unitat_stock },
+        { label: '💶 Preu efectiu',  valor: preuText, raw: true },
+        { label: '📝 Altres',        valor: producte.altres },
+        { label: '📝 Observacions',  valor: producte.observacions },
+    ];
+
+    var htmlCamps = '';
+    camps.forEach(function(c) {
+        if (!c.valor) return;
+        htmlCamps += '<div style="display:flex; gap:12px; padding:8px 0; border-bottom:1px solid #f0f0f0;">' +
+            '<span style="min-width:140px; color:#666; font-size:14px;">' + c.label + '</span>' +
+            '<span style="font-size:14px;">' + c.valor + '</span>' +
+            '</div>';
+    });
+
+    // Bloc NPK
+    var htmlNPK = '<div style="background:#e8f5e9; border-radius:8px; padding:14px; margin:12px 0;">' +
+        '<div style="font-weight:600; margin-bottom:10px; font-size:14px;">🌿 Composició NPK</div>' +
+        '<div style="display:grid; grid-template-columns:40px 1fr; gap:6px 8px; align-items:center;">' +
+        '<span style="font-weight:700; color:#1b5e20;">N</span>' + barraNPK(producte.n, '#2e7d32') +
+        '<span style="font-weight:700; color:#e65100;">P</span>' + barraNPK(producte.p, '#f57c00') +
+        '<span style="font-weight:700; color:#1565c0;">K</span>' + barraNPK(producte.k, '#1565c0') +
+        '</div></div>';
+
+    var html = `
+    <div id="modal-fitxa-fertilitzant" class="modal" style="display:block; z-index:10000;">
+        <div class="modal-content" style="max-width:480px;">
+            <span class="close" onclick="document.getElementById('modal-fitxa-fertilitzant').remove()">&times;</span>
+            <h2>📋 Fitxa: ${producte.nom}</h2>
+            ${htmlNPK}
+            <div style="margin:8px 0;">
+                ${htmlCamps || '<p style="color:#999;">Sense dades addicionals</p>'}
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-secondary" onclick="document.getElementById('modal-fitxa-fertilitzant').remove()">← Tornar</button>
+            </div>
+        </div>
+    </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', html);
+}
+
+// ============================================================
+// CALCULADORA DE DOSI (reutilitza obrirCalculadoraTractament)
+// ============================================================
+
+function obrirCalculadoraFertPerLinia(btn) {
+    var superficie = parseFloat(document.getElementById('superficie-total-fert').textContent) || 0;
+    var linia = btn.closest('.linia-producte-fert');
+    var producteId = linia.querySelector('.lp-fert-producte').value;
+    var producte = (fertilitzants || []).find(function(f) { return f.id === producteId; });
+    var producteNom = producte ? producte.nom : 'Producte no seleccionat';
+
+    obrirCalculadoraTractament({
+        superficie: superficie,
+        producteNom: producteNom,
+        onConfirm: function(dosi, unitat) {
+            linia.querySelector('.lp-fert-dosi').value = dosi;
+            var selectUnitat = linia.querySelector('.lp-fert-unitat');
+            if (selectUnitat) selectUnitat.value = unitat;
+        }
     });
 }
