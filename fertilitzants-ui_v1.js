@@ -82,6 +82,7 @@ async function carregarVistaFertilitzacions() {
     if (podeCrear) {
         html += '<button class="btn btn-primary" onclick="obrirModalFertilitzacio()">➕ Nova Fertilització</button>';
     }
+    html += '<button class="btn-recomanacions" onclick="canviarVista(\'fertilitzants\')"><i class="ti ti-chart-bar"></i> Comparador</button>';
     html += '</div></div>';
 
     // Filtre campanya
