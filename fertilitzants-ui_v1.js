@@ -82,7 +82,7 @@ async function carregarVistaFertilitzacions() {
     if (podeCrear) {
         html += '<button class="btn btn-primary" onclick="obrirModalFertilitzacio()">➕ Nova Fertilització</button>';
     }
-    html += '<button class="btn-recomanacions" onclick="canviarVista(\'fertilitzants\')"><i class="ti ti-chart-bar"></i> Comparador</button>';
+    html += '<button class="btn-recomanacions" onclick="canviarVista(\'productes\')"><i class="ti ti-chart-bar"></i> Comparador</button>';
     html += '</div></div>';
 
     // Filtre campanya
@@ -447,7 +447,7 @@ function afegirLiniaProducteFertilitzant(dades) {
     // dades: { producte_id, dosi, unitat } (opcional, per edició)
     var container = document.getElementById('linies-productes-fert-container');
 
-    var fertilitzantsOrdenats = (window.Fertilitzants || []).slice().sort(function(a, b) {
+    var fertilitzantsOrdenats = (fertilitzants || []).slice().sort(function(a, b) {
         return (a.nom || '').localeCompare(b.nom || '');
     });
 
