@@ -1,22 +1,19 @@
 // ============================================================
-// FERTILITZANTS UI V1 — Formulari multi-producte + selector arbre
+// FERTILITZANTS UI V2 — Formulari multi-producte + selector arbre
 // Substituteix fertilitzants-ui_v1.js
 // Arquitectura: fertilitzacions (capçalera per parcel·la) +
 //               fertilitzacions_productes (N productes per grup)
 // ============================================================
 //
-// FIXME globals a resoldre abans de posar en producció:
-//   1. Noms camps NPK a la taula `fertilitzants`:
-//      Buscar a la consola: Object.keys(window.Fertilitzants[0])
-//      Ajustar les constants NPK_CAMP_* al bloc de configuració
-//   2. Opcions del select `fertilitzacio-metode`: afegir/treure
-//      les opcions que no existeixin a la vostra BD
+// FIXME pendents:
+//   - Opcions del select `fertilitzacio-metode`: revisar que coincideixin
+//     amb els valors existents a la BD (metode és text lliure).
 // ============================================================
 
 // ─── Configuració camps NPK (ajustar si els noms difereixen) ─
-var NPK_CAMP_N = 'nitrogen';  // FIXME: nom columna % N  a fertilitzants
-var NPK_CAMP_P = 'fosfor';    // FIXME: nom columna % P  a fertilitzants
-var NPK_CAMP_K = 'potasi';    // FIXME: nom columna % K  a fertilitzants
+var NPK_CAMP_N = 'n';
+var NPK_CAMP_P = 'p';
+var NPK_CAMP_K = 'k';
 
 // ─── Estat global modal ──────────────────────────────────────
 var _tipusRegFertActual = 'regadiu';
@@ -230,11 +227,11 @@ function crearModalFertilitzacioV2() {
                         <label>Mètode Aplicació</label>
                         <select id="fertilitzacio-metode" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
                             <option value="">Seleccionar...</option>
-                            <option value="abonat_cobertura">Abonat cobertura</option>
-                            <option value="abonat_fons">Abonat de fons</option>
-                            <option value="fertirrigacio">Fertirrigació</option>
+                            <option value="sol">Sòl</option>
                             <option value="foliar">Foliar</option>
-                            <option value="localitzat">Localitzat</option>
+                            <option value="fertirrigacio">Fertirrigació</option>
+                            <option value="manual">Manual</option>
+                            <option value="altres">Altres</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -923,7 +920,6 @@ async function eliminarFertilitzacioGrup(grupFertilitzacio) {
 // ============================================================
 
 async function getProductesFertilitzacioGrup(grupFertilitzacio) {
-    // FIXME: ajustar el .select() si els camps NPK s'anomenen diferent
     var res = await supabaseClient
         .from('fertilitzacions_productes')
         .select('*, fertilitzants(id, nom, ' + NPK_CAMP_N + ', ' + NPK_CAMP_P + ', ' + NPK_CAMP_K + ')')
