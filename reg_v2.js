@@ -774,34 +774,221 @@ async function agendaProvider_reg(dataInici, dataFi) {
 registrarProveidorAgenda(agendaProvider_reg);
 
 function imprimirRecomanacionsReg() {
+    // Obtenir dates actuals del modal
+    const dataInici = document.getElementById('rec-data-inici')?.value || '';
+    const dataFi = document.getElementById('rec-data-fi')?.value || '';
+    const formatData2 = function(d) {
+        if (!d) return '-';
+        const parts = d.split('-');
+        return parts[2] + '/' + parts[1] + '/' + parts[0];
+    };
+
     const style = document.createElement('style');
     style.id = 'print-style-reg';
     style.innerHTML = `
         @media print {
-            body > *:not(#modal-recomanacions-reg) { display: none !important; }
-            #modal-recomanacions-reg {
-                position: static !important;
-                background: none !important;
-                padding: 0 !important;
-                height: auto !important;
+            /* Amagar tot el body excepte el contingut que generarem */
+            body > * { display: none !important; }
+            
+            /* Mostrar el div d'impressió */
+            #print-reg-container { display: block !important; }
+            
+            @page { 
+                margin: 12mm; 
+                size: A4 landscape; 
             }
-            #modal-recomanacions-reg > div {
-                box-shadow: none !important;
-                max-width: 100% !important;
-                margin: 0 !important;
-                padding: 10mm !important;
+            
+            #print-reg-container {
+                font-family: Arial, sans-serif;
+                font-size: 10px;
+                color: #000;
             }
-            button, input[type="date"], .btn { display: none !important; }
-            table { page-break-inside: avoid; }
-            @page { margin: 10mm; size: A4 landscape; }
+            
+            #print-reg-container h2 {
+                font-size: 14px;
+                margin-bottom: 4px;
+            }
+            
+            #print-reg-container .print-subtitol {
+                font-size: 11px;
+                color: #555;
+                margin-bottom: 12px;
+            }
+            
+            #print-reg-container table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 12px;
+                font-size: 9px;
+            }
+            
+            #print-reg-container table thead tr {
+                background: #2d5016 !important;
+                color: white !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            #print-reg-container table th,
+            #print-reg-container table td {
+                border: 1px solid #ccc;
+                padding: 4px 5px;
+                text-align: left;
+            }
+            
+            #print-reg-container table td.num {
+                text-align: right;
+            }
+            
+            #print-reg-container .cards-meteo {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 12px;
+            }
+            
+            #print-reg-container .card-meteo {
+                flex: 1;
+                border: 1px solid #3498db;
+                border-radius: 4px;
+                padding: 6px 10px;
+                font-size: 9px;
+            }
+            
+            #print-reg-container .card-meteo strong {
+                font-size: 10px;
+                color: #2980b9;
+            }
+            
+            #print-reg-container .fase-badge {
+                display: inline-block;
+                padding: 1px 5px;
+                border-radius: 8px;
+                font-size: 8px;
+                font-weight: bold;
+                color: white;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            #print-reg-container .estat-text {
+                font-weight: bold;
+                font-size: 8px;
+            }
+            
+            #print-reg-container .total-row td {
+                border-top: 2px solid #333;
+                background: #f0f0f0 !important;
+                font-weight: bold;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            #print-reg-container tfoot tr td {
+                font-weight: bold;
+                border-top: 2px solid #2d5016;
+                background: #e8f5e9 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
         }
     `;
     document.head.appendChild(style);
+
+    // Extreure dades de la taula visible al modal
+    const taulaOrig = document.querySelector('#modal-reg-finques-container table');
+    const cardsMeteo = document.querySelector('#modal-reg-finques-container > div:first-child');
+
+    if (!taulaOrig) {
+        mostrarNotificacio('⚠️ No hi ha dades per imprimir', 'warning');
+        document.head.removeChild(style);
+        return;
+    }
+
+    // Construir HTML net per impressió
+    let cardsHtml = '';
+    if (cardsMeteo) {
+        // Reconstruir cards meteo de forma neta
+        const cards = cardsMeteo.querySelectorAll('div[style*="border"]');
+        cardsHtml = '<div class="cards-meteo">';
+        cards.forEach(function(card) {
+            const titol = card.querySelector('h3')?.textContent || '';
+            const seccions = card.querySelectorAll('div[style*="background"]');
+            let sHtml = '';
+            seccions.forEach(function(s) {
+                sHtml += '<div style="margin-bottom:4px;"><strong>' + (s.querySelector('div')?.textContent || '') + '</strong>';
+                const linies = s.querySelectorAll('div:not(:first-child), br');
+                s.querySelectorAll('div').forEach(function(d, i) {
+                    if (i > 0) sHtml += '<br>' + d.textContent;
+                });
+                sHtml += '</div>';
+            });
+            cardsHtml += '<div class="card-meteo"><strong>' + titol + '</strong>' + card.innerHTML
+                .replace(/<h3[^>]*>.*?<\/h3>/g, '')
+                .replace(/style="[^"]*"/g, '') + '</div>';
+        });
+        cardsHtml += '</div>';
+    }
+
+    // Clonar la taula i netejar-la
+    const taulaClon = taulaOrig.cloneNode(true);
+    
+    // Netejar spans de colors inline i badges complexos
+    taulaClon.querySelectorAll('span[style]').forEach(function(span) {
+        // Mantenir el text però simplificar l'estil
+        const text = span.textContent;
+        const style = span.getAttribute('style') || '';
+        
+        // Detectar color de fons per fase badge
+        if (style.includes('border-radius') && style.includes('color:white')) {
+            // És un badge — mantenir fons de color
+            span.setAttribute('style', span.getAttribute('style')
+                .replace(/padding:[^;]+;?/g, 'padding:1px 4px;')
+                .replace(/font-size:[^;]+;?/g, 'font-size:8px;')
+            );
+        } else {
+            span.removeAttribute('style');
+        }
+    });
+
+    // Afegir classe .num a les cel·les numèriques (text-align:right)
+    taulaClon.querySelectorAll('td[style*="text-align:right"], td[style*="text-align: right"]').forEach(function(td) {
+        td.classList.add('num');
+        td.removeAttribute('style');
+    });
+
+    // Netejar estils inline de les files
+    taulaClon.querySelectorAll('tr[style]').forEach(function(tr) {
+        const style = tr.getAttribute('style') || '';
+        if (style.includes('border-top:3px') || style.includes('font-weight:bold')) {
+            tr.classList.add('total-row');
+        }
+        tr.removeAttribute('style');
+    });
+
+    // Crear o reutilitzar el div d'impressió
+    let printDiv = document.getElementById('print-reg-container');
+    if (printDiv) printDiv.remove();
+    
+    printDiv = document.createElement('div');
+    printDiv.id = 'print-reg-container';
+    printDiv.style.display = 'none'; // ocult fins a imprimir
+    
+    printDiv.innerHTML = 
+        '<h2>💧 Recomanacions de Reg</h2>' +
+        '<div class="print-subtitol">Període: <strong>' + formatData2(dataInici) + ' — ' + formatData2(dataFi) + '</strong> · ' +
+        'Data generació: <strong>' + new Date().toLocaleDateString('ca-ES') + '</strong></div>' +
+        taulaClon.outerHTML;
+    
+    document.body.appendChild(printDiv);
+
     window.print();
+
     setTimeout(function() {
         const el = document.getElementById('print-style-reg');
         if (el) el.remove();
-    }, 1500);
+        const pd = document.getElementById('print-reg-container');
+        if (pd) pd.remove();
+    }, 2000);
 }
 
 console.log('✅ Reg v2 carregat');
