@@ -292,7 +292,6 @@ async function mostrarRecomanacionsReg() {
 
     try {
         const fincesReg = await getRegConfiguracio();
-        console.log('✅ Finques reg carregades:', fincesReg.length);
         await carregarDadesReg(fincesReg, dataInici, dataFi);
     } catch(err) {
         console.error('❌ Error mostrarRecomanacionsReg:', err);
@@ -431,9 +430,7 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
             console.warn('get_factor_reg_per_data no disponible:', e.message);
         }
 
-        console.log('✅ Fases per data ' + dataMitjana + ' carregades');
-
-
+        
         // Carregar kc i consums en paral·lel per totes les finques
         const dadesFinques = await Promise.all(fincesReg.map(async (finca) => {
             const kc = await getRegKc(finca.cultiu, mes);
@@ -441,8 +438,7 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
             return { finca, kc, registresConsum };
         }));
 
-        console.log('✅ Dades finques carregades:', dadesFinques.length);
-
+        
         for (let { finca, kc, registresConsum } of dadesFinques) {
             const meteo = finca.num_explotacio === '122H165VH02'
                 ? meteoZones.alcano
@@ -527,10 +523,10 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
 
         // Tornar a buscar el container per si el DOM ha canviat durant els awaits
         const containerFinal = document.getElementById('modal-reg-finques-container');
-        console.log('✅ HTML generat, container:', containerFinal ? 'trobat' : 'NO TROBAT');
+        
         if (containerFinal) {
             containerFinal.innerHTML = html;
-            console.log('✅ innerHTML assignat, childNodes:', containerFinal.childNodes.length);
+            
         } else {
             console.error('❌ reg-finques-container no existeix al DOM');
         }
