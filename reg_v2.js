@@ -91,8 +91,7 @@ async function carregarAlertesReg() {
 		.order('factor_reg', { ascending: true })
 		.gte('avui', '2000-01-01'); // forçar nova petició HTTP
 		
-		console.log('carregarAlertesReg rep:', data?.map(d => d.finca + ' → ' + d.fase));
-
+		
         if (error) {
             console.warn('Vista reg_factor_explotacio no disponible:', error.message);
             container.innerHTML = '';
