@@ -773,4 +773,35 @@ async function agendaProvider_reg(dataInici, dataFi) {
 
 registrarProveidorAgenda(agendaProvider_reg);
 
+function imprimirRecomanacionsReg() {
+    const style = document.createElement('style');
+    style.id = 'print-style-reg';
+    style.innerHTML = `
+        @media print {
+            body > *:not(#modal-recomanacions-reg) { display: none !important; }
+            #modal-recomanacions-reg {
+                position: static !important;
+                background: none !important;
+                padding: 0 !important;
+                height: auto !important;
+            }
+            #modal-recomanacions-reg > div {
+                box-shadow: none !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 10mm !important;
+            }
+            button, input[type="date"], .btn { display: none !important; }
+            table { page-break-inside: avoid; }
+            @page { margin: 10mm; size: A4 landscape; }
+        }
+    `;
+    document.head.appendChild(style);
+    window.print();
+    setTimeout(function() {
+        const el = document.getElementById('print-style-reg');
+        if (el) el.remove();
+    }, 1500);
+}
+
 console.log('✅ Reg v2 carregat');

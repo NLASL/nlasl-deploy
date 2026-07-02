@@ -279,7 +279,8 @@ async function mostrarRecomanacionsReg() {
 			     <div style="display:flex; gap:15px; align-items:center; flex-wrap:wrap; margin-bottom:20px;">
                 <div><label><strong>Des de:</strong></label> <input type="date" id="rec-data-inici" value="${dataInici}" style="padding:5px; border-radius:4px; border:1px solid #ddd;"></div>
                 <div><label><strong>Fins a:</strong></label> <input type="date" id="rec-data-fi" value="${dataFi}" style="padding:5px; border-radius:4px; border:1px solid #ddd;"></div>
-                <button class="btn btn-primary" onclick="actualitzarRecomanacions()">🔄 Actualitzar</button>
+                '<button class="btn btn-primary" onclick="actualitzarRecomanacions()">🔄 Actualitzar</button>' +
+				'<button class="btn btn-secondary" onclick="imprimirRecomanacionsReg()">🖨️ Imprimir PDF</button>'
             </div>
             <div id="modal-reg-finques-container" style="border:3px solid red;min-height:50px;"><p>⏳ Carregant dades meteorològiques...</p></div>
         </div>
@@ -477,8 +478,7 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
             // CORRECCIÓ: Color de la diferència basat en el mateix ratio que l'estat
             const colorDif = colorDiferencia(avaluacio.ratio);
 			
-			console.log(`Finca: ${finca.nom_finca} | Necessitat calculada: ${calc.necessitatM3} m³`);
-			
+				
             totalNecessitat += calc.necessitatM3;
             totalConsum += consumReal;
             totalRec += recFuturAjustada;
