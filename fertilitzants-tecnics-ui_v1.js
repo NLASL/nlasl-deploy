@@ -257,6 +257,8 @@ async function obrirModalFT(fertilitzantId) {
 
   body.innerHTML = '<p class="loading-msg"><i class="ti ti-loader ti-spin"></i> Carregant...</p>';
   modal.style.display = 'flex';
+  const nav = document.querySelector('nav');
+  if (nav) nav.style.visibility = 'hidden';
 
   try {
     const f      = await Fertilitzants.getById(fertilitzantId);
@@ -863,6 +865,8 @@ async function guardarFT(event) {
 function tancarModalFT() {
   const modal = document.getElementById('modal-ft');
   if (modal) modal.style.display = 'none';
+  const nav = document.querySelector('nav');
+  if (nav) nav.style.visibility = '';
   _ftActiu         = null;
   _ftMapaResultats = [];
 }
