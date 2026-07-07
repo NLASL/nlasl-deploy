@@ -1222,7 +1222,14 @@ function crearModalFertilitzant() {
         '<button type="submit" class="btn btn-primary">Guardar</button></div></form></div></div>';
 }
 
+function assegurarModalFertilitzant() {
+    if (!document.getElementById('modal-fertilitzant')) {
+        document.body.insertAdjacentHTML('beforeend', crearModalFertilitzant());
+    }
+}
+
 function obrirModalFertilitzant() {
+    assegurarModalFertilitzant();
     document.getElementById('modal-fertilitzant-titol').textContent = 'Nou Fertilitzant';
     document.getElementById('form-fertilitzant').reset();
     document.getElementById('fertilitzant-id').value = '';
@@ -1234,6 +1241,7 @@ function obrirModalFertilitzant() {
 }
 
 async function veureFertilitzant(id) {
+    assegurarModalFertilitzant();
     const producte = fertilitzants.find(function(f) { return f.id === id; });
     if (!producte) return;
     
@@ -1254,6 +1262,7 @@ async function veureFertilitzant(id) {
 }
 
 async function editarFertilitzant(id) {
+    assegurarModalFertilitzant();
     const producte = fertilitzants.find(function(f) { return f.id === id; });
     if (!producte) return;
     
