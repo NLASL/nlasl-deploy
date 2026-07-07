@@ -280,6 +280,61 @@ function renderFormFT(f, t, preuSuggerit) {
   const modes = v('modes_aplicacio', []);
 
   return `
+  <!-- Secció dades base (fertilitzants) -->
+  <fieldset class="form-fieldset" style="border:2px solid #c8e6c9; background:#f9fef9;">
+    <legend style="font-weight:700; color:#2e7d32;">📋 Dades bàsiques del producte</legend>
+    <div class="form-row form-row--2">
+      <div class="form-grup">
+        <label class="form-label">Nom *</label>
+        <input type="text" class="form-input" id="ft-base-nom"
+               value="${ftEscapeHtml(f.nom)}" required>
+      </div>
+      <div class="form-grup">
+        <label class="form-label">Tipus *</label>
+        <input type="text" class="form-input" id="ft-base-tipus"
+               value="${ftEscapeHtml(f.tipus)}" placeholder="Ex: NPK, aminoàcid, orgànic...">
+      </div>
+    </div>
+    <div class="form-row form-row--3">
+      <div class="form-grup">
+        <label class="form-label">N (%)</label>
+        <input type="number" step="0.01" min="0" max="100" class="form-input"
+               id="ft-base-n" value="${f.n ?? ''}">
+      </div>
+      <div class="form-grup">
+        <label class="form-label">P (%)</label>
+        <input type="number" step="0.01" min="0" max="100" class="form-input"
+               id="ft-base-p" value="${f.p ?? ''}">
+      </div>
+      <div class="form-grup">
+        <label class="form-label">K (%)</label>
+        <input type="number" step="0.01" min="0" max="100" class="form-input"
+               id="ft-base-k" value="${f.k ?? ''}">
+      </div>
+    </div>
+    <div class="form-row form-row--2">
+      <div class="form-grup">
+        <label class="form-label">Unitat estoc</label>
+        <select class="form-input" id="ft-base-unitat-stock">
+          <option value="kg" ${(f.unitat_stock||'kg')==='kg'?'selected':''}>kg</option>
+          <option value="L"  ${f.unitat_stock==='L'?'selected':''}>L</option>
+          <option value="ud" ${f.unitat_stock==='ud'?'selected':''}>ud</option>
+        </select>
+      </div>
+      <div class="form-grup">
+        <label class="form-label">Altres nutrients</label>
+        <input type="text" class="form-input" id="ft-base-altres"
+               value="${ftEscapeHtml(f.altres||'')}"
+               placeholder="Ex: Ca 12%, Mg 3%...">
+      </div>
+    </div>
+    <div class="form-grup">
+      <label class="form-label">Observacions</label>
+      <textarea class="form-input" id="ft-base-observacions" rows="2"
+                style="resize:vertical;">${ftEscapeHtml(f.observacions||'')}</textarea>
+    </div>
+  </fieldset>
+
   <!-- Secció cerca MAPA -->
   <div class="ft-mapa-cerca-wrap">
     <div class="ft-mapa-cerca-titol">
@@ -763,21 +818,32 @@ async function guardarFT(event) {
       await Fertilitzants.actualitzarPreu(_ftActiu.id, parseFloat(preuKg));
     }
 
-    // Si venia del MAPA, actualitzar NPK base si estaven buits
-    const mapaN = form.dataset.mapaN;
-    const mapaP = form.dataset.mapaP;
-    const mapaK = form.dataset.mapaK;
-    if ((mapaN || mapaP || mapaK) && (!_ftActiu.n || !_ftActiu.p || !_ftActiu.k)) {
-      const actualitzacio = {};
-      if (mapaN && !_ftActiu.n) actualitzacio.n = parseFloat(mapaN);
-      if (mapaP && !_ftActiu.p) actualitzacio.p = parseFloat(mapaP);
-      if (mapaK && !_ftActiu.k) actualitzacio.k = parseFloat(mapaK);
-      if (Object.keys(actualitzacio).length) {
-        await supabaseClient
-          .from('fertilitzants')
-          .update(actualitzacio)
-          .eq('id', _ftActiu.id);
-      }
+    // Actualitzar sempre els camps base (nom, tipus, NPK, unitat, altres, observacions)
+    const actualitzacioBase = {};
+    const nomVal    = document.getElementById('ft-base-nom')?.value?.trim();
+    const tipusVal  = document.getElementById('ft-base-tipus')?.value?.trim();
+    const nVal      = document.getElementById('ft-base-n')?.value;
+    const pVal      = document.getElementById('ft-base-p')?.value;
+    const kVal      = document.getElementById('ft-base-k')?.value;
+    const unitatVal = document.getElementById('ft-base-unitat-stock')?.value;
+    const altresVal = document.getElementById('ft-base-altres')?.value?.trim();
+    const obsVal    = document.getElementById('ft-base-observacions')?.value?.trim();
+
+    if (nomVal)                           actualitzacioBase.nom             = nomVal;
+    if (tipusVal)                         actualitzacioBase.tipus            = tipusVal;
+    if (nVal !== '')                      actualitzacioBase.n               = nVal === '' ? null : parseFloat(nVal);
+    if (pVal !== '')                      actualitzacioBase.p               = pVal === '' ? null : parseFloat(pVal);
+    if (kVal !== '')                      actualitzacioBase.k               = kVal === '' ? null : parseFloat(kVal);
+    if (unitatVal)                        actualitzacioBase.unitat_stock    = unitatVal;
+    actualitzacioBase.altres             = altresVal || null;
+    actualitzacioBase.observacions       = obsVal    || null;
+
+    if (Object.keys(actualitzacioBase).length) {
+      const { error: errBase } = await supabaseClient
+        .from('fertilitzants')
+        .update(actualitzacioBase)
+        .eq('id', _ftActiu.id);
+      if (errBase) throw errBase;
     }
 
     mostrarNotificacio(`${_ftActiu.nom} — dades tècniques guardades`, 'success');
