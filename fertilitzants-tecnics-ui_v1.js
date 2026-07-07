@@ -70,8 +70,8 @@ function renderEsqueletTecnics() {
 
   <!-- Modal dades tècniques + cerca MAPA -->
   <div id="modal-ft" class="modal" style="display:none" role="dialog" aria-modal="true">
-    <div class="modal-overlay" onclick="tancarModalFT()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998;"></div>
-    <div class="modal-box modal-box--xl" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#ffffff; color:#111111; border-radius:8px; width:min(680px,95vw); max-height:90vh; overflow-y:auto; box-shadow:0 8px 40px rgba(0,0,0,.5); z-index:9999;">
+    <div class="modal-overlay" onclick="tancarModalFT()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100001;"></div>
+    <div class="modal-box modal-box--xl" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#ffffff; color:#111111; border-radius:8px; width:min(680px,95vw); max-height:90vh; overflow-y:auto; box-shadow:0 8px 40px rgba(0,0,0,.5); z-index:100002;">
       <div class="modal-header" style="background:#ffffff;padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
         <h2 id="modal-ft-titol">Dades tècniques</h2>
         <button class="modal-close" onclick="tancarModalFT()">
@@ -84,8 +84,8 @@ function renderEsqueletTecnics() {
 
   <!-- Modal importació MAPA -->
   <div id="modal-import-mapa" class="modal" style="display:none" role="dialog" aria-modal="true">
-    <div class="modal-overlay" onclick="tancarModalImportMapa()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998;"></div>
-    <div class="modal-box modal-box--lg" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#ffffff; color:#111111; border-radius:8px; width:min(620px,95vw); max-height:90vh; overflow-y:auto; box-shadow:0 8px 40px rgba(0,0,0,.5); z-index:9999;">
+    <div class="modal-overlay" onclick="tancarModalImportMapa()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100001;"></div>
+    <div class="modal-box modal-box--lg" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#ffffff; color:#111111; border-radius:8px; width:min(620px,95vw); max-height:90vh; overflow-y:auto; box-shadow:0 8px 40px rgba(0,0,0,.5); z-index:100002;">
       <div class="modal-header" style="background:#ffffff;padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
         <h2>Actualitzar registre MAPA</h2>
         <button class="modal-close" onclick="tancarModalImportMapa()">
@@ -1085,7 +1085,7 @@ function injectarEstilsFertTecnics() {
                 text-decoration:none; margin-left:4px; }
 
     /* Modal posicionament correcte */
-    #modal-ft, #modal-import-mapa { display:none; position:fixed; inset:0; z-index:9997;
+    #modal-ft, #modal-import-mapa { display:none; position:fixed; inset:0; z-index:100001;
                                      align-items:center; justify-content:center; }
     .ft-nom { font-weight:500; font-size:13px; }
     .ft-fab { font-size:11px; color:var(--color-text-secondary); }
@@ -1349,8 +1349,8 @@ async function obrirModalSincronitzar() {
     const div = document.createElement('div');
     div.innerHTML = `
     <div id="modal-sinc" class="modal" style="display:none" role="dialog" aria-modal="true">
-      <div class="modal-overlay" onclick="tancarModalSinc()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998;"></div>
-      <div class="modal-box modal-box--lg" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#ffffff; color:#111111; border-radius:8px; width:min(620px,95vw); max-height:90vh; overflow-y:auto; box-shadow:0 8px 40px rgba(0,0,0,.5); z-index:9999;">
+      <div class="modal-overlay" onclick="tancarModalSinc()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100001;"></div>
+      <div class="modal-box modal-box--lg" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#ffffff; color:#111111; border-radius:8px; width:min(620px,95vw); max-height:90vh; overflow-y:auto; box-shadow:0 8px 40px rgba(0,0,0,.5); z-index:100002;">
         <div class="modal-header" style="background:#ffffff;padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
           <h2>Sincronitzar amb registre MAPA</h2>
           <button class="modal-close" onclick="tancarModalSinc()"><i class="ti ti-x"></i></button>
