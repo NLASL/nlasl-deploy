@@ -561,8 +561,11 @@ function renderFormFT(f, t, preuSuggerit) {
           <input type="number" step="0.1" min="0" class="form-input"
                  name="humitat_max" value="${v('humitat_max','')}">
         </div>
-      </div>
-    </fieldset>
+        <div class="form-grup">
+          <label class="form-label">Densitat (g/cm³)</label>
+          <input type="number" step="0.001" min="0" class="form-input"
+                 name="densitat" value="${v('densitat','')}">
+        </div>
 
     <!-- Modes aplicació -->
     <fieldset class="form-fieldset">
@@ -803,7 +806,7 @@ async function guardarFT(event) {
       .map(cb => cb.value);
 
     // Netejar buits → null
-    ['ph_minim','ph_maxim','materia_organica','humitat_max',
+    ['ph_minim','ph_maxim','materia_organica','humitat_max','densitat',
      'n_nitric','n_amoniacal','n_ureic','n_organic',
      'fe_total','b_total','mn_total','zn_total','mo_total','cu_total',
      'cd_cadmi','pb_plom','hg_mercuri','cr_crom_total','ni_niquel',
