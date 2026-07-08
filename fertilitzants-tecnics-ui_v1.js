@@ -566,6 +566,12 @@ function renderFormFT(f, t, preuSuggerit) {
           <input type="number" step="0.001" min="0" class="form-input"
                  name="densitat" value="${v('densitat','')}">
         </div>
+        <div class="form-grup" style="display:flex; align-items:center; gap:8px; padding-top:22px;">
+          <input type="checkbox" name="hidrosoluble" id="ft-hidrosoluble" value="true"
+                 ${v('hidrosoluble') ? 'checked' : ''}
+                 style="width:18px; height:18px; cursor:pointer;">
+          <label for="ft-hidrosoluble" class="form-label" style="margin:0; cursor:pointer;">Hidrosoluble</label>
+        </div>
 
     <!-- Modes aplicació -->
     <fieldset class="form-fieldset">
@@ -815,6 +821,10 @@ async function guardarFT(event) {
      'classificacio_annex5'].forEach(c => {
       if (dades[c] === '') dades[c] = null;
     });
+
+    // Booleans: checkbox no marcat no apareix al FormData → forçar false
+    dades.hidrosoluble    = form.querySelector('[name="hidrosoluble"]')?.checked  ?? false;
+    dades.apta_fertirrigacio = form.querySelector('[name="apta_fertirrigacio"]')?.checked ?? false;
 
     // Upsert dades tècniques
     await Fertilitzants.upsertTecnic(_ftActiu.id, dades);
