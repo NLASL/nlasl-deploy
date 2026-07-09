@@ -3779,11 +3779,10 @@ async function guardarCompra() {
                 unitat: producte ? (producte.unitat_stock || 'L') : 'L',
                 referencia_id: facturaId,
                 observacions: 'Factura ' + factura.num_factura + ' — ' + (linia.descripcio || ''),
-                created_by: currentUser ? currentUser.id : null
+                creat_per: currentUser ? currentUser.id : null
             }]);
         }
 
-        mostrarNotificacio('✅ Factura guardada correctament', 'success');
         mostrarNotificacio('✅ Factura guardada correctament', 'success');
         tancarModal('modal-compra');
         await carregarTaulaCompres();
