@@ -823,8 +823,9 @@ async function guardarFT(event) {
     });
 
     // Booleans: checkbox no marcat no apareix al FormData → forçar false
-    dades.hidrosoluble    = form.querySelector('[name="hidrosoluble"]')?.checked  ?? false;
-    dades.apta_fertirrigacio = form.querySelector('[name="apta_fertirrigacio"]')?.checked ?? false;
+    dades.hidrosoluble = form.querySelector('[name="hidrosoluble"]')?.checked ?? false;
+    // apta_fertirrigacio és columna GENERATED (= modes_aplicacio conté 'fertirrigació'), no s'envia
+    delete dades.apta_fertirrigacio;
 
     // Upsert dades tècniques
     await Fertilitzants.upsertTecnic(_ftActiu.id, dades);
