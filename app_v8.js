@@ -6,7 +6,7 @@
 // Variables globals
 let parcelles = [];
 let tractaments = [];
-let fertilitzacions = [];
+let tractamentsProductes = []; // productes per grup_tractament (v2)
 let fitosanitaris = [];
 let fertilitzants = [];
 let treballadors = [];
@@ -256,6 +256,12 @@ async function carregarDashboard() {
     try {
         parcelles = await getParcellas();
         tractaments = await getTractaments();
+        // Carregar productes de tractaments per al provider de l'agenda (v2)
+        const resTractProds = await supabaseClient
+            .from('tractaments_productes')
+            .select('grup_tractament, producte_id');
+        tractamentsProductes = resTractProds.data || [];
+        window.tractamentsProductes = tractamentsProductes;
         fertilitzacions = await getFertilitzacions();
         fitosanitaris = await getFitosanitaris();
         fertilitzants = await getFertilitzants();
