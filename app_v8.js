@@ -257,10 +257,11 @@ async function carregarDashboard() {
         parcelles = await getParcellas();
         tractaments = await getTractaments();
         // Carregar productes de tractaments per al provider de l'agenda (v2)
-        const resTractProds = await supabaseClient
-            .from('tractaments_productes')
-            .select('grup_tractament, producte_id');
-        tractamentsProductes = resTractProds.data || [];
+        tractamentsProductes = await consultaPaginada(
+            'tractaments_productes',
+            'grup_tractament, producte_id',
+            null
+        );
         window.tractamentsProductes = tractamentsProductes;
         fertilitzacions = await getFertilitzacions();
         fitosanitaris = await getFitosanitaris();
