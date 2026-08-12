@@ -132,37 +132,61 @@ function agendaProvider_controlHorari(dataInici, dataFi) {
 // ------------------------------------------------
 // 3) PROVEÏDOR: TRACTAMENTS FITOSANITARIS
 // ------------------------------------------------
-// Agrupem per data+producte+finca+varietat (mateix criteri que la taula de tractaments)
+// Agrupem per grup_tractament (arquitectura v2)
+// Requereix array global `tractamentsProductes` carregat al dashboard
 function agendaProvider_tractaments(dataInici, dataFi) {
     const enRang = tractaments.filter(function(t) {
         return t.data && dataDinsRang(t.data, dataInici, dataFi);
     });
 
+    // Agrupar per grup_tractament
     const grups = {};
     enRang.forEach(function(t) {
-        const p = parcelles.find(function(pa) { return pa.id === t.parcella_id; });
-        const finca = p ? (p.finca || 'Sense finca') : 'Sense finca';
-        const varietat = p ? (p.varietat || 'Sense varietat') : 'Sense varietat';
-        const clau = t.data + '|' + t.producte_id + '|' + finca + '|' + varietat;
+        const gt = t.grup_tractament;
+        if (!gt) return;
+        if (!grups[gt]) {
+            // Trobar nom productes del grup via tractamentsProductes global
+            const prodsGrup = (window.tractamentsProductes || []).filter(function(tp) {
+                return tp.grup_tractament === gt;
+            });
+            const noms = prodsGrup.map(function(tp) {
+                const fito = fitosanitaris.find(function(f) { return f.id === tp.producte_id; });
+                return fito ? fito.nom : null;
+            }).filter(Boolean);
 
-        if (!grups[clau]) {
-            grups[clau] = { data: t.data, producte_id: t.producte_id, finca: finca, varietat: varietat, clau: clau };
+            const p = parcelles.find(function(pa) { return pa.id === t.parcella_id; });
+            const finca = p ? (p.finca || 'Sense finca') : 'Sense finca';
+
+            grups[gt] = {
+                data: t.data,
+                grup_tractament: gt,
+                nomProductes: noms,
+                finques: new Set([finca])
+            };
+        } else {
+            const p = parcelles.find(function(pa) { return pa.id === t.parcella_id; });
+            if (p && p.finca) grups[gt].finques.add(p.finca);
         }
     });
 
     return Object.values(grups).map(function(g) {
-        const producte = fitosanitaris.find(function(f) { return f.id === g.producte_id; });
-        const nomProducte = producte ? producte.nom : 'Producte desconegut';
+        const titol = g.nomProductes.length > 0
+            ? g.nomProductes.join(', ')
+            : 'Tractament';
+        const fincesArr = Array.from(g.finques).sort();
+        const detall = fincesArr.length === 1
+            ? fincesArr[0]
+            : fincesArr.length + ' finques';
 
         return {
             data: g.data,
             tipus: 'tractament',
-            titol: nomProducte,
-            detall: g.finca + ' · ' + g.varietat,
+            titol: titol,
+            detall: detall,
             estat: 'fet',
             modulOrigen: 'tractaments',
-            idOrigen: g.clau,
-            accioClick: function() { veureTractamentGrup(g.clau); }
+            idOrigen: g.grup_tractament,
+            accioClick: function() { veureTractamentGrupV2 ? veureTractamentGrupV2(g.grup_tractament) : null; }
         };
     });
 }
@@ -170,36 +194,54 @@ function agendaProvider_tractaments(dataInici, dataFi) {
 // ------------------------------------------------
 // 4) PROVEÏDOR: FERTILITZACIONS
 // ------------------------------------------------
+// Agrupem per grup_fertilitzacio (arquitectura v2)
 function agendaProvider_fertilitzacions(dataInici, dataFi) {
     const enRang = fertilitzacions.filter(function(f) {
         return f.data && dataDinsRang(f.data, dataInici, dataFi);
     });
 
+    // Agrupar per grup_fertilitzacio
     const grups = {};
     enRang.forEach(function(f) {
-        const p = parcelles.find(function(pa) { return pa.id === f.parcella_id; });
-        const finca = p ? (p.finca || 'Sense finca') : 'Sense finca';
-        const varietat = p ? (p.varietat || 'Sense varietat') : 'Sense varietat';
-        const clau = f.data + '|' + f.producte_id + '|' + finca + '|' + varietat;
+        const gf = f.grup_fertilitzacio;
+        if (!gf) return;
+        if (!grups[gf]) {
+            // Nom producte: usar producte_id legacy (camp de compatibilitat)
+            const producte = fertilitzants.find(function(fe) { return fe.id === f.producte_id; });
+            const p = parcelles.find(function(pa) { return pa.id === f.parcella_id; });
+            const finca = p ? (p.finca || 'Sense finca') : 'Sense finca';
 
-        if (!grups[clau]) {
-            grups[clau] = { data: f.data, producte_id: f.producte_id, finca: finca, varietat: varietat, clau: clau };
+            grups[gf] = {
+                data: f.data,
+                grup_fertilitzacio: gf,
+                nomProducte: producte ? producte.nom : 'Fertilització',
+                finques: new Set([finca])
+            };
+        } else {
+            const p = parcelles.find(function(pa) { return pa.id === f.parcella_id; });
+            if (p && p.finca) grups[gf].finques.add(p.finca);
         }
     });
 
     return Object.values(grups).map(function(g) {
-        const producte = fertilitzants.find(function(f) { return f.id === g.producte_id; });
-        const nomProducte = producte ? producte.nom : 'Producte desconegut';
+        const fincesArr = Array.from(g.finques).sort();
+        const detall = fincesArr.length === 1
+            ? fincesArr[0]
+            : fincesArr.length + ' finques';
 
         return {
             data: g.data,
             tipus: 'fertilitzacio',
-            titol: nomProducte,
-            detall: g.finca + ' · ' + g.varietat,
+            titol: g.nomProducte,
+            detall: detall,
             estat: 'fet',
             modulOrigen: 'fertilitzacions',
-            idOrigen: g.clau,
-            accioClick: function() { veureFertilitzacioGrup ? veureFertilitzacioGrup(g.clau) : null; }
+            idOrigen: g.grup_fertilitzacio,
+            accioClick: function() {
+                if (typeof veureFertilitzacioGrupV2 === 'function') {
+                    veureFertilitzacioGrupV2(g.grup_fertilitzacio);
+                }
+            }
         };
     });
 }
