@@ -2505,10 +2505,12 @@ async function mostrarCalculBestreta() {
 
             const { data: entrades } = await supabaseClient
                 .from('collita_entrada')
-                .select('pes_net, fruita_varietat_id')
+                .select('pes_net, fruita_varietat_id, percentatge_rendiment')
                 .eq('estat', 'actiu')
                 .gte('data', periode.data_inici)
                 .lte('data', dataFi);
+
+            let albaransSenseRendiment = 0;
 
             (entrades || []).forEach(function(e) {
                 const fvId = typeof e.fruita_varietat_id === 'string'
@@ -2519,9 +2521,18 @@ async function mostrarCalculBestreta() {
                 const fruitaId = varObj.fruita_id;
                 if (!fruitesAmbEntrades[fruitaId]) fruitesAmbEntrades[fruitaId] = {};
                 if (!fruitesAmbEntrades[fruitaId][periode.num_bestreta]) {
-                    fruitesAmbEntrades[fruitaId][periode.num_bestreta] = 0;
+                    fruitesAmbEntrades[fruitaId][periode.num_bestreta] = { kgComercials: 0, senseRendiment: 0 };
                 }
-                fruitesAmbEntrades[fruitaId][periode.num_bestreta] += parseFloat(e.pes_net) || 0;
+                const rendiment = parseFloat(e.percentatge_rendiment);
+                const pesNet = parseFloat(e.pes_net) || 0;
+                if (isNaN(rendiment) || rendiment === 0) {
+                    // Sense escandall: usar pes_net com a fallback i comptabilitzar
+                    fruitesAmbEntrades[fruitaId][periode.num_bestreta].kgComercials += pesNet;
+                    fruitesAmbEntrades[fruitaId][periode.num_bestreta].senseRendiment++;
+                    albaransSenseRendiment++;
+                } else {
+                    fruitesAmbEntrades[fruitaId][periode.num_bestreta].kgComercials += pesNet * rendiment / 100;
+                }
             });
         }
 
@@ -2544,6 +2555,14 @@ async function mostrarCalculBestreta() {
             : '<span style="background:#27ae60;color:white;padding:4px 12px;border-radius:4px;font-size:13px;">✅ Tancada</span>';
 
         let totalAcumulat = 0;
+        let totalSenseRendiment = 0;
+        // Comptar albarans sense rendiment a tots els períodes
+        Object.values(fruitesAmbEntrades).forEach(function(periodesDades) {
+            Object.values(periodesDades).forEach(function(d) {
+                totalSenseRendiment += d.senseRendiment || 0;
+            });
+        });
+
         let html = '<div class="calcul-bestreta">';
 
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
@@ -2554,6 +2573,9 @@ async function mostrarCalculBestreta() {
         html += '<div style="margin-bottom:15px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">';
         html += badgeGlobal;
         html += '<span style="color:#666;font-size:13px;">Data càlcul: <strong>' + dataTallFormat + '</strong></span>';
+        if (totalSenseRendiment > 0) {
+            html += '<span style="background:#ff9800;color:white;padding:4px 10px;border-radius:4px;font-size:12px;">⚠️ ' + totalSenseRendiment + ' albarà' + (totalSenseRendiment > 1 ? 'ns' : '') + ' sense escandall (calculat sobre kg nets)</span>';
+        }
         html += '</div>';
 
         // Taula per fruita
@@ -2572,14 +2594,16 @@ async function mostrarCalculBestreta() {
             html += '<thead><tr>';
             html += '<th>Nº</th>';
             html += '<th>Període</th>';
-            html += '<th style="text-align:right;">Kg nets</th>';
+            html += '<th style="text-align:right;">Kg comercials</th>';
             html += '<th style="text-align:right;">Preu (€/kg)</th>';
             html += '<th style="text-align:right;">Import (€)</th>';
             html += '<th>Estat</th>';
             html += '</tr></thead><tbody>';
 
             periodes.forEach(function(periode) {
-                const kgNets = (fruitesAmbEntrades[fruitaId] || {})[periode.num_bestreta] || 0;
+                const dadesPeriode = (fruitesAmbEntrades[fruitaId] || {})[periode.num_bestreta];
+                const kgNets = dadesPeriode ? dadesPeriode.kgComercials : 0;
+                const senseRendiment = dadesPeriode ? dadesPeriode.senseRendiment : 0;
                 if (kgNets === 0) return; // Sense entrades, no mostrar fila
 
                 const preuObj = preusActuals.find(function(p) {
@@ -2601,7 +2625,11 @@ async function mostrarCalculBestreta() {
                 html += '<tr>';
                 html += '<td><strong>' + periode.num_bestreta + 'ª</strong></td>';
                 html += '<td style="font-size:12px;">' + new Date(periode.data_inici).toLocaleDateString('ca-ES') + ' — ' + new Date(periode.data_final).toLocaleDateString('ca-ES') + '</td>';
-                html += '<td style="text-align:right;">' + kgNets.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</td>';
+                html += '<td style="text-align:right;">' + kgNets.toLocaleString('ca-ES', {minimumFractionDigits:2, maximumFractionDigits:2});
+                if (senseRendiment > 0) {
+                    html += ' <span title="' + senseRendiment + ' albarà' + (senseRendiment > 1 ? 'ns' : '') + ' sense escandall" style="color:#ff9800;font-size:11px;">⚠️</span>';
+                }
+                html += '</td>';
 
                 if (!preuObj) {
                     // Hi ha entrades però no preu confirmat
