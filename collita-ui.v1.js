@@ -2503,14 +2503,20 @@ async function mostrarCalculBestreta() {
                 ? (ara < new Date(periode.data_final) ? ara.toISOString().split('T')[0] : periode.data_final)
                 : periode.data_final;
 
+            // Fetch kg comercials: pes_net escandall - kg no comercial
             const { data: entrades } = await supabaseClient
-                .from('collita_entrada')
-                .select('pes_net, fruita_varietat_id, percentatge_rendiment')
+                .from('collita_escandall')
+                .select(`
+                    collita_entrada_id,
+                    pes_net,
+                    fruita_varietat_id,
+                    collita_escandall_no_comercial (pes_kg),
+                    collita_entrada!inner (data, estat)
+                `)
                 .eq('estat', 'actiu')
-                .gte('data', periode.data_inici)
-                .lte('data', dataFi);
-
-            let albaransSenseRendiment = 0;
+                .eq('collita_entrada.estat', 'actiu')
+                .gte('collita_entrada.data', periode.data_inici)
+                .lte('collita_entrada.data', dataFi);
 
             (entrades || []).forEach(function(e) {
                 const fvId = typeof e.fruita_varietat_id === 'string'
@@ -2523,16 +2529,38 @@ async function mostrarCalculBestreta() {
                 if (!fruitesAmbEntrades[fruitaId][periode.num_bestreta]) {
                     fruitesAmbEntrades[fruitaId][periode.num_bestreta] = { kgComercials: 0, senseRendiment: 0 };
                 }
-                const rendiment = parseFloat(e.percentatge_rendiment);
                 const pesNet = parseFloat(e.pes_net) || 0;
-                if (isNaN(rendiment) || rendiment === 0) {
-                    // Sense escandall: usar pes_net com a fallback i comptabilitzar
-                    fruitesAmbEntrades[fruitaId][periode.num_bestreta].kgComercials += pesNet;
-                    fruitesAmbEntrades[fruitaId][periode.num_bestreta].senseRendiment++;
-                    albaransSenseRendiment++;
-                } else {
-                    fruitesAmbEntrades[fruitaId][periode.num_bestreta].kgComercials += pesNet * rendiment / 100;
+                const kgNoComercial = (e.collita_escandall_no_comercial || [])
+                    .reduce(function(s, nc) { return s + (parseFloat(nc.pes_kg) || 0); }, 0);
+                fruitesAmbEntrades[fruitaId][periode.num_bestreta].kgComercials += pesNet - kgNoComercial;
+            });
+
+            // Detectar albarans d'entrada sense escandall
+            const { data: entradesTotal } = await supabaseClient
+                .from('collita_entrada')
+                .select('id, fruita_varietat_id')
+                .eq('estat', 'actiu')
+                .gte('data', periode.data_inici)
+                .lte('data', dataFi);
+
+            const idsAmbEscandall = new Set((entrades || []).map(function(e) {
+                return e.collita_entrada_id;
+            }));
+
+            (entradesTotal || []).forEach(function(e) {
+                if (idsAmbEscandall.has(e.id)) return;
+                // Entrada sense escandall: comptar per mostrar avís
+                const fvId = typeof e.fruita_varietat_id === 'string'
+                    ? e.fruita_varietat_id
+                    : e.fruita_varietat_id?.id;
+                const varObj = varietats.find(function(v) { return v.id === fvId; });
+                if (!varObj) return;
+                const fruitaId = varObj.fruita_id;
+                if (!fruitesAmbEntrades[fruitaId]) fruitesAmbEntrades[fruitaId] = {};
+                if (!fruitesAmbEntrades[fruitaId][periode.num_bestreta]) {
+                    fruitesAmbEntrades[fruitaId][periode.num_bestreta] = { kgComercials: 0, senseRendiment: 0 };
                 }
+                fruitesAmbEntrades[fruitaId][periode.num_bestreta].senseRendiment++;
             });
         }
 
