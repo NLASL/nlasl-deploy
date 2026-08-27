@@ -1,12 +1,13 @@
 // ============================================================
-// REG_V1.JS - Reg Intel·ligent (CORREGIT DEFINITIU v2)
-// Càlcul de recomanacions de reg basades en ETo (Open-Meteo)
-// S'integra dins carregarVistaReg() existent a app_v8.js
+// REG_V1_INTEGRAT.JS - Reg Intel·ligent amb Open-Meteo (ETo) + XEMA/AEMET (Pluja)
+// Versió integrada a partir de reg_v1.js (corregit definitiu v2)
 // ============================================================
 
-console.log('💧 Inicialitzant Reg Intel·ligent...');
+console.log('💧 Inicialitzant Reg Intel·ligent integrat...');
 
 const REG_API_BASE = 'https://api.open-meteo.com/v1/forecast';
+// IMPORTANT: defineix aquesta constant al teu entorn (config)
+const AEMET_API_KEY = 'POSA_AQUI_LA_TEVA_API_KEY_AEMET';
 
 // ============================================================
 // CÀRREGA DE DADES BD
@@ -46,23 +47,14 @@ async function getRegConsum(numExplotacio, dataInici, dataFi) {
 }
 
 // ============================================================
-// UTILITATS DE DATES (CORRECCIÓ CRÍTICA)
+// UTILITATS DE DATES
 // ============================================================
 
-/**
- * Converteix un string de data (YYYY-MM-DD) a un objecte Date LOCAL
- * sense desfase de timezone. new Date('2026-05-22') interpreta com a UTC
- * i a Europa es converteix a local amb +2h, causant errors de comparació.
- */
 function parseDataLocal(dataStr) {
     const [any, mes, dia] = dataStr.split('-').map(Number);
     return new Date(any, mes - 1, dia, 0, 0, 0, 0);
 }
 
-/**
- * Compara dues dates IGNORANT l'hora (només any, mes, dia).
- * Retorna: -1 si a < b, 0 si a === b, 1 si a > b
- */
 function compararDates(a, b) {
     const aStr = a.getFullYear() * 10000 + (a.getMonth() + 1) * 100 + a.getDate();
     const bStr = b.getFullYear() * 10000 + (b.getMonth() + 1) * 100 + b.getDate();
@@ -71,10 +63,6 @@ function compararDates(a, b) {
     return 0;
 }
 
-/**
- * Retorna true si la data 'd' està dins del rang [inici, fi] (inclusiu),
- * comparant NOMÉS any, mes i dia (ignora hores).
- */
 function dataDinsRangDate(d, inici, fi) {
     const dStr = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
     const iniStr = inici.getFullYear() * 10000 + (inici.getMonth() + 1) * 100 + inici.getDate();
@@ -82,17 +70,8 @@ function dataDinsRangDate(d, inici, fi) {
     return dStr >= iniStr && dStr <= fiStr;
 }
 
-/**
- * Retorna true si la data 'd' és posterior a 'referencia' (comparant només dia).
- */
-function dataEsPosterior(d, referencia) {
-    const dStr = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
-    const refStr = referencia.getFullYear() * 10000 + (referencia.getMonth() + 1) * 100 + referencia.getDate();
-    return dStr > refStr;
-}
-
 // ============================================================
-// API OPEN-METEO
+// API OPEN-METEO (ETo + pluja model, però només farem servir ETo)
 // ============================================================
 
 async function getMeteoData(lat, lon, diesPassats, diesFuturs) {
@@ -102,7 +81,6 @@ async function getMeteoData(lat, lon, diesPassats, diesFuturs) {
         `&daily=et0_fao_evapotranspiration,precipitation_sum` +
         `&timezone=Europe/Madrid`;
 
-    // Timeout de 10 segons per evitar quedar-se penjat
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
 
@@ -124,40 +102,119 @@ async function getMeteoData(lat, lon, diesPassats, diesFuturs) {
 }
 
 // ============================================================
-// PROCESSAMENT METEO (CORREGIT)
+// XEMA (Meteocat) - Pluja real
 // ============================================================
 
-function processarMeteo(m, dInici, dFi) {
+async function getPlujaXema(codiEstacio, dataInici, dataFi) {
+    if (!codiEstacio) return null;
+
+    const url = `https://api.meteo.cat/xema/v1/variables/precipitacio?codiEstacio=${codiEstacio}&dataInici=${dataInici}&dataFi=${dataFi}`;
+
+    try {
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+
+        let total = 0;
+        if (Array.isArray(data.metadades)) {
+            for (const m of data.metadades) {
+                total += m.valor || 0;
+            }
+        }
+        return total;
+    } catch (e) {
+        console.warn('XEMA no disponible:', e.message);
+        return null;
+    }
+}
+
+// ============================================================
+// AEMET - Pluja real (requereix API key)
+// ============================================================
+
+async function getPlujaAemet(lat, lon, dataInici, dataFi) {
+    if (!AEMET_API_KEY) return null;
+
+    // Aquesta part depèn de com tinguis configurada l'estació a AEMET.
+    // Aquí es posa un esquema genèric; en la pràctica caldrà adaptar el codi d'estació.
+    const urlMeta = `https://opendata.aemet.es/opendata/api/valores/climatologicos/diarios/fechaini/${dataInici}/fechafin/${dataFi}/estacion/XXXX/?api_key=${AEMET_API_KEY}`;
+
+    try {
+        const resMeta = await fetch(urlMeta);
+        if (!resMeta.ok) return null;
+        const meta = await resMeta.json();
+        if (!meta.datos) return null;
+
+        const resDatos = await fetch(meta.datos);
+        if (!resDatos.ok) return null;
+        const datos = await resDatos.json();
+
+        let total = 0;
+        for (const d of datos) {
+            total += d.precipitacion || 0;
+        }
+        return total;
+    } catch (e) {
+        console.warn('AEMET no disponible:', e.message);
+        return null;
+    }
+}
+
+// ============================================================
+// Pluja real unificada (XEMA + AEMET)
+// ============================================================
+
+async function getPlujaReal(zona, dataInici, dataFi) {
+    // 1) XEMA primer
+    let codiXema = null;
+    if (zona === 'alfes') codiXema = 'X6';   // Alfés (o la que correspongui)
+    if (zona === 'alcano') codiXema = 'X7';  // Alcanó (o la que correspongui)
+
+    let plujaXema = await getPlujaXema(codiXema, dataInici, dataFi);
+    if (plujaXema !== null) return plujaXema;
+
+    // 2) AEMET si XEMA falla
+    let lat = zona === 'alfes' ? 41.4167 : 41.3833;
+    let lon = zona === 'alfes' ? 0.6167 : 0.6500;
+
+    let plujaAemet = await getPlujaAemet(lat, lon, dataInici, dataFi);
+    if (plujaAemet !== null) return plujaAemet;
+
+    // 3) Si cap funciona → 0 mm
+    return 0;
+}
+
+// ============================================================
+// PROCESSAMENT METEO INTEGRAT (ETo Open-Meteo + Pluja XEMA/AEMET)
+// ============================================================
+
+async function processarMeteoIntegrat(m, dInici, dFi, zona) {
     const avui = new Date();
     avui.setHours(0, 0, 0, 0);
 
     let etoPassat = 0, etoFutur = 0;
-    let plujaPassat = 0, plujaFutur = 0;
 
     for (let i = 0; i < m.dates.length; i++) {
-        // CORRECCIÓ: Parsejar la data de l'API com a LOCAL per evitar desfase UTC
         const d = parseDataLocal(m.dates[i]);
         const eto = m.eto[i] || 0;
-        const pluja = m.pluja[i] || 0;
 
-        // CORRECCIÓ: Usar comparació per data (ignorant hores)
         if (dataDinsRangDate(d, dInici, dFi) && compararDates(d, avui) <= 0) {
-            // És un dia dins del període seleccionat i ja ha passat (o és avui)
             etoPassat += eto;
-            plujaPassat += pluja;
         }
 
-        // CORRECCIÓ: La recomanació futura és SEMPRE independent del període seleccionat
-        // Agafem els propers 7 dies des d'avui
         if (compararDates(d, avui) > 0 && compararDates(d, avui) <= 7) {
             etoFutur += eto;
-            plujaFutur += pluja;
         }
     }
 
+    const dataIniStr = dInici.toISOString().split('T')[0];
+    const dataFiStr  = dFi.toISOString().split('T')[0];
+
+    const plujaPassat = await getPlujaReal(zona, dataIniStr, dataFiStr);
+    const plujaFutur  = 0; // opcional: previsió futura si algun dia la vols integrar
+
     return { etoPassat, plujaPassat, etoFutur, plujaFutur };
 }
-
 
 // ============================================================
 // CÀLCULS
@@ -176,19 +233,14 @@ function calcularNecessitatReg(etoMm, kc, superficieHa, plujaMm) {
 }
 
 // ============================================================
-// AVALUACIÓ I COLORS (CORREGIT - ALINEAT)
+// AVALUACIÓ I COLORS
 // ============================================================
 
-/**
- * Avalua el consum i retorna text, color i icona.
- * També retorna el ratio per reutilitzar-lo al color de la diferència.
- */
 function avaluarConsum(consumReal, necessitat) {
     if (necessitat === 0) {
-        // CORRECCIÓ: Si hi ha consum real però necessitat = 0, mostrar excés
         if (consumReal > 0) {
             return {
-                text: `Rega MASSA (excés total)`,
+                text: 'Rega MASSA (excés total)',
                 color: '#e74c3c',
                 icon: '🔴',
                 ratio: Infinity
@@ -212,17 +264,13 @@ function avaluarConsum(consumReal, necessitat) {
     return { text: `Rega POC (${Math.round((1 - ratio) * 100)}% dèficit)`, color: '#e74c3c', icon: '🔴', ratio };
 }
 
-/**
- * CORRECCIÓ: Retorna el color de la diferència basat en el MATEIX ratio
- * que usa l'avaluació de l'estat. Així els colors estan alineats.
- */
 function colorDiferencia(ratio) {
-    if (ratio === Infinity) return '#e74c3c';  // Excés total
-    if (ratio > 1.25) return '#e74c3c';        // Rega MASSA
-    if (ratio > 1.10) return '#e67e22';        // Lleugerament alt
-    if (ratio >= 0.85) return '#27ae60';       // Consum correcte
-    if (ratio >= 0.70) return '#f39c12';       // Lleugerament baix
-    return '#e74c3c';                          // Rega POC
+    if (ratio === Infinity) return '#e74c3c';
+    if (ratio > 1.25) return '#e74c3c';
+    if (ratio > 1.10) return '#e67e22';
+    if (ratio >= 0.85) return '#27ae60';
+    if (ratio >= 0.70) return '#f39c12';
+    return '#e74c3c';
 }
 
 function generarCardMeteo(titolZona, meteo) {
@@ -249,11 +297,10 @@ function generarCardMeteo(titolZona, meteo) {
 }
 
 // ============================================================
-// MOSTRAR RECOMANACIONS (botó dins carregarVistaReg)
+// MOSTRAR RECOMANACIONS (modal)
 // ============================================================
 
 async function mostrarRecomanacionsReg() {
-    // Eliminar modal anterior si existeix
     const anterior = document.getElementById('modal-recomanacions-reg');
     if (anterior) { anterior.remove(); return; }
 
@@ -261,7 +308,6 @@ async function mostrarRecomanacionsReg() {
     const dataFi    = avui.toISOString().split('T')[0];
     const dataInici = new Date(avui - 7 * 86400000).toISOString().split('T')[0];
 
-    // Crear modal
     const div = document.createElement('div');
     div.innerHTML = `
     <div id="modal-recomanacions-reg" style="
@@ -275,19 +321,18 @@ async function mostrarRecomanacionsReg() {
             <span onclick="document.getElementById('modal-recomanacions-reg').remove()"
                 style="position:absolute;right:20px;top:20px;font-size:28px;
                 cursor:pointer;color:#999;font-weight:bold;line-height:1;">&times;</span>
-            html += '<h2 style="color:#2980b9; margin-bottom:20px;">🌡️ Recomanacions de Reg</h2>';
-			     <div style="display:flex; gap:15px; align-items:center; flex-wrap:wrap; margin-bottom:20px;">
+            <h2 style="color:#2980b9; margin-bottom:20px;">🌡️ Recomanacions de Reg</h2>
+            <div style="display:flex; gap:15px; align-items:center; flex-wrap:wrap; margin-bottom:20px;">
                 <div><label><strong>Des de:</strong></label> <input type="date" id="rec-data-inici" value="${dataInici}" style="padding:5px; border-radius:4px; border:1px solid #ddd;"></div>
                 <div><label><strong>Fins a:</strong></label> <input type="date" id="rec-data-fi" value="${dataFi}" style="padding:5px; border-radius:4px; border:1px solid #ddd;"></div>
-                '<button class="btn btn-primary" onclick="actualitzarRecomanacions()">🔄 Actualitzar</button>' +
-				'<button class="btn btn-secondary" onclick="imprimirRecomanacionsReg()">🖨️ Imprimir PDF</button>'
+                <button class="btn btn-primary" onclick="actualitzarRecomanacions()">🔄 Actualitzar</button>
+                <button class="btn btn-secondary" onclick="imprimirRecomanacionsReg()">🖨️ Imprimir PDF</button>
             </div>
-            <div id="modal-reg-finques-container" style="border:3px solid red;min-height:50px;"><p>⏳ Carregant dades meteorològiques...</p></div>
+            <div id="modal-reg-finques-container" style="min-height:50px;"><p>⏳ Carregant dades meteorològiques...</p></div>
         </div>
     </div>`;
     document.body.appendChild(div.firstElementChild);
 
-    // Esperar un tick perquè el DOM estigui llest abans de buscar reg-finques-container
     await new Promise(r => setTimeout(r, 0));
 
     try {
@@ -320,10 +365,8 @@ async function actualitzarRecomanacions() {
     }
 }
 
-
-
 // ============================================================
-// CARREGAR DADES I GENERAR TAULA (CORREGIT DEFINITIU)
+// CARREGAR DADES I GENERAR TAULA
 // ============================================================
 
 async function carregarDadesReg(fincesReg, dataInici, dataFi) {
@@ -334,58 +377,32 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
         const avui = new Date();
         avui.setHours(0, 0, 0, 0);
 
-        // CORRECCIÓ: Parsejar dates com a LOCAL per evitar desfase UTC
         const dInici = parseDataLocal(dataInici);
-        const dFi = parseDataLocal(dataFi);
-
-        // ============================================================
-        // CORRECCIÓ CRÍTICA: Càlcul de diesPassats
-        // ============================================================
-        // Open-Meteo amb past_days=N retorna N dies PASSATS des d'AVUI.
-        // Per tant, diesPassats ha de ser la distància des d'AVUI fins a dInici,
-        // NO la distància entre dInici i dFi.
-        //
-        // Exemple: avui=28/05, dInici=22/05, dFi=22/05
-        //   INCORRECTE: diesPassats = dFi - dInici + 1 = 1
-        //     → L'API retorna només 1 dia passat (27/05), cap dia és 22/05
-        //   CORRECTE: diesPassats = avui - dInici + 1 = 7
-        //     → L'API retorna 7 dies passats (21/05 a 27/05), incloent 22/05
-        // ============================================================
+        const dFi    = parseDataLocal(dataFi);
 
         let diesPassats = Math.max(1, Math.ceil((avui - dInici) / 86400000) + 1);
-
-        // Si el període seleccionat és totalment futur (dInici > avui),
-        // no necessitem dades passades
-        if (dInici > avui) {
-            diesPassats = 0;
-        }
-
-        // Límit de l'API Open-Meteo (màxim 92 dies passats)
+        if (dInici > avui) diesPassats = 0;
         diesPassats = Math.min(diesPassats, 92);
 
-        // Recomanació futura: sempre 7 dies
         const diesFutures = 7;
 
-        // METEO
         const meteoAlfRaw = await getMeteoData(41.4167, 0.6167, diesPassats, diesFutures);
         const meteoAlcRaw = await getMeteoData(41.3833, 0.6500, diesPassats, diesFutures);
 
         const meteoZones = {
-            altes: processarMeteo(meteoAlfRaw, dInici, dFi),
-            alcano: processarMeteo(meteoAlcRaw, dInici, dFi)
+            altes: await processarMeteoIntegrat(meteoAlfRaw, dInici, dFi, 'alfes'),
+            alcano: await processarMeteoIntegrat(meteoAlcRaw, dInici, dFi, 'alcano')
         };
 
         const mes = new Date().getMonth() + 1;
 
         let html = '';
 
-        // CARDS METEO
         html += '<div style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap;">';
         html += generarCardMeteo('Zona Alfés', meteoZones.altes);
         html += generarCardMeteo('Zona Alcanó', meteoZones.alcano);
         html += '</div>';
 
-        // TAULA
         html += '<div style="overflow-x:auto;">';
         html += '<table class="data-table" style="width:100%;">';
         html += `
@@ -405,12 +422,10 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
 
         let totalNecessitat = 0, totalConsum = 0, totalRec = 0;
 
-        // Calcular data mitjana del període per determinar la fase correcta
         const dataMitjana = new Date(
             (new Date(dataInici).getTime() + new Date(dataFi).getTime()) / 2
         ).toISOString().split('T')[0];
 
-        // Obtenir factor fenològic per a la data mitjana del període (auditoria correcta)
         const fasesFenologiques = {};
         try {
             const resultatsFases = await Promise.all(
@@ -430,15 +445,12 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
             console.warn('get_factor_reg_per_data no disponible:', e.message);
         }
 
-        
-        // Carregar kc i consums en paral·lel per totes les finques
         const dadesFinques = await Promise.all(fincesReg.map(async (finca) => {
             const kc = await getRegKc(finca.cultiu, mes);
             const registresConsum = await getRegConsum(finca.num_explotacio, dataInici, dataFi);
             return { finca, kc, registresConsum };
         }));
 
-        
         for (let { finca, kc, registresConsum } of dadesFinques) {
             const meteo = finca.num_explotacio === '122H165VH02'
                 ? meteoZones.alcano
@@ -449,32 +461,35 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
             const calcBrut = calcularNecessitatReg(meteo.etoPassat, kc, finca.superficie_ha, meteo.plujaPassat);
             const calcFuturBrut = calcularNecessitatReg(meteo.etoFutur, kc, finca.superficie_ha, meteo.plujaFutur);
 
-            // Aplicar factor fenològic tant al passat com al futur
             const faseInfo   = fasesFenologiques[finca.num_explotacio];
             const factorReg  = faseInfo ? faseInfo.factor_reg : 1.00;
             const fase       = faseInfo ? faseInfo.fase : 'creixement';
 
-            // Ajustar necessitat passada i futura pel factor fenològic
             const calc = {
                 ...calcBrut,
-                necessitatM3:   +(calcBrut.necessitatM3   * factorReg).toFixed(1),
-                etcM3:          +(calcBrut.etcM3           * factorReg).toFixed(1)
+                necessitatM3: +(calcBrut.necessitatM3 * factorReg).toFixed(1),
+                etcM3:        +(calcBrut.etcM3        * factorReg).toFixed(1)
             };
             const recFuturAjustada = +(calcFuturBrut.necessitatM3 * factorReg).toFixed(1);
 
-            // Badge fase per a la columna
-            const colorFase = {'collita':'#f44336','precollita':'#ff9800','postcollita':'#9c27b0','creixement':'#4caf50'}[fase]||'#4caf50';
-            const textFase  = {'collita':'🍑 Collita','precollita':'⚠️ Precollita','postcollita':'🍂 Postcollita','creixement':'🌱 Creixement'}[fase]||fase;
+            const colorFase = {
+                'collita':'#f44336',
+                'precollita':'#ff9800',
+                'postcollita':'#9c27b0',
+                'creixement':'#4caf50'
+            }[fase] || '#4caf50';
+            const textFase  = {
+                'collita':'🍑 Collita',
+                'precollita':'⚠️ Precollita',
+                'postcollita':'🍂 Postcollita',
+                'creixement':'🌱 Creixement'
+            }[fase] || fase;
             const faseBadge = `<span style="background:${colorFase};color:white;padding:2px 8px;border-radius:10px;font-size:11px;">${textFase} ×${factorReg.toFixed(2)}</span>`;
 
-            // CORRECCIÓ: Obtenir ratio de l'avaluació per alinear colors
             const avaluacio = avaluarConsum(consumReal, calc.necessitatM3);
             const diferencia = consumReal - calc.necessitatM3;
-
-            // CORRECCIÓ: Color de la diferència basat en el mateix ratio que l'estat
             const colorDif = colorDiferencia(avaluacio.ratio);
-			
-				
+
             totalNecessitat += calc.necessitatM3;
             totalConsum += consumReal;
             totalRec += recFuturAjustada;
@@ -486,23 +501,21 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
 
             html += `
             <tr>
-				<td><strong>${finca.nom_finca}</strong></td>
-				<td>${cultiuText}</td>
-				<td style="text-align:right;">${finca.superficie_ha}</td>
-				<td style="text-align:right;">${calc.etcM3.toLocaleString('ca-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
-				<td style="text-align:right; color:#3498db;">${calc.plujaEfectivaM3.toLocaleString('ca-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
-				<td style="text-align:right; font-weight:bold;">${calc.necessitatM3.toLocaleString('ca-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
-				<td style="text-align:right;">${consumReal.toLocaleString('ca-ES',{minimumFractionDigits: 1, maximumFractionDigits:1})}</td>
-				<td style="text-align:right; color:${colorDif}; font-weight:bold;">${diferencia>=0?'+':''}${diferencia.toLocaleString('ca-ES',{minimumFractionDigits: 1, maximumFractionDigits:1})}</td>
-				<td><span style="color:${avaluacio.color}; font-weight:bold;">${avaluacio.icon} ${avaluacio.text}</span></td>
-				<td style="text-align:center;">${faseBadge}</td>
-				<td style="text-align:right; font-weight:bold; color:#2980b9;">${recFuturAjustada.toLocaleString('ca-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})} m³</td>
-			</tr>`;
+                <td><strong>${finca.nom_finca}</strong></td>
+                <td>${cultiuText}</td>
+                <td style="text-align:right;">${finca.superficie_ha}</td>
+                <td style="text-align:right;">${calc.etcM3.toLocaleString('ca-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
+                <td style="text-align:right; color:#3498db;">${calc.plujaEfectivaM3.toLocaleString('ca-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
+                <td style="text-align:right; font-weight:bold;">${calc.necessitatM3.toLocaleString('ca-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
+                <td style="text-align:right;">${consumReal.toLocaleString('ca-ES',{minimumFractionDigits: 1, maximumFractionDigits:1})}</td>
+                <td style="text-align:right; color:${colorDif}; font-weight:bold;">${diferencia>=0?'+':''}${diferencia.toLocaleString('ca-ES',{minimumFractionDigits: 1, maximumFractionDigits:1})}</td>
+                <td><span style="color:${avaluacio.color}; font-weight:bold;">${avaluacio.icon} ${avaluacio.text}</span></td>
+                <td style="text-align:center;">${faseBadge}</td>
+                <td style="text-align:right; font-weight:bold; color:#2980b9;">${recFuturAjustada.toLocaleString('ca-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})} m³</td>
+            </tr>`;
         }
 
         const difTotal = totalConsum - totalNecessitat;
-
-        // CORRECCIÓ: Color del total basat en el ratio (alineat amb l'estat)
         const ratioTotal = totalNecessitat > 0 ? totalConsum / totalNecessitat : 1;
         const colorDifTotal = colorDiferencia(ratioTotal);
 
@@ -521,14 +534,11 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
 
         html += '</tbody></table></div>';
 
-        // Tornar a buscar el container per si el DOM ha canviat durant els awaits
         const containerFinal = document.getElementById('modal-reg-finques-container');
-        
         if (containerFinal) {
             containerFinal.innerHTML = html;
-            
         } else {
-            console.error('❌ reg-finques-container no existeix al DOM');
+            console.error('❌ modal-reg-finques-container no existeix al DOM');
         }
 
     } catch (error) {
@@ -537,5 +547,4 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
     }
 }
 
-
-console.log('✅ Reg Intel·ligent v1 (corregit definitiu v2) carregat');
+console.log('✅ Reg Intel·ligent integrat (Open-Meteo + XEMA/AEMET) carregat');
