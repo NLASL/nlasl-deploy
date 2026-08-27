@@ -108,7 +108,7 @@ async function getMeteoData(lat, lon, diesPassats, diesFuturs) {
 async function getPlujaXema(codiEstacio, dataInici, dataFi) {
     if (!codiEstacio) return null;
 
-    const url = `https://api.meteo.cat/xema/v1/variables/precipitacio?codiEstacio=${codiEstacio}&dataInici=${dataInici}&dataFi=${dataFi}`;
+    const url = `/api/pluja-xema?estacio=${codiEstacio}&dataInici=${dataInici}&dataFi=${dataFi}`;
 
     try {
         const res = await fetch(url);
@@ -123,42 +123,21 @@ async function getPlujaXema(codiEstacio, dataInici, dataFi) {
         }
         return total;
     } catch (e) {
-        console.warn('XEMA no disponible:', e.message);
+        console.warn('XEMA via API interna no disponible:', e.message);
         return null;
     }
 }
+
 
 // ============================================================
 // AEMET - Pluja real (requereix API key)
 // ============================================================
 
-async function getPlujaAemet(lat, lon, dataInici, dataFi) {
-    if (!AEMET_API_KEY) return null;
-
-    // Aquesta part depèn de com tinguis configurada l'estació a AEMET.
-    // Aquí es posa un esquema genèric; en la pràctica caldrà adaptar el codi d'estació.
-    const urlMeta = `https://opendata.aemet.es/opendata/api/valores/climatologicos/diarios/fechaini/${dataInici}/fechafin/${dataFi}/estacion/XXXX/?api_key=${AEMET_API_KEY}`;
-
-    try {
-        const resMeta = await fetch(urlMeta);
-        if (!resMeta.ok) return null;
-        const meta = await resMeta.json();
-        if (!meta.datos) return null;
-
-        const resDatos = await fetch(meta.datos);
-        if (!resDatos.ok) return null;
-        const datos = await resDatos.json();
-
-        let total = 0;
-        for (const d of datos) {
-            total += d.precipitacion || 0;
-        }
-        return total;
-    } catch (e) {
-        console.warn('AEMET no disponible:', e.message);
-        return null;
-    }
+async function getPlujaAemet(estacion, dataInici, dataFi) {
+    return null; // AEMET desactivat fins que tinguis API key
 }
+
+
 
 // ============================================================
 // Pluja real unificada (XEMA + AEMET)
