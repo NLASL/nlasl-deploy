@@ -1,40 +1,34 @@
-// api/pluja-aemet.js — Proxy Vercel per obtenir pluja real d'AEMET
-// Paràmetres: lat, lon, dataInici (YYYY-MM-DD), dataFi (YYYY-MM-DD)
-// Retorna: { total: mm, estacio: nom, dies: [{data, valor}] }
-
-const AEMET_API_KEY = process.env.AEMET_API_KEY || '';
-const AEMET_BASE    = 'https://opendata.aemet.es/openapi/api';
+const AEMET_BASE = 'https://opendata.aemet.es/openapi/api';
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
+
+    const AEMET_API_KEY = process.env.AEMET_API_KEY || '';
 
     const { lat, lon, dataInici, dataFi } = req.query;
     if (!lat || !lon || !dataInici || !dataFi) {
         return res.status(400).json({ error: 'Falten paràmetres: lat, lon, dataInici, dataFi' });
     }
+
     if (!AEMET_API_KEY) {
-        return res.status(500).json({ error: 'AEMET_API_KEY no configurada' });
+        return res.status(500).json({ error: 'AEMET_API_KEY no configurada a Vercel Environment Variables' });
     }
 
     try {
-        // Pas 1: Trobar estació més propera
+        // Pas 1: Obtenir inventari d'estacions
         const urlEstacions = `${AEMET_BASE}/valores/climatologicos/inventarioestaciones/todasestaciones/?api_key=${AEMET_API_KEY}`;
         const resEstacions = await fetch(urlEstacions);
         if (!resEstacions.ok) throw new Error('Error obtenint estacions AEMET: ' + resEstacions.status);
         const metaEstacions = await resEstacions.json();
 
-        // AEMET retorna una URL de dades en dos passos
-        const urlDadesEstacions = metaEstacions.datos;
-        const resDadesEstacions = await fetch(urlDadesEstacions);
-        if (!resDadesEstacions.ok) throw new Error('Error carregant dades estacions');
+        const resDadesEstacions = await fetch(metaEstacions.datos);
+        if (!resDadesEstacions.ok) throw new Error('Error carregant dades d\'estacions');
         const estacions = await resDadesEstacions.json();
 
-        // Trobar estació més propera a les coordenades
         const latN = parseFloat(lat);
         const lonN = parseFloat(lon);
 
         function parseCoorAemet(str) {
-            // Format AEMET: "412345N" o "0012345W"
             if (!str) return NaN;
             const dir = str.slice(-1);
             const graus = parseInt(str.slice(0, -7) || '0');
@@ -60,8 +54,7 @@ export default async function handler(req, res) {
 
         if (!estacioMesProper) throw new Error('No s\'ha trobat cap estació AEMET propera');
 
-        // Pas 2: Obtenir dades climatològiques de l'estació més propera
-        // Format dates AEMET: YYYY-MM-DDTHH:MM:SSUTC
+        // Pas 2: Dades diàries de l'estació trobada
         const dInici = `${dataInici}T00:00:00UTC`;
         const dFi    = `${dataFi}T23:59:59UTC`;
         const idEstacio = estacioMesProper.indicativo;
@@ -72,10 +65,9 @@ export default async function handler(req, res) {
         const meta = await resMeta.json();
 
         const resDades = await fetch(meta.datos);
-        if (!resDades.ok) throw new Error('Error carregant dades AEMET');
+        if (!resDades.ok) throw new Error('Error carregant fitxer de dades AEMET');
         const dades = await resDades.json();
 
-        // Sumar precipitació (camp "prec", en mm, pot ser "Ip" = inapreciable)
         let total = 0;
         const dies = [];
         for (const d of dades) {
@@ -94,10 +86,7 @@ export default async function handler(req, res) {
         });
 
     } catch (e) {
-        console.error('Error AEMET:', e.message);
+        console.error('Error a /api/pluja-aemet:', e.message);
         return res.status(500).json({ error: e.message });
     }
-console.log('API KEY present:', !!AEMET_API_KEY);
-console.log('API KEY length:', AEMET_API_KEY.length);
 }
-
