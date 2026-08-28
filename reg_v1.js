@@ -188,10 +188,10 @@ async function getPlujaOpenMeteoArchive(lat, lon, dataInici, dataFi) {
 // ============================================================
 
 async function getPlujaReal(zona, dataInici, dataFi) {
-    // 1) XEMA primer
+    // 1) XEMA / Gencat primer (Fent servir els codis reals de la comarca)
     let codiXema = null;
-    if (zona === 'alfes') codiXema = 'X6';
-    if (zona === 'alcano') codiXema = 'X7';
+    if (zona === 'alfes')  codiXema = 'UQ'; // Lleida - la Frena (Alfés)
+    if (zona === 'alcano') codiXema = 'UX'; // Torrebesses (Alcanó)
 
     let plujaXema = await getPlujaXema(codiXema, dataInici, dataFi);
     if (plujaXema !== null) return plujaXema;
@@ -203,11 +203,11 @@ async function getPlujaReal(zona, dataInici, dataFi) {
     let plujaAemet = await getPlujaAemet(lat, lon, dataInici, dataFi);
     if (plujaAemet !== null) return plujaAemet;
 
-    // 3) OpenMeteo Archive — dades reals mesurades (ERA5), no previsió
+    // 3) OpenMeteo Archive — fallback mesurat
     let plujaArchive = await getPlujaOpenMeteoArchive(lat, lon, dataInici, dataFi);
     if (plujaArchive !== null) return plujaArchive;
 
-    // 4) Fallback final → 0 mm
+    // 4) Fallback final
     return 0;
 }
 
