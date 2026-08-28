@@ -133,8 +133,52 @@ async function getPlujaXema(codiEstacio, dataInici, dataFi) {
 // AEMET - Pluja real (requereix API key)
 // ============================================================
 
-async function getPlujaAemet(estacion, dataInici, dataFi) {
-    return null; // AEMET desactivat fins que tinguis API key
+// ============================================================
+// AEMET - Pluja real via proxy Vercel (oculta la API key)
+// ============================================================
+
+async function getPlujaAemet(lat, lon, dataInici, dataFi) {
+    const url = `/api/pluja-aemet?lat=${lat}&lon=${lon}&dataInici=${dataInici}&dataFi=${dataFi}`;
+    try {
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return typeof data.total === 'number' ? data.total : null;
+    } catch (e) {
+        console.warn('AEMET no disponible:', e.message);
+        return null;
+    }
+}
+
+// ============================================================
+// OPEN-METEO ARCHIVE — Pluja real mesurada per dies passats
+// Usa l'API d'arxiu (ERA5 reanalysis) que conté dades reals,
+// no previsions. Fallback quan XEMA no és disponible.
+// ============================================================
+
+async function getPlujaOpenMeteoArchive(lat, lon, dataInici, dataFi) {
+    const avui = new Date().toISOString().split('T')[0];
+    // L'API d'arxiu no accepta dates futures — tallar a avui
+    const dataFiReal = dataFi > avui ? avui : dataFi;
+    if (dataInici > dataFiReal) return 0;
+
+    const url =
+        `https://archive-api.open-meteo.com/v1/archive` +
+        `?latitude=${lat}&longitude=${lon}` +
+        `&start_date=${dataInici}&end_date=${dataFiReal}` +
+        `&daily=precipitation_sum` +
+        `&timezone=Europe/Madrid`;
+
+    try {
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+        const sums = data.daily?.precipitation_sum || [];
+        return sums.reduce(function(s, v) { return s + (v || 0); }, 0);
+    } catch (e) {
+        console.warn('OpenMeteo Archive no disponible:', e.message);
+        return null;
+    }
 }
 
 
@@ -146,8 +190,8 @@ async function getPlujaAemet(estacion, dataInici, dataFi) {
 async function getPlujaReal(zona, dataInici, dataFi) {
     // 1) XEMA primer
     let codiXema = null;
-    if (zona === 'alfes') codiXema = 'X6';   // Alfés (o la que correspongui)
-    if (zona === 'alcano') codiXema = 'X7';  // Alcanó (o la que correspongui)
+    if (zona === 'alfes') codiXema = 'X6';
+    if (zona === 'alcano') codiXema = 'X7';
 
     let plujaXema = await getPlujaXema(codiXema, dataInici, dataFi);
     if (plujaXema !== null) return plujaXema;
@@ -159,7 +203,11 @@ async function getPlujaReal(zona, dataInici, dataFi) {
     let plujaAemet = await getPlujaAemet(lat, lon, dataInici, dataFi);
     if (plujaAemet !== null) return plujaAemet;
 
-    // 3) Si cap funciona → 0 mm
+    // 3) OpenMeteo Archive — dades reals mesurades (ERA5), no previsió
+    let plujaArchive = await getPlujaOpenMeteoArchive(lat, lon, dataInici, dataFi);
+    if (plujaArchive !== null) return plujaArchive;
+
+    // 4) Fallback final → 0 mm
     return 0;
 }
 
