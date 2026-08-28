@@ -1,27 +1,35 @@
 export default async function handler(req, res) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    
     const { estacio, dataInici, dataFi } = req.query;
 
     if (!estacio || !dataInici || !dataFi) {
-        res.status(400).json({ error: "Falten paràmetres: estacio, dataInici, dataFi" });
-        return;
+        return res.status(400).json({ error: "Falten paràmetres: estacio, dataInici, dataFi" });
     }
 
-    const url = `https://api.meteo.cat/xema/v1/variables/precipitacio?codiEstacio=${estacio}&dataInici=${dataInici}&dataFi=${dataFi}`;
+    // Utilitzem Dades Obertes de Gencat (XAC) - Gratuït i sense API Key
+    const iniStr = `${dataInici}T00:00:00`;
+    const fiStr  = `${dataFi}T23:59:59`;
+    const url = `https://data.gencat.cat/resource/2444-7v3d.json?codi_estacio=${estacio}&$where=data%20between%20'${iniStr}'%20and%20'${fiStr}'`;
 
     try {
         const r = await fetch(url);
 
         if (!r.ok) {
-            res.status(r.status).json({ error: "Error XEMA: " + r.status });
-            return;
+            return res.status(r.status).json({ error: "Error Gencat XAC: " + r.status });
         }
 
-        const data = await r.json();
+        const dades = await r.json();
 
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        res.status(200).json(data);
+        // Mantenim l'estructura esperada pel teu client (metadades amb el camp 'valor')
+        const metadades = dades.map(d => ({
+            data: d.data,
+            valor: parseFloat(d.precipitacio) || 0
+        }));
+
+        return res.status(200).json({ metadades });
 
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        return res.status(500).json({ error: e.message });
     }
 }
