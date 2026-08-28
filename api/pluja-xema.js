@@ -18,14 +18,13 @@ export default async function handler(req, res) {
         const r = await fetch(url);
 
         if (!r.ok) {
-            // Retornem 200 amb metadades buides per no fer petar el client JS
-            return res.status(200).json({ metadades: [] });
+            return res.status(200).json({ metadades: null });
         }
 
         const dades = await r.json();
 
-        if (!Array.isArray(dades)) {
-            return res.status(200).json({ metadades: [] });
+        if (!Array.isArray(dades) || dades.length === 0) {
+            return res.status(200).json({ metadades: null });
         }
 
         const metadades = dades.map(d => ({
@@ -37,7 +36,6 @@ export default async function handler(req, res) {
 
     } catch (e) {
         console.error("Error a /api/pluja-xema:", e.message);
-        // Responem 200 buit per activar el següent fallback del frontend en pau
-        return res.status(200).json({ metadades: [] });
+        return res.status(200).json({ metadades: null });
     }
 }
