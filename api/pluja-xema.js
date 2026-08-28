@@ -8,7 +8,6 @@ export default async function handler(req, res) {
     }
 
     try {
-        // Formatejem les dates per al filtre de Socrata (Gencat)
         const iniStr = `${dataInici}T00:00:00.000`;
         const fiStr  = `${dataFi}T23:59:59.999`;
 
@@ -19,21 +18,26 @@ export default async function handler(req, res) {
         const r = await fetch(url);
 
         if (!r.ok) {
-            return res.status(r.status).json({ error: `Error Gencat API HTTP ${r.status}` });
+            // Retornem 200 amb metadades buides per no fer petar el client JS
+            return res.status(200).json({ metadades: [] });
         }
 
         const dades = await r.json();
 
-        // Mapejem la resposta per mantenir la compatibilitat amb el frontend
-        const metadades = Array.isArray(dades) ? dades.map(d => ({
+        if (!Array.isArray(dades)) {
+            return res.status(200).json({ metadades: [] });
+        }
+
+        const metadades = dades.map(d => ({
             data: d.data,
             valor: parseFloat(d.precipitacio) || 0
-        })) : [];
+        }));
 
         return res.status(200).json({ metadades });
 
     } catch (e) {
         console.error("Error a /api/pluja-xema:", e.message);
-        return res.status(500).json({ error: e.message });
+        // Responem 200 buit per activar el següent fallback del frontend en pau
+        return res.status(200).json({ metadades: [] });
     }
 }
