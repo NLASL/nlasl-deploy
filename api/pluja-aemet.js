@@ -97,4 +97,7 @@ export default async function handler(req, res) {
         console.error('Error AEMET:', e.message);
         return res.status(500).json({ error: e.message });
     }
+console.log('API KEY present:', !!AEMET_API_KEY);
+console.log('API KEY length:', AEMET_API_KEY.length);
 }
+
