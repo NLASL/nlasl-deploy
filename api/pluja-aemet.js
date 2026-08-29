@@ -1,5 +1,13 @@
 const AEMET_BASE = 'https://opendata.aemet.es/openapi/api';
 
+// Estacions AEMET fixes per zona (evita la crida lenta d'inventari)
+// 9771C = Lleida (Observatori, ~15km d'Alfés i Alcanó)
+// 9771  = Lleida Aeroport (alternativa)
+const ESTACIO_PER_ZONA = {
+    alfes:  '9771C',
+    alcano: '9771C'
+};
+
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
 
@@ -9,14 +17,49 @@ export default async function handler(req, res) {
     if (!lat || !lon || !dataInici || !dataFi) {
         return res.status(400).json({ error: 'Falten paràmetres: lat, lon, dataInici, dataFi' });
     }
-
     if (!AEMET_API_KEY) {
-        return res.status(500).json({ error: 'AEMET_API_KEY no configurada a Vercel Environment Variables' });
+        return res.status(500).json({ error: 'AEMET_API_KEY no configurada' });
     }
 
+    // Escollir estació per proximitat (simplificat: sempre Lleida)
+    const idEstacio = '9771C';
+
     try {
-        // Pas 1: Obtenir inventari d'estacions
-        const urlEstacions = `${AEMET_BASE}/valores/climatologicos/inventarioestaciones/todasestaciones/?api_key=${AEMET_API_KEY}`;
+        const dInici = `${dataInici}T00:00:00UTC`;
+        const dFi    = `${dataFi}T23:59:59UTC`;
+
+        const urlDades = `${AEMET_BASE}/valores/climatologicos/diarios/datos/fechaini/${dInici}/fechafin/${dFi}/estacion/${idEstacio}/?api_key=${AEMET_API_KEY}`;
+        const resMeta = await fetch(urlDades);
+        if (!resMeta.ok) throw new Error('Error AEMET pas 1: ' + resMeta.status);
+        const meta = await resMeta.json();
+
+        if (!meta.datos) throw new Error('AEMET no ha retornat URL de dades');
+
+        const resDades = await fetch(meta.datos);
+        if (!resDades.ok) throw new Error('Error AEMET pas 2: ' + resDades.status);
+        const dades = await resDades.json();
+
+        let total = 0;
+        const dies = [];
+        for (const d of dades) {
+            const valor = d.prec === 'Ip' ? 0 : parseFloat((d.prec || '0').replace(',', '.'));
+            if (!isNaN(valor)) {
+                total += valor;
+                dies.push({ data: d.fecha, valor });
+            }
+        }
+
+        return res.status(200).json({
+            total: parseFloat(total.toFixed(1)),
+            estacio: 'Lleida (9771C)',
+            dies
+        });
+
+    } catch (e) {
+        console.error('Error a /api/pluja-aemet:', e.message);
+        return res.status(500).json({ error: e.message });
+    }
+}
         const resEstacions = await fetch(urlEstacions);
         if (!resEstacions.ok) throw new Error('Error obtenint estacions AEMET: ' + resEstacions.status);
         const metaEstacions = await resEstacions.json();
