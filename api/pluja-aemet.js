@@ -14,7 +14,7 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'AEMET_API_KEY no configurada' });
     }
 
-    const idEstacio = '9771C';
+    const idEstacio = '9771';
     const dInici = dataInici + 'T00:00:00UTC';
     const dFi    = dataFi    + 'T23:59:59UTC';
     const urlPas1 = AEMET_BASE + '/valores/climatologicos/diarios/datos/fechaini/' + dInici + '/fechafin/' + dFi + '/estacion/' + idEstacio + '/?api_key=' + AEMET_API_KEY;
