@@ -1,7 +1,6 @@
-// api/pluja-aemet.js — Proxy Vercel per obtenir pluja real d'AEMET
-// Usa l'endpoint de valors climatològics diaris per una estació fixa
-
+// api/pluja-aemet.js
 const AEMET_BASE = 'https://opendata.aemet.es/openapi/api';
+const ESTACIO = '9771C'; // Lleida
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,49 +15,47 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'AEMET_API_KEY no configurada' });
     }
 
-    // Provar múltiples codis d'estació de Lleida fins trobar-ne un que funcioni
-    const estacions = ['9771C', '9771', 'B278X', '9771A'];
+    // AEMET accepta el format: YYYY-MM-DDTHH:MM:SSUTC (sense espais ni +)
+    const dInici = dataInici + 'T00%3A00%3A00UTC';
+    const dFi    = dataFi    + 'T23%3A59%3A59UTC';
 
-    for (const idEstacio of estacions) {
-        try {
-            const dInici = dataInici + 'T00:00:00UTC';
-            const dFi    = dataFi    + 'T23:59:59UTC';
-            const urlPas1 = `${AEMET_BASE}/valores/climatologicos/diarios/datos/fechaini/${dInici}/fechafin/${dFi}/estacion/${idEstacio}/?api_key=${AEMET_API_KEY}`;
+    const urlPas1 = AEMET_BASE + '/valores/climatologicos/diarios/datos/fechaini/' + dInici + '/fechafin/' + dFi + '/estacion/' + ESTACIO + '/?api_key=' + AEMET_API_KEY;
 
-            const resPas1 = await fetch(urlPas1);
-            const meta = await resPas1.json();
+    try {
+        const resPas1 = await fetch(urlPas1);
+        const text1 = await resPas1.text();
 
-            // Si retorna 404 o error, provar la següent estació
-            if (!resPas1.ok || meta.estado === 404 || !meta.datos) {
-                continue;
-            }
-
-            const resPas2 = await fetch(meta.datos);
-            if (!resPas2.ok) continue;
-
-            const dades = await resPas2.json();
-            if (!Array.isArray(dades) || dades.length === 0) continue;
-
-            let total = 0;
-            const dies = [];
-            for (const d of dades) {
-                const raw = (d.prec || '').replace(',', '.');
-                const valor = raw === 'Ip' ? 0 : (parseFloat(raw) || 0);
-                total += valor;
-                dies.push({ data: d.fecha, valor });
-            }
-
-            return res.status(200).json({
-                total: parseFloat(total.toFixed(1)),
-                estacio: idEstacio,
-                dies
-            });
-
-        } catch(e) {
-            continue;
+        let meta;
+        try { meta = JSON.parse(text1); } catch(e) {
+            return res.status(500).json({ error: 'Parse error pas1', raw: text1.slice(0, 200) });
         }
-    }
 
-    // Totes les estacions han fallat
-    return res.status(500).json({ error: 'Cap estació AEMET disponible: ' + estacions.join(', ') });
+        if (meta.estado && meta.estado !== 200) {
+            return res.status(500).json({ error: 'AEMET error: ' + meta.descripcion, estado: meta.estado });
+        }
+        if (!meta.datos) {
+            return res.status(500).json({ error: 'Sense URL datos', meta });
+        }
+
+        const resPas2 = await fetch(meta.datos);
+        const text2 = await resPas2.text();
+        let dades;
+        try { dades = JSON.parse(text2); } catch(e) {
+            return res.status(500).json({ error: 'Parse error pas2', raw: text2.slice(0, 200) });
+        }
+
+        let total = 0;
+        const dies = [];
+        for (const d of dades) {
+            const raw = (d.prec || '').replace(',', '.');
+            const valor = raw === 'Ip' ? 0 : (parseFloat(raw) || 0);
+            total += valor;
+            dies.push({ data: d.fecha, valor });
+        }
+
+        return res.status(200).json({ total: parseFloat(total.toFixed(1)), estacio: ESTACIO, dies });
+
+    } catch(e) {
+        return res.status(500).json({ error: e.message });
+    }
 }
