@@ -1,41 +1,79 @@
-export default async function handler(req, res) {
-    res.setHeader("Access-Control-Allow-Origin", "*");
+// api/pluja-xema.js — Proxy Vercel per XEMA Meteocat
+// Variable 35 = Precipitació diària (mm)
+// Endpoint estadístics diaris: /xema/v1/estadistics/diaris/{variable}/{any}/{mes}?codiEstacio={codi}
 
+export default async function handler(req, res) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    const METEOCAT_API_KEY = process.env.METEOCAT_API_KEY || '';
     const { estacio, dataInici, dataFi } = req.query;
 
     if (!estacio || !dataInici || !dataFi) {
-        return res.status(400).json({ error: "Falten paràmetres: estacio, dataInici, dataFi" });
+        return res.status(400).json({ error: 'Falten parametres: estacio, dataInici, dataFi' });
+    }
+    if (!METEOCAT_API_KEY) {
+        return res.status(200).json({ metadades: null }); // sense clau → fallback
     }
 
+    const headers = { 'X-Api-Key': METEOCAT_API_KEY };
+    const BASE = 'https://api.meteo.cat/xema/v1';
+    const VAR_PREC = 35; // Precipitació diària
+
     try {
-        const iniStr = `${dataInici}T00:00:00.000`;
-        const fiStr  = `${dataFi}T23:59:59.999`;
+        const dInici = new Date(dataInici);
+        const dFi    = new Date(dataFi);
 
-        const url = `https://data.gencat.cat/resource/2444-7v3d.json` +
-                    `?codi_estacio=${encodeURIComponent(estacio)}` +
-                    `&$where=data>=${encodeURIComponent(`'${iniStr}'`)} and data<=${encodeURIComponent(`'${fiStr}'`)}`;
-
-        const r = await fetch(url);
-
-        if (!r.ok) {
-            return res.status(200).json({ metadades: null });
+        // Recollir tots els mesos del rang
+        const mesosAConsultar = new Set();
+        const d = new Date(dInici);
+        while (d <= dFi) {
+            const any = d.getFullYear();
+            const mes = String(d.getMonth() + 1).padStart(2, '0');
+            mesosAConsultar.add(`${any}-${mes}`);
+            d.setMonth(d.getMonth() + 1);
         }
 
-        const dades = await r.json();
+        let total = 0;
+        const dies = [];
 
-        if (!Array.isArray(dades) || dades.length === 0) {
-            return res.status(200).json({ metadades: null });
+        for (const anyMes of mesosAConsultar) {
+            const [any, mes] = anyMes.split('-');
+            const url = `${BASE}/estadistics/diaris/${VAR_PREC}/${any}/${mes}?codiEstacio=${estacio}`;
+
+            const r = await fetch(url, { headers });
+            if (!r.ok) continue;
+
+            const dades = await r.json();
+
+            // Resposta: array d'estacions, cada una amb variables i estadístics
+            const estacioData = Array.isArray(dades) ? dades.find(e => e.codi === estacio) : null;
+            if (!estacioData) continue;
+
+            const varData = (estacioData.variables || []).find(v => v.codi === VAR_PREC);
+            if (!varData) continue;
+
+            for (const est of (varData.estadistics || [])) {
+                const data = est.data ? est.data.substring(0, 10) : null;
+                if (!data) continue;
+                if (data < dataInici || data > dataFi) continue;
+
+                const valor = parseFloat(est.valor) || 0;
+                total += valor;
+                dies.push({ data, valor });
+            }
         }
 
-        const metadades = dades.map(d => ({
-            data: d.data,
-            valor: parseFloat(d.precipitacio) || 0
-        }));
+        if (dies.length === 0) {
+            return res.status(200).json({ metadades: null }); // sense dades → fallback
+        }
 
-        return res.status(200).json({ metadades });
+        return res.status(200).json({
+            metadades: dies,
+            total: parseFloat(total.toFixed(1))
+        });
 
-    } catch (e) {
-        console.error("Error a /api/pluja-xema:", e.message);
+    } catch(e) {
+        console.error('Error pluja-xema:', e.message);
         return res.status(200).json({ metadades: null });
     }
 }
