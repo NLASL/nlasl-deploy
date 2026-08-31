@@ -1,6 +1,6 @@
 // ============================================================
 // REG_V1_INTEGRAT.JS - Reg Intel·ligent amb Open-Meteo (ETo) + XEMA/AEMET (Pluja)
-// Versió integrada a partir de reg_v1.js (corregit definitiu v2)
+// Versió integrada a partir de reg_v1.js (corregit definitiu v2).
 // ============================================================
 
 console.log('💧 Inicialitzant Reg Intel·ligent integrat...');
