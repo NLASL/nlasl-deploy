@@ -118,12 +118,13 @@ async function getPlujaXema(codiEstacio, dataInici, dataFi) {
         let total = 0;
         if (!Array.isArray(data.metadades)) return null; // null = fallback
         if (data.metadades.length === 0) return null;    // sense dades = fallback
+        if (typeof data.total === 'number') return data.total; // usar total pre-calculat
         for (const m of data.metadades) {
             total += m.valor || 0;
         }
         return total;
     } catch (e) {
-        console.warn('XEMA via API interna no disponible:', e.message);
+        console.warn('XEMA no disponible:', e.message);
         return null;
     }
 }
@@ -190,8 +191,8 @@ async function getPlujaOpenMeteoArchive(lat, lon, dataInici, dataFi) {
 async function getPlujaReal(zona, dataInici, dataFi) {
     // 1) XEMA primer
     let codiXema = null;
-    if (zona === 'alfes') codiXema = 'X6';
-    if (zona === 'alcano') codiXema = 'X7';
+    if (zona === 'alfes') codiXema = 'X7';  // Torres de Segre (més propera)
+    if (zona === 'alcano') codiXema = 'X7'; // Torres de Segre
 
     let plujaXema = await getPlujaXema(codiXema, dataInici, dataFi);
     if (plujaXema !== null) return plujaXema;
