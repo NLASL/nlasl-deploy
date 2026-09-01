@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     const url = `https://api.meteo.cat/xema/v1/estadistics/diaris/35/${any}/${mes}?codiEstacio=${estacio}`;
 
     try {
-        const r = await fetch(url, { headers: { 'X-Api-Key': METEOCAT_API_KEY } });
+        const r = await fetch(url, { headers: { 'x-api-key': METEOCAT_API_KEY } });
         const text = await r.text();
         return res.status(200).json({
             debug: 'resposta_meteocat',
