@@ -3,7 +3,7 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
 
     const apiKey = process.env.METEOCAT_API_KEY ? process.env.METEOCAT_API_KEY.trim() : '';
-    const { estacio, dataInici, dataFi } = req.query;
+    const { estacio, dataInici } = req.query;
 
     if (!estacio || !dataInici) {
         return res.status(400).json({ error: 'Falten paràmetres (estacio, dataInici)' });
@@ -15,30 +15,21 @@ export default async function handler(req, res) {
 
     const any = dataInici.substring(0, 4);
     const mes = dataInici.substring(5, 7);
-    const dia = dataInici.substring(8, 10);
 
-    // Consulta de dades per dia/mes a l'API XEMA (Variable 1300 = Pluja 24h)
-    // Prova 1: Endpoint de valors diaris per any i mes
-    const url = `https://api.meteo.cat/xema/v1/estacions/${estacio}/variables/1300/diaris/${any}/${mes}`;
+    // Endpoint oficial XEMA per dades diàries per estació i variable
+    const url = `https://api.meteo.cat/xema/v1/variables/mesures/diaris/${any}/${mes}?codiEstacio=${estacio}&codiVariable=1300`;
 
     try {
         const response = await fetch(url, {
             method: 'GET',
             headers: {
-                'x-api-key': apiKey,
+                'X-Api-Key': apiKey,
                 'Accept': 'application/json'
             }
         });
 
         const status = response.status;
-        const text = await response.text();
-
-        let data;
-        try {
-            data = JSON.parse(text);
-        } catch (e) {
-            data = text;
-        }
+        const data = await response.json();
 
         return res.status(status).json({
             statusHttp: status,
