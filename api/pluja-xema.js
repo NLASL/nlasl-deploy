@@ -1,6 +1,6 @@
 // api/pluja-xema.js — Proxy Vercel per XEMA Meteocat
 // Variable 35 = Precipitació diària (mm)
-// Endpoint estadístics diaris: /xema/v1/estadistics/diaris/{variable}/{any}/{mes}?codiEstacio={codi}..
+// Endpoint estadístics diaris: /xema/v1/estadistics/diaris/{variable}/{any}/{mes}?codiEstacio={codi}...
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -42,22 +42,18 @@ export default async function handler(req, res) {
 
             const r = await fetch(url, { headers });
             const text = await r.text();
+
             if (!r.ok) {
-                console.error('XEMA error:', r.status, text.slice(0, 200));
-                continue;
+                return res.status(200).json({ metadades: null, debug: 'http_error', status: r.status, url, body: text.slice(0, 300) });
             }
 
             let dades;
             try { dades = JSON.parse(text); } catch(e) {
-                console.error('XEMA parse error:', text.slice(0, 200));
-                continue;
+                return res.status(200).json({ metadades: null, debug: 'parse_error', body: text.slice(0, 300) });
             }
 
-            console.log('XEMA resposta tipus:', typeof dades, Array.isArray(dades) ? 'array['+dades.length+']' : JSON.stringify(dades).slice(0, 200));
-
-            // Resposta: array d'estacions, cada una amb variables i estadístics
-            const estacioData = Array.isArray(dades) ? dades.find(e => e.codi === estacio) : null;
-            if (!estacioData) { console.log('XEMA estació no trobada a resposta'); continue; }
+            return res.status(200).json({ metadades: null, debug: 'ok', tipus: typeof dades, isArray: Array.isArray(dades), mostra: JSON.stringify(dades).slice(0, 500) });
+        }
 
             const varData = (estacioData.variables || []).find(v => v.codi === VAR_PREC);
             if (!varData) continue;
