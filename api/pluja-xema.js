@@ -2,7 +2,10 @@
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
 
-    const apiKey = process.env.METEOCAT_API_KEY ? process.env.METEOCAT_API_KEY.trim() : '';
+    // Netejar la clau d'espais o cometes no desitjades
+    const rawKey = process.env.METEOCAT_API_KEY || '';
+    const apiKey = rawKey.trim().replace(/^["']|["']$/g, '');
+
     const { estacio, dataInici } = req.query;
 
     if (!estacio || !dataInici) {
@@ -16,23 +19,31 @@ export default async function handler(req, res) {
     const any = dataInici.substring(0, 4);
     const mes = dataInici.substring(5, 7);
 
-    // Ruta oficial XEMA per a estadístics diaris d'un mes (Variable 1300 = Pluja 24h)
+    // Endpoint oficial XEMA per a estadístics/mesures diàries
     const url = `https://api.meteo.cat/xema/v1/estacions/${estacio}/variables/1300/diaris/${any}/${mes}`;
 
     try {
         const response = await fetch(url, {
             method: 'GET',
             headers: {
-                'X-Api-Key': apiKey,
+                'x-api-key': apiKey,
                 'Accept': 'application/json'
             }
         });
 
         const status = response.status;
-        const data = await response.json();
+        const text = await response.text();
+
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            data = text;
+        }
 
         return res.status(status).json({
             statusHttp: status,
+            keyLength: apiKey.length,
             urlConsultada: url,
             data: data
         });
