@@ -21,6 +21,9 @@ let cultiusTractables = [];
 let fincaSeleccionada = null;
 let vistaActual = 'dashboard';
 
+// Configuració d'APIs externes
+window.METEOCAT_API_KEY = 'dNOQamkaGO3Rjl0cQIbVx2byLaPdrN997ssRXQdX';
+
 // Catàleg cultius i varietats
 const CULTIUS_VARIETATS = {
     'PRÉSSEC PLA': ['FLATBEAUTI', 'FLATBELLA', 'FLATBOOM', 'FLATCHIEF', 'FLATREINE', 'FLATSTAR', 'GUAYOX 35 (VIFMPB 1 258)'],

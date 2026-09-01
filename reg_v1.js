@@ -7,7 +7,7 @@ console.log('💧 Inicialitzant Reg Intel·ligent integrat...');
 
 const REG_API_BASE = 'https://api.open-meteo.com/v1/forecast';
 // IMPORTANT: defineix aquesta constant al teu entorn (config)
-const AEMET_API_KEY = 'dNOQamkaGO3Rjl0cQIbVx2byLaPdrN997ssRXQdX';
+const AEMET_API_KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJuYWRhbGxhdmVybmlhLmFncmljb2xhc2xAZ21haWwuY29tIiwianRpIjoiNzVlOWI5MzUtZWRhOS00ZjJhLWEwOTQtMWRiZDdlNjk3MjgxIiwiZXhwIjoxNzk2NTg0MjUyLCJpc3MiOiJBRU1FVCIsImlhdCI6MTc4Nzk0NDI1MiwidXNlcklkIjoiNzVlOWI5MzUtZWRhOS00ZjJhLWEwOTQtMWRiZDdlNjk3MjgxIiwicm9sZSI6IiJ9.TddwCQUg9WeBvCKk9PesPIg6-ytKyjUcpk_4Ik0vgA0';
 
 // ============================================================
 // CÀRREGA DE DADES BD
