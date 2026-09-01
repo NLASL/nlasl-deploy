@@ -1,6 +1,6 @@
 // api/pluja-xema.js — Proxy Vercel per XEMA Meteocat
 // Variable 35 = Precipitació diària (mm)
-// Endpoint estadístics diaris: /xema/v1/estadistics/diaris/{variable}/{any}/{mes}?codiEstacio={codi}.
+// Endpoint estadístics diaris: /xema/v1/estadistics/diaris/{variable}/{any}/{mes}?codiEstacio={codi}..
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -12,7 +12,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Falten parametres: estacio, dataInici, dataFi' });
     }
     if (!METEOCAT_API_KEY) {
-        return res.status(200).json({ metadades: null }); // sense clau → fallback
+        return res.status(200).json({ metadades: null, debug: 'sense_clau' });
     }
 
     const headers = { 'X-Api-Key': METEOCAT_API_KEY };
