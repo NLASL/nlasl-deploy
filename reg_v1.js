@@ -7,7 +7,7 @@ console.log('💧 Inicialitzant Reg Intel·ligent integrat...');
 
 const REG_API_BASE = 'https://api.open-meteo.com/v1/forecast';
 // IMPORTANT: defineix aquesta constant al teu entorn (config)
-const AEMET_API_KEY = dNOQamkaGO3Rjl0cQIbVx2byLaPdrN997ssRXQdX;
+const AEMET_API_KEY = 'dNOQamkaGO3Rjl0cQIbVx2byLaPdrN997ssRXQdX';
 
 // ============================================================
 // CÀRREGA DE DADES BD
