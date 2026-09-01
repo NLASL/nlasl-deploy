@@ -16,9 +16,8 @@ export default async function handler(req, res) {
     const any = dataInici.substring(0, 4);
     const mes = dataInici.substring(5, 7);
 
-    // Endpoint d'estadístics diaris oficial de la XEMA per a l'estació i data
-    // Variable 1300 = Precipitació acumulada diària
-    const url = `https://api.meteo.cat/xema/v1/estacions/${estacio}/variables/1300/estadistics/diaris/${any}/${mes}`;
+    // Ruta oficial XEMA per a estadístics diaris d'un mes (Variable 1300 = Pluja 24h)
+    const url = `https://api.meteo.cat/xema/v1/estacions/${estacio}/variables/1300/diaris/${any}/${mes}`;
 
     try {
         const response = await fetch(url, {
