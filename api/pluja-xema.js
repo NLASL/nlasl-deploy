@@ -2,14 +2,14 @@
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
 
-    const METEOCAT_API_KEY = process.env.METEOCAT_API_KEY;
+    const apiKey = process.env.METEOCAT_API_KEY ? process.env.METEOCAT_API_KEY.trim() : '';
     const { estacio, dataInici, dataFi } = req.query;
 
     if (!estacio || !dataInici || !dataFi) {
-        return res.status(400).json({ error: 'Falten parametres' });
+        return res.status(400).json({ error: 'Falten paràmetres (estacio, dataInici, dataFi)' });
     }
 
-    if (!METEOCAT_API_KEY) {
+    if (!apiKey) {
         return res.status(500).json({ error: 'METEOCAT_API_KEY no està definida a Vercel' });
     }
 
@@ -18,16 +18,34 @@ export default async function handler(req, res) {
     const url = `https://api.meteo.cat/xema/v1/estacions/${estacio}/variables/estadistics/diaris/1300/${any}/${mes}`;
 
     try {
-        const r = await fetch(url, {
+        const response = await fetch(url, {
             method: 'GET',
             headers: {
-                'x-api-key': METEOCAT_API_KEY.trim()
+                'X-Api-Key': apiKey,
+                'Accept': 'application/json'
             }
         });
 
-        const data = await r.json();
-        return res.status(r.status).json(data);
-    } catch(e) {
+        const status = response.status;
+        const text = await response.text();
+
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            data = text;
+        }
+
+        return res.status(status).json({
+            statusHttp: status,
+            keyInfo: {
+                length: apiKey.length,
+                prefix: apiKey.substring(0, 4) + '...'
+            },
+            resposta: data
+        });
+
+    } catch (e) {
         return res.status(500).json({ error: e.message });
     }
 }
