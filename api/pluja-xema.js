@@ -1,4 +1,4 @@
-// api/pluja-xema.js — Proxy Vercel per XEMA Meteocat
+// api/pluja-xema.js — Proxy Vercel per XEMA Meteocat..
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
 
