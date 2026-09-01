@@ -2,35 +2,42 @@
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
 
-    const METEOCAT_API_KEY = process.env.METEOCAT_API_KEY || '';
-    const { estacio, dataInici, dataFi } = req.query;
+    const apiKey = process.env.METEOCAT_API_KEY ? process.env.METEOCAT_API_KEY.trim() : '';
+    const { estacio, dataInici } = req.query;
 
-    if (!estacio || !dataInici || !dataFi) {
-        return res.status(400).json({ error: 'Falten parametres' });
-    }
-    if (!METEOCAT_API_KEY) {
-        return res.status(200).json({ metadades: null, debug: 'sense_clau' });
+    if (!estacio || !dataInici) {
+        return res.status(400).json({ error: 'Falten paràmetres (estacio, dataInici)' });
     }
 
-    // Diagnosi temporal: mostrar longitud i primers caràcters de la clau
-    const keyDebug = METEOCAT_API_KEY
-        ? `len=${METEOCAT_API_KEY.length} start=${METEOCAT_API_KEY.substring(0,4)}...`
-        : 'BUIDA';
+    if (!apiKey) {
+        return res.status(500).json({ error: 'METEOCAT_API_KEY no configurada a Vercel' });
+    }
 
     const any = dataInici.substring(0, 4);
     const mes = dataInici.substring(5, 7);
-    const url = `https://api.meteo.cat/xema/v1/estacions/${estacio}/variables/estadistics/diaris/metadades`;
+
+    // Ruta oficial XEMA per a estadístics diaris d'un mes (Variable 1300 = Pluja 24h)
+    const url = `https://api.meteo.cat/xema/v1/estacions/${estacio}/variables/1300/diaris/${any}/${mes}`;
 
     try {
-        const r = await fetch(url, { headers: { 'x-api-key': METEOCAT_API_KEY } });
-        const text = await r.text();
-        return res.status(200).json({
-            debug: 'resposta_meteocat',
-            keyDebug,
-            httpStatus: r.status,
-            body: text.slice(0, 500)
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'X-Api-Key': apiKey,
+                'Accept': 'application/json'
+            }
         });
-    } catch(e) {
-        return res.status(200).json({ metadades: null, debug: 'fetch_error', error: e.message });
+
+        const status = response.status;
+        const data = await response.json();
+
+        return res.status(status).json({
+            statusHttp: status,
+            urlConsultada: url,
+            data: data
+        });
+
+    } catch (e) {
+        return res.status(500).json({ error: e.message });
     }
 }
