@@ -1,4 +1,4 @@
-// api/pluja-xema.js
+// api/pluja-xema.js — Proxy Vercel per XEMA Meteocat
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
 
@@ -10,14 +10,15 @@ export default async function handler(req, res) {
     }
 
     if (!apiKey) {
-        return res.status(500).json({ error: 'METEOCAT_API_KEY no configurada' });
+        return res.status(500).json({ error: 'METEOCAT_API_KEY no configurada a Vercel' });
     }
 
     const any = dataInici.substring(0, 4);
     const mes = dataInici.substring(5, 7);
 
-    // Endpoint oficial XEMA per dades diàries per estació i variable
-    const url = `https://api.meteo.cat/xema/v1/variables/mesures/diaris/${any}/${mes}?codiEstacio=${estacio}&codiVariable=1300`;
+    // Endpoint d'estadístics diaris oficial de la XEMA per a l'estació i data
+    // Variable 1300 = Precipitació acumulada diària
+    const url = `https://api.meteo.cat/xema/v1/estacions/${estacio}/variables/1300/estadistics/diaris/${any}/${mes}`;
 
     try {
         const response = await fetch(url, {
