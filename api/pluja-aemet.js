@@ -11,15 +11,16 @@ export default async function handler(req, res) {
     if (!dataInici || !dataFi) return res.status(400).json({ error: 'Falten parametres' });
     if (!AEMET_API_KEY) return res.status(500).json({ error: 'AEMET_API_KEY no configurada' });
 
-    // AEMET té ~2 dies de retard i no accepta dates futures..
-    const ahir = new Date();
-    ahir.setDate(ahir.getDate() - 2);
-    const dataFiReal = dataFi > ahir.toISOString().substring(0, 10)
-        ? ahir.toISOString().substring(0, 10)
-        : dataFi;
+    // AEMET té ~2 dies de retard — limitar dataFi a avui-2 en UTC
+    const ara = new Date();
+    const limitDate = new Date(ara);
+    limitDate.setUTCDate(limitDate.getUTCDate() - 2);
+    const limit = limitDate.toISOString().substring(0, 10); // YYYY-MM-DD en UTC
+
+    const dataFiReal = dataFi > limit ? limit : dataFi;
 
     if (dataInici > dataFiReal) {
-        return res.status(200).json({ total: 0, estacio: ESTACIO, dies: [] });
+        return res.status(200).json({ total: 0, estacio: ESTACIO, dies: [], debug: `limit=${limit}` });
     }
 
     const dInici = dataInici + 'T00:00:00UTC';
@@ -27,24 +28,18 @@ export default async function handler(req, res) {
     const urlPas1 = `${AEMET_BASE}/valores/climatologicos/diarios/datos/fechaini/${dInici}/fechafin/${dFi}/estacion/${ESTACIO}`;
 
     try {
-        // API key com a header, no query param
-        const resPas1 = await fetch(urlPas1, {
-            headers: { 'api_key': AEMET_API_KEY }
-        });
+        const resPas1 = await fetch(urlPas1, { headers: { 'api_key': AEMET_API_KEY } });
         const text1 = await resPas1.text();
         if (text1.includes('<!DOCTYPE') || text1.includes('<html')) {
-            return res.status(500).json({ error: 'HTML rebut pas1', status: resPas1.status, url: urlPas1 });
+            return res.status(500).json({ error: 'HTML rebut', status: resPas1.status });
         }
         const meta = JSON.parse(text1);
         if (meta.estado && meta.estado !== 200) {
-            return res.status(500).json({ error: 'AEMET: ' + meta.descripcion, estado: meta.estado });
+            return res.status(500).json({ error: 'AEMET: ' + meta.descripcion, estado: meta.estado, dFi, limit });
         }
-        if (!meta.datos) return res.status(500).json({ error: 'Sense URL datos', meta });
+        if (!meta.datos) return res.status(500).json({ error: 'Sense URL datos' });
 
-        // Pas 2: obtenir les dades reals
-        const resPas2 = await fetch(meta.datos, {
-            headers: { 'api_key': AEMET_API_KEY }
-        });
+        const resPas2 = await fetch(meta.datos, { headers: { 'api_key': AEMET_API_KEY } });
         const text2 = await resPas2.text();
         const dades = JSON.parse(text2);
 
