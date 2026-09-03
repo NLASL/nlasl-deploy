@@ -108,58 +108,24 @@ async function getMeteoData(lat, lon, diesPassats, diesFuturs) {
 async function getPlujaXema(codiEstacio, dataInici, dataFi) {
     if (!codiEstacio) return null;
 
-    // Cridem Meteocat directament des del client (sense proxy)
-    // La clau es llegeix de la configuració de l'app
-    const METEOCAT_KEY = window.METEOCAT_API_KEY || '';
-    if (!METEOCAT_KEY) return null;
-
-    const BASE = 'https://api.meteo.cat/xema/v1';
-    const VAR_PREC = 1300; // Precipitació acumulada diària
+    const url = `/api/pluja-xema?estacio=${codiEstacio}&dataInici=${dataInici}&dataFi=${dataFi}`;
 
     try {
-        // Recollir tots els mesos del rang
-        const mesosAConsultar = new Set();
-        const dInici = new Date(dataInici);
-        const dFi    = new Date(dataFi);
-        const d = new Date(dInici);
-        while (d <= dFi) {
-            const any = d.getFullYear();
-            const mes = String(d.getMonth() + 1).padStart(2, '0');
-            mesosAConsultar.add(`${any}-${mes}`);
-            d.setMonth(d.getMonth() + 1);
-        }
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+
+        if (!Array.isArray(data.metadades)) return null;
+        if (data.metadades.length === 0) return null;
+        if (typeof data.total === 'number') return data.total;
 
         let total = 0;
-        let diesTrobats = 0;
-
-        for (const anyMes of mesosAConsultar) {
-            const [any, mes] = anyMes.split('-');
-            const url = `${BASE}/estacions/${codiEstacio}/variables/estadistics/diaris/${VAR_PREC}/${any}/${mes}`;
-
-            const r = await fetch(url, {
-                headers: { 'X-Api-Key': METEOCAT_KEY }
-            });
-            if (!r.ok) continue;
-
-            const dades = await r.json();
-            // Estructura: [{codi, variables: [{codi, estadistics: [{data, valor}]}]}]
-            const estacioData = Array.isArray(dades) ? dades.find(e => e.codi === codiEstacio) : dades;
-            const variables = estacioData?.variables || (dades?.variables ? [dades] : []);
-            const varData = variables.find ? variables.find(v => v.codi === VAR_PREC) : null;
-            const estadistics = varData?.estadistics || dades?.estadistics || [];
-
-            for (const est of estadistics) {
-                const data = est.data ? est.data.substring(0, 10) : null;
-                if (!data || data < dataInici || data > dataFi) continue;
-                total += parseFloat(est.valor) || 0;
-                diesTrobats++;
-            }
+        for (const m of data.metadades) {
+            total += m.valor || 0;
         }
-
-        return diesTrobats > 0 ? parseFloat(total.toFixed(1)) : null;
-
-    } catch(e) {
-        console.warn('XEMA error:', e.message);
+        return total;
+    } catch (e) {
+        console.warn('XEMA no disponible:', e.message);
         return null;
     }
 }
