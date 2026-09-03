@@ -11,8 +11,19 @@ export default async function handler(req, res) {
     if (!dataInici || !dataFi) return res.status(400).json({ error: 'Falten parametres' });
     if (!AEMET_API_KEY) return res.status(500).json({ error: 'AEMET_API_KEY no configurada' });
 
+    // AEMET té ~2 dies de retard i no accepta dates futures
+    const ahir = new Date();
+    ahir.setDate(ahir.getDate() - 2);
+    const dataFiReal = dataFi > ahir.toISOString().substring(0, 10)
+        ? ahir.toISOString().substring(0, 10)
+        : dataFi;
+
+    if (dataInici > dataFiReal) {
+        return res.status(200).json({ total: 0, estacio: ESTACIO, dies: [] });
+    }
+
     const dInici = dataInici + 'T00:00:00UTC';
-    const dFi    = dataFi    + 'T23:59:59UTC';
+    const dFi    = dataFiReal + 'T23:59:59UTC';
     const urlPas1 = `${AEMET_BASE}/valores/climatologicos/diarios/datos/fechaini/${dInici}/fechafin/${dFi}/estacion/${ESTACIO}`;
 
     try {
