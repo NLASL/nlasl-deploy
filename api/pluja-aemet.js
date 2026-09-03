@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     if (!dataInici || !dataFi) return res.status(400).json({ error: 'Falten parametres' });
     if (!AEMET_API_KEY) return res.status(500).json({ error: 'AEMET_API_KEY no configurada' });
 
-    // AEMET té ~2 dies de retard i no accepta dates futures
+    // AEMET té ~2 dies de retard i no accepta dates futures..
     const ahir = new Date();
     ahir.setDate(ahir.getDate() - 2);
     const dataFiReal = dataFi > ahir.toISOString().substring(0, 10)
