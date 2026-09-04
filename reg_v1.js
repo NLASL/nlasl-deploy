@@ -7,7 +7,7 @@ console.log('💧 Inicialitzant Reg Intel·ligent integrat...');
 
 const REG_API_BASE = 'https://api.open-meteo.com/v1/forecast';
 // IMPORTANT: defineix aquesta constant al teu entorn (config)
-const AEMET_API_KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJuYWRhbGxhdmVybmlhLmFncmljb2xhc2xAZ21haWwuY29tIiwianRpIjoiNzVlOWI5MzUtZWRhOS00ZjJhLWEwOTQtMWRiZDdlNjk3MjgxIiwiZXhwIjoxNzk2NTg0MjUyLCJpc3MiOiJBRU1FVCIsImlhdCI6MTc4Nzk0NDI1MiwidXNlcklkIjoiNzVlOWI5MzUtZWRhOS00ZjJhLWEwOTQtMWRiZDdlNjk3MjgxIiwicm9sZSI6IiJ9.TddwCQUg9WeBvCKk9PesPIg6-ytKyjUcpk_4Ik0vgA0';
+const AEMET_API_KEY = 'POSA_AQUI_LA_TEVA_API_KEY_AEMET';
 
 // ============================================================
 // CÀRREGA DE DADES BD
@@ -108,7 +108,7 @@ async function getMeteoData(lat, lon, diesPassats, diesFuturs) {
 async function getPlujaXema(codiEstacio, dataInici, dataFi) {
     if (!codiEstacio) return null;
 
-    const url = `/api/pluja-xema?estacio=${codiEstacio}&dataInici=${dataInici}&dataFi=${dataFi}`;
+    const url = `https://xnxoufpizdtfklfjwqet.supabase.co/functions/v1/pluja-xema?estacio=${codiEstacio}&dataInici=${dataInici}&dataFi=${dataFi}`;
 
     try {
         const res = await fetch(url);
@@ -123,7 +123,7 @@ async function getPlujaXema(codiEstacio, dataInici, dataFi) {
         for (const m of data.metadades) {
             total += m.valor || 0;
         }
-        return total;
+        return parseFloat(total.toFixed(2));
     } catch (e) {
         console.warn('XEMA no disponible:', e.message);
         return null;
