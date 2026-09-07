@@ -200,6 +200,7 @@ function mostrarDetallPlaAdobament() {
     html += '<button class="btn-secondary" onclick="afegirCandidatsLiniesPlaAccio(\'' + pla.id + '\', ' + pla.campanya + ')">⚙️ Afegir línies (parcel·les regadiu)</button>';
     html += '<button class="btn-secondary" onclick="obrirSelectorAfegirParcellaManual()">➕ Afegir parcel·la manualment</button>';
     html += '<button class="btn-secondary" onclick="exportarResumPlaAdobamentCSV()">📥 Exportar CSV</button>';
+    html += '<button class="btn-secondary" onclick="imprimirPlaAdobament()">🖨️ Imprimir / PDF per signar</button>';
     html += '<div style="flex:1;"></div>';
     html += '<button class="btn-primary" onclick="guardarLiniesPlaAccio()"' + (pendent ? '' : ' disabled') + '>💾 Guardar canvis' + (pendent ? ' <span style="color:#ffeb3b;">●</span>' : '') + '</button>';
     html += '</div>';
@@ -543,3 +544,94 @@ function exportarResumPlaAdobamentCSV() {
 }
 
 console.log('✅ Plans adobament UI v1 carregat (patró staging)');
+
+// ============================================================
+// IMPRESSIÓ / PDF (mateix patró que collita-ui_v1.js: CSS @media
+// print temporal + window.print(); l'usuari desa com a PDF des
+// del diàleg d'impressió del navegador)
+// ============================================================
+
+/**
+ * Imprimeix el pla d'adobament (per signar: assessor tècnic + titular).
+ * Com que la vista normal té <input> editables, es construeix una vista
+ * de només lectura en text pla dins un contenidor ocult, es mostra només
+ * aquest contenidor durant la impressió, i es neteja després.
+ */
+function imprimirPlaAdobament() {
+    const pla = plaAdobamentActual;
+    const linies = liniesPlaStaging;
+    const resum = calcularResumPla(linies);
+
+    let html = '<div id="pla-adobament-imprimir">';
+    html += '<h2 style="margin-bottom:2px;">NADAL LAVERNIA AGRÍCOLA SL</h2>';
+    html += '<p style="margin-top:0; font-size:12px;">NIF: B25630930</p>';
+    html += '<h3>Pla d\'Adobament — Campanya ' + pla.campanya + '</h3>';
+    html += '<p style="font-size:11px; color:#555;">RD 1051/2022, modificat pel RD 934/2025</p>';
+
+    html += '<table style="width:100%; font-size:11px; margin-bottom:10px;"><tr>';
+    html += '<td><strong>Assessor tècnic:</strong> ' + (pla.assessor_tecnic || '________________') + '</td>';
+    html += '<td><strong>Data elaboració:</strong> ' + (pla.data_elaboracio ? formatData(pla.data_elaboracio) : '____/____/______') + '</td>';
+    html += '<td><strong>Estat:</strong> ' + (pla.estat || 'esborrany') + '</td>';
+    html += '</tr><tr>';
+    html += '<td><strong>Superfície total:</strong> ' + resum.superficieTotal.toFixed(2) + ' Ha</td>';
+    html += '<td><strong>N total:</strong> ' + resum.nTotalKg.toFixed(0) + ' kg</td>';
+    html += '<td><strong>P₂O₅ / K₂O total:</strong> ' + resum.pTotalKg.toFixed(0) + ' / ' + resum.kTotalKg.toFixed(0) + ' kg</td>';
+    html += '</tr></table>';
+
+    html += '<table border="1" cellspacing="0" cellpadding="3" style="width:100%; border-collapse:collapse; font-size:9px;">';
+    html += '<thead><tr style="background:#2e5a2e; color:#fff;">';
+    ['Parcel·la', 'Finca', 'Cultiu/Var.', 'Ha', 'Precedent', 'pH', 'N sòl', 'P sòl', 'K sòl', 'M.O.%',
+     'N nec.', 'P nec.', 'K nec.', 'Tipus adob', 'Mesures emissions'].forEach(t => {
+        html += '<th>' + t + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+
+    linies.forEach(l => {
+        const p = l.parcelles || {};
+        const tipusAdob = (l.aplicacions_previstes && l.aplicacions_previstes[0] && l.aplicacions_previstes[0].tipus_adob) || '';
+        html += '<tr>';
+        [
+            p.nom || '', p.finca || '', (p.cultiu || '') + (p.varietat ? '/' + p.varietat : ''),
+            p.superficie ?? '', l.cultiu_precedent || '',
+            l.ph ?? '', l.n_sol ?? '', l.p_sol ?? '', l.k_sol ?? '', l.materia_organica ?? '',
+            l.n_necessari ?? '', l.p_necessari ?? '', l.k_necessari ?? '',
+            tipusAdob, l.mesures_emissions || ''
+        ].forEach(v => { html += '<td>' + v + '</td>'; });
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+
+    html += '<table style="width:100%; margin-top:40px; font-size:11px;"><tr>';
+    html += '<td style="width:50%;">_______________________________<br>Assessor tècnic' +
+        (pla.assessor_tecnic ? ' — ' + pla.assessor_tecnic : '') + '<br>Data: ____/____/______</td>';
+    html += '<td style="width:50%;">_______________________________<br>Titular de l\'explotació — Nadal Lavernia Agrícola SL<br>Data: ____/____/______</td>';
+    html += '</tr></table>';
+    html += '</div>';
+
+    document.body.insertAdjacentHTML('beforeend', html);
+
+    const style = document.createElement('style');
+    style.id = 'print-style-pla-adobament';
+    style.innerHTML = `
+        @media print {
+            body > *:not(#pla-adobament-imprimir) { display: none !important; }
+            #pla-adobament-imprimir { display: block !important; }
+            table { page-break-inside: avoid; }
+            tr { page-break-inside: avoid; }
+            @page { margin: 12mm; size: A4 landscape; }
+        }
+        @media screen {
+            #pla-adobament-imprimir { display: none; }
+        }
+    `;
+    document.head.appendChild(style);
+
+    window.print();
+
+    setTimeout(function () {
+        const el = document.getElementById('print-style-pla-adobament');
+        if (el) el.remove();
+        const contingut = document.getElementById('pla-adobament-imprimir');
+        if (contingut) contingut.remove();
+    }, 1000);
+}
