@@ -17,7 +17,7 @@ let liniesPlaStaging = [];     // còpia editable en memòria (encara no guardad
 // ============================================================
 
 async function carregarVistaPlansAdobament() {
-    const container = document.getElementById('content-area');
+    const container = document.getElementById('view-container');
     container.innerHTML = '<p>⏳ Carregant plans d\'adobament...</p>';
     try {
         plansAdobamentCache = await getPlansAdobament();
@@ -29,7 +29,7 @@ async function carregarVistaPlansAdobament() {
 }
 
 function mostrarLlistaPlansAdobament() {
-    const container = document.getElementById('content-area');
+    const container = document.getElementById('view-container');
 
     let html = '<h2>🌱 Plans d\'Adobament</h2>';
     html += '<p style="color:#666; font-size:13px; margin-bottom:20px;">RD 1051/2022 — Pla d\'adobament en regadiu. Un pla per campanya, corregible per circumstàncies sobrevingudes (sequera, calamarsada, pluja excessiva...).</p>';
@@ -135,7 +135,7 @@ async function eliminarPlaAdobamentAccio(id) {
 // ============================================================
 
 async function obrirDetallPlaAdobament(plaId) {
-    const container = document.getElementById('content-area');
+    const container = document.getElementById('view-container');
     container.innerHTML = '<p>⏳ Carregant pla...</p>';
 
     try {
@@ -157,7 +157,7 @@ function hiHaCanvisPendents() {
 }
 
 function mostrarDetallPlaAdobament() {
-    const container = document.getElementById('content-area');
+    const container = document.getElementById('view-container');
     const pla = plaAdobamentActual;
     const linies = liniesPlaStaging;
     const resum = calcularResumPla(linies);
