@@ -69,12 +69,13 @@
     <button class="nav-btn active" onclick="canviarVista('dashboard')" data-view="dashboard">🏠 Inici</button>
     
     <div class="nav-group">
-        <button class="nav-btn nav-group-btn" onclick="toggleSubmenu('operacions')">🌱 Operacions ▾</button>
-        <div id="submenu-operacions" class="submenu" style="display:none;">
-            <button class="nav-btn submenu-btn" onclick="canviarVista('tractaments');tancarSubmenus();" data-view="tractaments">🌱 Tractaments</button>
-            <button class="nav-btn submenu-btn" onclick="canviarVista('fertilitzacions');tancarSubmenus();" data-view="fertilitzacions">🌾 Fertilitzacions</button>
-        </div>
-    </div>
+    <button class="nav-btn nav-group-btn" onclick="toggleSubmenu('operacions')">🌱 Operacions ▾</button>
+    <div id="submenu-operacions" class="submenu" style="display:none;">
+        <button class="nav-btn submenu-btn" onclick="canviarVista('tractaments');tancarSubmenus();" data-view="tractaments">🌱 Tractaments</button>
+        <button class="nav-btn submenu-btn" onclick="canviarVista('fertilitzacions');tancarSubmenus();" data-view="fertilitzacions">🌾 Fertilitzacions</button>
+        <button class="nav-btn submenu-btn" onclick="canviarVista('plans-adobament');tancarSubmenus();" data-view="plans-adobament">📋 Pla d'Adobament</button>
+		</div>
+	</div>
 
     <button class="nav-btn" onclick="canviarVista('control-horari')" data-view="control-horari">⏱️ Control Horari</button>
 
@@ -176,6 +177,9 @@
 	<script src="/immobilitzat-modals_v1.js"></script>
 	<script src="/assegurances-fixes_v1.js"></script> 
 	<script src="/parcelles-import-dun.js"></script>
+	<script src="/plans-adobament_v1.js"></script>
+	<script src="/plans-adobament-ui_v1.js"></script>
+
 		
 
 	<!-- App principal AL FINAL (depèn de tots els anteriors) -->

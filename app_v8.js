@@ -174,6 +174,9 @@ function canviarVista(vista) {
         case 'fertilitzacions':
             carregarVistaFertilitzacions();
             break;
+		case 'plans-adobament':
+			carregarVistaPlansAdobament();
+			break;	
         case 'productes':
             carregarVistaProductes();
             break;
