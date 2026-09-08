@@ -491,7 +491,7 @@ async function carregarDadesReg(fincesReg, dataInici, dataFi) {
             const calcFuturBrut = calcularNecessitatReg(meteo.etoFutur, kc, finca.superficie_ha, meteo.plujaFutur);
 
             const faseInfo   = fasesFenologiques[finca.num_explotacio];
-            const factorReg  = faseInfo ? faseInfo.factor_reg : 1.00;
+            const factorReg  = 1.00; // Neutralitzat: el Kc mensual ja incorpora la correcció fenològica
             const fase       = faseInfo ? faseInfo.fase : 'creixement';
 
             const calc = {
