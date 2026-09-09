@@ -1,8 +1,7 @@
 // ============================================================
-// LIQUIDACIONS - UI
-// Vista llista + modal capçalera/línies + generació des d'escandalls
-// Depèn de: supabase-client_v5.js (getLiquidacions, createLiquidacio...)
-// Variables globals esperades: fruites[], varietats[], currentUser
+// LIQUIDACIONS-UI.V1.JS - Vista Liquidacions Collita
+// Segueix els mateixos patrons que collita-ui_v1.js
+// (modal via document.createElement, tancarModal(), .data-table)
 // ============================================================
 
 let liquidacioCampanyaActiva = null;
@@ -13,199 +12,229 @@ let liquidacioModalId = null; // id de la liquidació oberta al modal (null = no
 // ============================================================
 
 async function mostrarVistaLiquidacions() {
-    const contenidor = document.getElementById('view-container');
-    if (!contenidor) return;
+    const container = document.getElementById('view-container');
+    if (!container) return;
 
-    contenidor.innerHTML = `
-        <div class="vista-header">
-            <h2>💰 Liquidacions</h2>
-            <button class="btn btn-primary" onclick="obrirModalLiquidacio()">+ Nova Liquidació</button>
-        </div>
-        <div class="filtres-bar">
-            <label>Campanya:
-                <select id="filtre-campanya-liquidacio" onchange="canviarCampanyaLiquidacio(this.value)"></select>
-            </label>
-        </div>
-        <div id="llista-liquidacions" class="llista-cards">Carregant...</div>
-    `;
+    const ara = new Date();
+    const mes = ara.getMonth() + 1;
+    const campanyadefecte = mes >= 10 ? ara.getFullYear() + 1 : ara.getFullYear();
+    if (!liquidacioCampanyaActiva) liquidacioCampanyaActiva = campanyadefecte;
 
-    await omplirSelectorCampanyes();
-    await carregarLlistaLiquidacions();
+    let html = '<div class="vista-liquidacions">';
+    html += '<h2>💰 Collita - Liquidacions</h2>';
+
+    // Navegació - botons (mateix patró que Entrades/Escandalls)
+    html += '<div style="margin-bottom:15px; border-bottom:2px solid #ddd; padding-bottom:10px;">';
+    html += '<button class="btn btn-primary" onclick="obrirModalLiquidacio()" style="margin-right:10px;">➕ Nova Liquidació</button>';
+    html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'entrades\')" style="margin-right:10px;">← Entrades</button>';
+    html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'escandalls\')">→ Escandalls</button>';
+    html += '</div>';
+
+    // Filtres
+    html += '<div style="display:flex; gap:15px; align-items:flex-end; margin-bottom:15px; flex-wrap:wrap; background:#f5f5f5; padding:12px; border-radius:8px;">';
+    html += '<div><label style="display:block; font-size:0.85em; margin-bottom:3px;"><strong>Campanya</strong></label>';
+    html += '<select id="filtre-campanya-liquidacio" onchange="liquidacioCampanyaActiva=parseInt(this.value);mostrarTaulaLiquidacions();" style="padding:6px; border-radius:4px; border:1px solid #ddd;">';
+    [campanyadefecte, campanyadefecte - 1, campanyadefecte - 2].forEach(function(c) {
+        html += '<option value="' + c + '"' + (c === liquidacioCampanyaActiva ? ' selected' : '') + '>' + c + '</option>';
+    });
+    html += '</select></div>';
+    html += '</div>';
+
+    html += '<div id="liquidacions-content"></div>';
+    html += '</div>';
+
+    container.innerHTML = html;
+    await mostrarTaulaLiquidacions();
 }
 
-async function omplirSelectorCampanyes() {
-    // ⚠️ VERIFICAR: si ja tens obtenirCampanyaActual() a preus_v1.js, fes-la servir aquí
-    const campanyaActual = new Date().getFullYear();
-    const select = document.getElementById('filtre-campanya-liquidacio');
-    const opcions = [campanyaActual, campanyaActual - 1, campanyaActual - 2];
-    select.innerHTML = opcions.map(c => `<option value="${c}">${c}</option>`).join('');
-    liquidacioCampanyaActiva = campanyaActual;
-}
+async function mostrarTaulaLiquidacions() {
+    const content = document.getElementById('liquidacions-content');
+    if (!content) return;
 
-function canviarCampanyaLiquidacio(campanya) {
-    liquidacioCampanyaActiva = parseInt(campanya);
-    carregarLlistaLiquidacions();
-}
+    content.innerHTML = '<p>⏳ Carregant liquidacions...</p>';
 
-async function carregarLlistaLiquidacions() {
-    const contenidor = document.getElementById('llista-liquidacions');
     try {
         const liquidacions = await getLiquidacions({ campanya: liquidacioCampanyaActiva });
 
         if (liquidacions.length === 0) {
-            contenidor.innerHTML = '<p class="text-muted">No hi ha liquidacions per aquesta campanya.</p>';
+            content.innerHTML = '<p style="color:#888;">No hi ha liquidacions per aquesta campanya.</p>';
             return;
         }
 
-        contenidor.innerHTML = liquidacions.map(liq => renderCardLiquidacio(liq)).join('');
+        let html = '<table class="data-table" style="width:100%;">';
+        html += '<thead><tr>';
+        html += '<th>Fruita / Varietat</th><th>Data liquidació</th>';
+        html += '<th style="text-align:right;">Kg total</th>';
+        html += '<th style="text-align:right;">Import brut</th>';
+        html += '<th style="text-align:right;">Bestretes</th>';
+        html += '<th style="text-align:right;">Net a pagar</th>';
+        html += '<th>Estat</th><th>Accions</th>';
+        html += '</tr></thead><tbody>';
+
+        liquidacions.forEach(function(liq) {
+            const fruita = (typeof fruites !== 'undefined' ? fruites.find(function(f) { return f.id === liq.fruita_id; }) : null);
+            const varietat = (typeof varietats !== 'undefined' ? varietats.find(function(v) { return v.id === liq.varietat_id; }) : null);
+            const nomFruita = fruita ? fruita.nom : '—';
+            const nomVarietat = varietat ? varietat.varietat : 'Totes';
+            const colorEstat = liq.estat === 'tancada' ? '#2d5016' : '#b8860b';
+
+            html += '<tr>';
+            html += '<td>' + nomFruita + ' / ' + nomVarietat + '</td>';
+            html += '<td>' + formatData(liq.data_liquidacio) + '</td>';
+            html += '<td style="text-align:right;">' + Number(liq.kg_total).toLocaleString('ca-ES') + '</td>';
+            html += '<td style="text-align:right;">' + Number(liq.import_brut).toFixed(2) + ' €</td>';
+            html += '<td style="text-align:right;">' + Number(liq.import_bestretes).toFixed(2) + ' €</td>';
+            html += '<td style="text-align:right;"><strong>' + Number(liq.import_net).toFixed(2) + ' €</strong></td>';
+            html += '<td><span style="color:' + colorEstat + ';font-weight:600;">' + liq.estat + '</span></td>';
+            html += '<td><button class="btn btn-secondary" onclick="obrirModalLiquidacio(\'' + liq.id + '\')">✏️ Obrir</button></td>';
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        content.innerHTML = html;
     } catch (error) {
-        contenidor.innerHTML = '<p class="text-error">Error carregant liquidacions.</p>';
+        content.innerHTML = '<p style="color:#c0392b;">Error carregant liquidacions.</p>';
         console.error(error);
     }
 }
 
-function renderCardLiquidacio(liq) {
-    const fruita = (typeof fruites !== 'undefined' ? fruites.find(f => f.id === liq.fruita_id) : null);
-    const varietat = (typeof varietats !== 'undefined' ? varietats.find(v => v.id === liq.varietat_id) : null);
-    const nomFruita = fruita ? fruita.nom : '—';
-    const nomVarietat = varietat ? varietat.nom : 'Totes les varietats';
-    const badgeEstat = liq.estat === 'tancada' ? 'badge-success' : 'badge-warning';
-
-    return `
-        <div class="card-liquidacio" onclick="obrirModalLiquidacio('${liq.id}')">
-            <div class="card-liquidacio-header">
-                <strong>${nomFruita} — ${nomVarietat}</strong>
-                <span class="badge ${badgeEstat}">${liq.estat}</span>
-            </div>
-            <div class="card-liquidacio-body">
-                <span>📅 ${formatData(liq.data_liquidacio)}</span>
-                <span>⚖️ ${liq.kg_total} kg</span>
-                <span>💶 Net: ${Number(liq.import_net).toFixed(2)} €</span>
-            </div>
-        </div>
-    `;
-}
-
 // ============================================================
 // MODAL CAPÇALERA + LÍNIES
+// (mateix patró que modal-nova-entrada-cereal a collita-ui_v1.js)
 // ============================================================
 
-async function obrirModalLiquidacio(id = null) {
+async function obrirModalLiquidacio(id) {
+    id = id || null;
     liquidacioModalId = id;
     const liquidacio = id ? await getLiquidacio(id) : null;
     const linies = id ? await getLiquidacioLinies(id) : [];
 
     const opcionsFruites = (typeof fruites !== 'undefined' ? fruites : [])
-        .map(f => `<option value="${f.id}" ${liquidacio?.fruita_id === f.id ? 'selected' : ''}>${f.nom}</option>`)
+        .map(function(f) { return '<option value="' + f.id + '"' + (liquidacio && liquidacio.fruita_id === f.id ? ' selected' : '') + '>' + f.nom + '</option>'; })
         .join('');
 
-    const html = `
-        <div class="modal-overlay" id="modal-liquidacio">
-            <div class="modal-content modal-large">
-                <h3>${id ? 'Editar' : 'Nova'} Liquidació</h3>
+    const anterior = document.getElementById('modal-liquidacio');
+    if (anterior) anterior.remove();
 
-                <div class="form-grid">
-                    <label>Campanya
-                        <input type="number" id="liq-campanya" value="${liquidacio?.campanya || liquidacioCampanyaActiva}">
-                    </label>
-                    <label>Fruita
-                        <select id="liq-fruita" onchange="onCanviFruitaLiquidacio()">
-                            <option value="">-- Selecciona --</option>
-                            ${opcionsFruites}
-                        </select>
-                    </label>
-                    <label>Varietat
-                        <select id="liq-varietat">
-                            <option value="">Totes / no aplica</option>
-                        </select>
-                    </label>
-                    <label>Data liquidació
-                        <input type="date" id="liq-data" value="${liquidacio?.data_liquidacio || ''}">
-                    </label>
-                    <label>Import bestretes (€)
-                        <input type="number" step="0.01" id="liq-bestretes" value="${liquidacio?.import_bestretes || 0}">
-                        <button type="button" class="btn-link" onclick="proposarImportBestretes()">↻ Proposar</button>
-                    </label>
-                    <label>Estat
-                        <select id="liq-estat">
-                            <option value="provisional" ${liquidacio?.estat === 'provisional' ? 'selected' : ''}>Provisional</option>
-                            <option value="tancada" ${liquidacio?.estat === 'tancada' ? 'selected' : ''}>Tancada</option>
-                        </select>
-                    </label>
+    const modal = document.createElement('div');
+    modal.id = 'modal-liquidacio';
+    modal.className = 'modal';
+    modal.style.display = 'block';
+
+    let linesHtml = '';
+    if (liquidacio) {
+        linesHtml = `
+            <div style="display:flex;gap:20px;margin:15px 0;padding:10px;background:#f5f5f5;border-radius:6px;">
+                <span>Kg total: <strong>${liquidacio.kg_total}</strong></span>
+                <span>Import brut: <strong>${Number(liquidacio.import_brut).toFixed(2)} €</strong></span>
+                <span>Net a pagar: <strong>${Number(liquidacio.import_net).toFixed(2)} €</strong></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <h4 style="margin:0;">Línies (calibre / qualitat / preu)</h4>
+                <div>
+                    <button class="btn btn-info" onclick="generarLiniesDesEscandall()" style="margin-right:8px;">⚙️ Generar des d'escandalls</button>
+                    <button class="btn btn-secondary" onclick="afegirLiniaManualForm()">+ Línia manual</button>
                 </div>
-                <label>Notes
-                    <textarea id="liq-notes">${liquidacio?.notes || ''}</textarea>
-                </label>
+            </div>
+            <table class="data-table" style="width:100%;">
+                <thead><tr><th>Qualitat</th><th>Calibre</th><th>FNC</th><th style="text-align:right;">Kg</th><th style="text-align:right;">Preu/kg</th><th style="text-align:right;">Import</th><th></th></tr></thead>
+                <tbody>${linies.map(renderFilaLinia).join('')}</tbody>
+            </table>
+            <div id="fila-nova-linia-container"></div>
+        `;
+    } else {
+        linesHtml = '<p style="color:#888;margin-top:15px;">Guarda la capçalera per poder afegir línies.</p>';
+    }
 
-                ${liquidacio ? `
-                <div class="totals-resum">
-                    <span>Kg total: <strong>${liquidacio.kg_total}</strong></span>
-                    <span>Import brut: <strong>${Number(liquidacio.import_brut).toFixed(2)} €</strong></span>
-                    <span>Net a pagar: <strong>${Number(liquidacio.import_net).toFixed(2)} €</strong></span>
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width:900px;max-height:85vh;overflow-y:auto;margin-top:20px;margin-bottom:20px;">
+            <span class="close" onclick="tancarModal('modal-liquidacio')">&times;</span>
+            <h2>💰 ${id ? 'Editar' : 'Nova'} Liquidació</h2>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+                <div class="form-group">
+                    <label>Campanya *</label>
+                    <input type="number" id="liq-campanya" value="${liquidacio ? liquidacio.campanya : liquidacioCampanyaActiva}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
                 </div>
-
-                <div class="linies-header">
-                    <h4>Línies (calibre / qualitat / preu)</h4>
-                    <div>
-                        <button class="btn btn-secondary" onclick="generarLiniesDesEscandall()">⚙️ Generar des d'escandalls</button>
-                        <button class="btn btn-secondary" onclick="afegirLiniaManualForm()">+ Línia manual</button>
+                <div class="form-group">
+                    <label>Fruita *</label>
+                    <select id="liq-fruita" onchange="onCanviFruitaLiquidacio()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                        <option value="">-- Selecciona --</option>
+                        ${opcionsFruites}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Varietat</label>
+                    <select id="liq-varietat" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                        <option value="">Totes / no aplica</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Data liquidació *</label>
+                    <input type="date" id="liq-data" value="${liquidacio ? liquidacio.data_liquidacio : ''}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                </div>
+                <div class="form-group">
+                    <label>Import bestretes (€)</label>
+                    <div style="display:flex;gap:8px;">
+                        <input type="number" step="0.01" id="liq-bestretes" value="${liquidacio ? liquidacio.import_bestretes : 0}" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                        <button type="button" class="btn btn-secondary" onclick="proposarImportBestretes()">↻</button>
                     </div>
                 </div>
-                <table class="taula-linies">
-                    <thead>
-                        <tr><th>Qualitat</th><th>Calibre</th><th>FNC</th><th>Parcel·la</th><th>Kg</th><th>Preu/kg</th><th>Import</th><th></th></tr>
-                    </thead>
-                    <tbody id="taula-linies-body">
-                        ${linies.map(l => renderFilaLinia(l)).join('')}
-                    </tbody>
-                </table>
-                <div id="fila-nova-linia-container"></div>
-                ` : '<p class="text-muted">Guarda la capçalera per poder afegir línies.</p>'}
-
-                <div class="modal-actions">
-                    <button class="btn" onclick="tancarModalLiquidacio()">Cancel·lar</button>
-                    <button class="btn btn-primary" onclick="guardarCapcaleraLiquidacio()">Guardar capçalera</button>
-                    ${id ? `<button class="btn btn-danger" onclick="confirmarEliminarLiquidacio('${id}')">Eliminar</button>` : ''}
+                <div class="form-group">
+                    <label>Estat</label>
+                    <select id="liq-estat" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                        <option value="provisional" ${liquidacio && liquidacio.estat === 'provisional' ? 'selected' : ''}>Provisional</option>
+                        <option value="tancada" ${liquidacio && liquidacio.estat === 'tancada' ? 'selected' : ''}>Tancada</option>
+                    </select>
                 </div>
+            </div>
+            <div class="form-group" style="margin-top:10px;">
+                <label>Notes</label>
+                <textarea id="liq-notes" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" rows="2">${liquidacio ? (liquidacio.notes || '') : ''}</textarea>
+            </div>
+
+            ${linesHtml}
+
+            <div style="margin-top:20px;text-align:right;border-top:1px solid #ddd;padding-top:15px;">
+                <button type="button" class="btn btn-secondary" onclick="tancarModal('modal-liquidacio')" style="margin-right:10px;">Cancel·lar</button>
+                ${id ? '<button type="button" class="btn btn-danger" onclick="confirmarEliminarLiquidacio(\'' + id + '\')" style="margin-right:10px;">Eliminar</button>' : ''}
+                <button type="button" class="btn btn-primary" onclick="guardarCapcaleraLiquidacio()">Guardar capçalera</button>
             </div>
         </div>
     `;
 
-    document.body.insertAdjacentHTML('beforeend', html);
+    document.body.appendChild(modal);
 
-    if (liquidacio?.fruita_id) {
-        await onCanviFruitaLiquidacio(liquidacio.varietat_id);
+    if (liquidacio && liquidacio.fruita_id) {
+        onCanviFruitaLiquidacio(liquidacio.varietat_id);
     }
 }
 
 function renderFilaLinia(l) {
     return `
-        <tr data-linia-id="${l.id}">
+        <tr>
             <td>${l.qualitat_nom}</td>
             <td>${l.calibre || '—'}</td>
             <td>${l.fnc_tipus || '—'}</td>
-            <td>${l.parcella_id ? '📍' : '—'}</td>
-            <td>${l.kg}</td>
-            <td>${Number(l.preu_unitari).toFixed(4)} €</td>
-            <td>${Number(l.import).toFixed(2)} €</td>
-            <td><button class="btn-icon" onclick="eliminarLinia('${l.id}')">🗑️</button></td>
+            <td style="text-align:right;">${l.kg}</td>
+            <td style="text-align:right;">${Number(l.preu_unitari).toFixed(4)} €</td>
+            <td style="text-align:right;">${Number(l.import).toFixed(2)} €</td>
+            <td><button class="btn btn-danger" onclick="eliminarLinia('${l.id}')" style="padding:4px 8px;">🗑️</button></td>
         </tr>
     `;
 }
 
-function tancarModalLiquidacio() {
-    document.getElementById('modal-liquidacio')?.remove();
-    liquidacioModalId = null;
-}
-
-async function onCanviFruitaLiquidacio(varietatSeleccionada = null) {
+function onCanviFruitaLiquidacio(varietatSeleccionada) {
+    varietatSeleccionada = varietatSeleccionada || null;
     const fruitaId = document.getElementById('liq-fruita').value;
     const selectVarietat = document.getElementById('liq-varietat');
     if (!fruitaId || typeof varietats === 'undefined') return;
 
-    const varietatsFruita = varietats.filter(v => v.fruita_id === fruitaId);
+    const varietatsFruita = varietats.filter(function(v) { return v.fruita_id === fruitaId; });
     selectVarietat.innerHTML = '<option value="">Totes / no aplica</option>' +
-        varietatsFruita.map(v => `<option value="${v.id}" ${varietatSeleccionada === v.id ? 'selected' : ''}>${v.nom}</option>`).join('');
+        varietatsFruita.map(function(v) {
+            return '<option value="' + v.id + '"' + (varietatSeleccionada === v.id ? ' selected' : '') + '>' + v.varietat + '</option>';
+        }).join('');
 }
 
 // ============================================================
@@ -237,9 +266,9 @@ async function guardarCapcaleraLiquidacio() {
             mostrarNotificacio('Liquidació creada. Ara pots afegir línies.', 'success');
             liquidacioModalId = nova.id;
         }
-        tancarModalLiquidacio();
+        tancarModal('modal-liquidacio');
         await obrirModalLiquidacio(liquidacioModalId);
-        await carregarLlistaLiquidacions();
+        await mostrarTaulaLiquidacions();
     } catch (error) {
         mostrarNotificacio('Error guardant la liquidació: ' + error.message, 'error');
         console.error(error);
@@ -251,8 +280,8 @@ async function confirmarEliminarLiquidacio(id) {
     try {
         await deleteLiquidacio(id);
         mostrarNotificacio('Liquidació eliminada', 'success');
-        tancarModalLiquidacio();
-        await carregarLlistaLiquidacions();
+        tancarModal('modal-liquidacio');
+        await mostrarTaulaLiquidacions();
     } catch (error) {
         mostrarNotificacio('Error eliminant: ' + error.message, 'error');
     }
@@ -260,7 +289,7 @@ async function confirmarEliminarLiquidacio(id) {
 
 // ============================================================
 // PROPOSTA AUTOMÀTICA D'IMPORT BESTRETES
-// ⚠️ VERIFICAR noms de columnes reals de collita_bestretes / collita_bestretes_linies
+// (collita_bestretes és per collita_entrada_id, no capçalera mensual)
 // ============================================================
 
 async function proposarImportBestretes() {
@@ -274,8 +303,6 @@ async function proposarImportBestretes() {
     }
 
     try {
-        // collita_bestretes és per collita_entrada_id (no capçalera mensual),
-        // cal passar primer per collita_entrada per filtrar campanya+varietat.
         // Any agrícola oct(campanya-1) → set(campanya), mateix criteri que obtenirTodasEntradas()
         const dataInici = (campanya - 1) + '-10-01';
         const dataFi = campanya + '-09-30';
@@ -290,7 +317,7 @@ async function proposarImportBestretes() {
         if (varietatId) {
             queryEntrades = queryEntrades.eq('fruita_varietat_id', varietatId);
         } else if (typeof varietats !== 'undefined') {
-            const varietatsFruita = varietats.filter(v => v.fruita_id === fruitaId).map(v => v.id);
+            const varietatsFruita = varietats.filter(function(v) { return v.fruita_id === fruitaId; }).map(function(v) { return v.id; });
             queryEntrades = queryEntrades.in('fruita_varietat_id', varietatsFruita);
         }
 
@@ -306,12 +333,12 @@ async function proposarImportBestretes() {
         const { data: bestretes, error: errBes } = await supabaseClient
             .from('collita_bestretes')
             .select('import_bestreta')
-            .in('collita_entrada_id', entrades.map(e => e.id));
+            .in('collita_entrada_id', entrades.map(function(e) { return e.id; }));
         if (errBes) throw errBes;
 
-        const total = (bestretes || []).reduce((sum, b) => sum + Number(b.import_bestreta || 0), 0);
+        const total = (bestretes || []).reduce(function(sum, b) { return sum + Number(b.import_bestreta || 0); }, 0);
         document.getElementById('liq-bestretes').value = total.toFixed(2);
-        mostrarNotificacio(`Proposat: ${total.toFixed(2)} € (revisa abans de guardar)`, 'info');
+        mostrarNotificacio('Proposat: ' + total.toFixed(2) + ' € (revisa abans de guardar)', 'info');
     } catch (error) {
         mostrarNotificacio('No s\'ha pogut calcular la proposta de bestretes: ' + error.message, 'error');
         console.error(error);
@@ -339,10 +366,6 @@ async function obtenirPreusAnualsIdLiquidacio(campanya, fruitaId) {
 
 // ============================================================
 // GENERAR LÍNIES DES D'ESCANDALLS
-// ⚠️ VERIFICAR noms de columnes reals de collita_escandall_calibres,
-// collita_escandall_no_comercial, collita_escandall_industria
-// (s'assumeix: escandall_id → collita_escandall, i que collita_escandall
-// té camps campanya, fruita_id, varietat_id)
 // ============================================================
 
 async function generarLiniesDesEscandall() {
@@ -351,6 +374,7 @@ async function generarLiniesDesEscandall() {
         return;
     }
     const campanya = parseInt(document.getElementById('liq-campanya').value);
+    const fruitaId = document.getElementById('liq-fruita').value;
     const varietatId = document.getElementById('liq-varietat').value || null;
 
     if (!varietatId) {
@@ -360,11 +384,9 @@ async function generarLiniesDesEscandall() {
     if (!confirm('Això afegirà línies noves agregades des dels escandalls d\'aquesta campanya/varietat. Continuar?')) return;
 
     try {
-        // Any agrícola oct(campanya-1) → set(campanya), mateix criteri que obtenirTodasEntradas()
         const dataInici = (campanya - 1) + '-10-01';
         const dataFi = campanya + '-09-30';
 
-        // 1. Escandalls de la varietat dins el període, amb línies incloses
         const { data: escandalls, error: errEsc } = await supabaseClient
             .from('collita_escandall')
             .select(`
@@ -384,35 +406,27 @@ async function generarLiniesDesEscandall() {
             return;
         }
 
-        // 2. Agregar kg per (qualitat_reclassificada + calibre), per classificacio NC, i indústria total
-        const agCalibres = {};   // clau: qualitat|calibre
-        const agNoComercial = {}; // clau: classificacio
+        const agCalibres = {};
+        const agNoComercial = {};
         let kgIndustria = 0;
 
-        for (const esc of escandalls) {
+        escandalls.forEach(function(esc) {
             const qualitat = esc.qualitat_reclassificada || 'SENSE_QUALIFICAR';
-
-            for (const c of (esc.collita_escandall_calibres || [])) {
-                const clau = `${qualitat}|${c.calibre}`;
+            (esc.collita_escandall_calibres || []).forEach(function(c) {
+                const clau = qualitat + '|' + c.calibre;
                 if (!agCalibres[clau]) agCalibres[clau] = { qualitat_nom: qualitat, calibre: c.calibre, kg: 0 };
                 agCalibres[clau].kg += Number(c.pes_kg || 0);
-            }
-            for (const nc of (esc.collita_escandall_no_comercial || [])) {
+            });
+            (esc.collita_escandall_no_comercial || []).forEach(function(nc) {
                 if (!agNoComercial[nc.classificacio]) agNoComercial[nc.classificacio] = { fnc_tipus: nc.classificacio, kg: 0 };
                 agNoComercial[nc.classificacio].kg += Number(nc.pes_kg || 0);
-            }
-            for (const ind of (esc.collita_escandall_industria || [])) {
+            });
+            (esc.collita_escandall_industria || []).forEach(function(ind) {
                 kgIndustria += Number(ind.pes_kg || 0);
-            }
-        }
+            });
+        });
 
-        // 3. Preus de liquidació configurats — collita_preus_anuals és la
-        // capçalera per campanya+fruita_id (pot tenir diverses files, una
-        // per num_bestreta; agafem la que té data_liquidacio informada,
-        // si n'hi ha diverses la més recent).
-        const fruitaId = document.getElementById('liq-fruita').value;
         const preusAnualsId = await obtenirPreusAnualsIdLiquidacio(campanya, fruitaId);
-
         let preusCalibres = [], preusNoComercial = [], preusIndustria = [];
         if (preusAnualsId) {
             const [rCal, rNc, rInd] = await Promise.all([
@@ -430,7 +444,7 @@ async function generarLiniesDesEscandall() {
         let liniesCreades = 0;
         for (const clau in agCalibres) {
             const ag = agCalibres[clau];
-            const preuCfg = preusCalibres.find(p => p.calibre === ag.calibre);
+            const preuCfg = preusCalibres.find(function(p) { return p.calibre === ag.calibre; });
             await createLiquidacioLinia({
                 liquidacio_id: liquidacioModalId,
                 qualitat_nom: ag.qualitat_nom,
@@ -443,7 +457,7 @@ async function generarLiniesDesEscandall() {
         }
         for (const clau in agNoComercial) {
             const ag = agNoComercial[clau];
-            const preuCfg = preusNoComercial.find(p => p.classificacio === ag.fnc_tipus);
+            const preuCfg = preusNoComercial.find(function(p) { return p.classificacio === ag.fnc_tipus; });
             await createLiquidacioLinia({
                 liquidacio_id: liquidacioModalId,
                 qualitat_nom: 'NO_COMERCIAL',
@@ -455,7 +469,7 @@ async function generarLiniesDesEscandall() {
             liniesCreades++;
         }
         if (kgIndustria > 0) {
-            const preuCfg = preusIndustria[0]; // un sol preu per varietat, sense classificació
+            const preuCfg = preusIndustria[0];
             await createLiquidacioLinia({
                 liquidacio_id: liquidacioModalId,
                 qualitat_nom: 'INDUSTRIA',
@@ -466,8 +480,8 @@ async function generarLiniesDesEscandall() {
             liniesCreades++;
         }
 
-        mostrarNotificacio(`${liniesCreades} línies generades des dels escandalls`, 'success');
-        tancarModalLiquidacio();
+        mostrarNotificacio(liniesCreades + ' línies generades des dels escandalls', 'success');
+        tancarModal('modal-liquidacio');
         await obrirModalLiquidacio(liquidacioModalId);
     } catch (error) {
         mostrarNotificacio('Error generant línies des d\'escandalls: ' + error.message, 'error');
@@ -482,14 +496,14 @@ async function generarLiniesDesEscandall() {
 function afegirLiniaManualForm() {
     const container = document.getElementById('fila-nova-linia-container');
     container.innerHTML = `
-        <div class="fila-nova-linia">
-            <input type="text" id="nova-linia-qualitat" placeholder="Qualitat (ex: PRIMERES)">
-            <input type="text" id="nova-linia-calibre" placeholder="Calibre (ex: 73-80)">
-            <input type="text" id="nova-linia-fnc" placeholder="FNC (opcional)">
-            <input type="number" step="0.01" id="nova-linia-kg" placeholder="Kg">
-            <input type="number" step="0.0001" id="nova-linia-preu" placeholder="Preu/kg">
+        <div style="display:flex;gap:8px;margin-top:10px;padding:10px;background:#f5f5f5;border-radius:6px;flex-wrap:wrap;">
+            <input type="text" id="nova-linia-qualitat" placeholder="Qualitat" style="padding:6px;border:1px solid #ddd;border-radius:4px;flex:1;min-width:120px;">
+            <input type="text" id="nova-linia-calibre" placeholder="Calibre" style="padding:6px;border:1px solid #ddd;border-radius:4px;width:100px;">
+            <input type="text" id="nova-linia-fnc" placeholder="FNC (opcional)" style="padding:6px;border:1px solid #ddd;border-radius:4px;width:120px;">
+            <input type="number" step="0.01" id="nova-linia-kg" placeholder="Kg" style="padding:6px;border:1px solid #ddd;border-radius:4px;width:100px;">
+            <input type="number" step="0.0001" id="nova-linia-preu" placeholder="Preu/kg" style="padding:6px;border:1px solid #ddd;border-radius:4px;width:100px;">
             <button class="btn btn-primary" onclick="guardarLiniaManual()">Afegir</button>
-            <button class="btn" onclick="document.getElementById('fila-nova-linia-container').innerHTML=''">Cancel·lar</button>
+            <button class="btn btn-secondary" onclick="document.getElementById('fila-nova-linia-container').innerHTML=''">Cancel·lar</button>
         </div>
     `;
 }
@@ -515,7 +529,7 @@ async function guardarLiniaManual() {
             editat_manualment: true
         });
         mostrarNotificacio('Línia afegida', 'success');
-        tancarModalLiquidacio();
+        tancarModal('modal-liquidacio');
         await obrirModalLiquidacio(liquidacioModalId);
     } catch (error) {
         mostrarNotificacio('Error afegint línia: ' + error.message, 'error');
@@ -528,7 +542,7 @@ async function eliminarLinia(liniaId) {
     try {
         await deleteLiquidacioLinia(liniaId);
         mostrarNotificacio('Línia eliminada', 'success');
-        tancarModalLiquidacio();
+        tancarModal('modal-liquidacio');
         await obrirModalLiquidacio(liquidacioModalId);
     } catch (error) {
         mostrarNotificacio('Error eliminant línia: ' + error.message, 'error');
