@@ -266,6 +266,7 @@ async function confirmarEliminarLiquidacio(id) {
 async function proposarImportBestretes() {
     const campanya = parseInt(document.getElementById('liq-campanya').value);
     const fruitaId = document.getElementById('liq-fruita').value;
+    const varietatId = document.getElementById('liq-varietat').value || null;
 
     if (!campanya || !fruitaId) {
         mostrarNotificacio('Selecciona campanya i fruita primer', 'warning');
@@ -273,24 +274,67 @@ async function proposarImportBestretes() {
     }
 
     try {
-        // ⚠️ VERIFICAR: assumeix taula collita_bestretes amb camps
-        // campanya, fruita_id, import_total, estat ('confirmada')
-        const { data, error } = await supabaseClient
+        // collita_bestretes és per collita_entrada_id (no capçalera mensual),
+        // cal passar primer per collita_entrada per filtrar campanya+varietat.
+        // Any agrícola oct(campanya-1) → set(campanya), mateix criteri que obtenirTodasEntradas()
+        const dataInici = (campanya - 1) + '-10-01';
+        const dataFi = campanya + '-09-30';
+
+        let queryEntrades = supabaseClient
+            .from('collita_entrada')
+            .select('id')
+            .eq('estat', 'actiu')
+            .gte('data', dataInici)
+            .lte('data', dataFi);
+
+        if (varietatId) {
+            queryEntrades = queryEntrades.eq('fruita_varietat_id', varietatId);
+        } else if (typeof varietats !== 'undefined') {
+            const varietatsFruita = varietats.filter(v => v.fruita_id === fruitaId).map(v => v.id);
+            queryEntrades = queryEntrades.in('fruita_varietat_id', varietatsFruita);
+        }
+
+        const { data: entrades, error: errEnt } = await queryEntrades;
+        if (errEnt) throw errEnt;
+
+        if (!entrades || entrades.length === 0) {
+            document.getElementById('liq-bestretes').value = '0.00';
+            mostrarNotificacio('No hi ha entrades per aquesta campanya/varietat', 'info');
+            return;
+        }
+
+        const { data: bestretes, error: errBes } = await supabaseClient
             .from('collita_bestretes')
-            .select('import_total')
-            .eq('campanya', campanya)
-            .eq('fruita_id', fruitaId)
-            .eq('estat', 'confirmada');
+            .select('import_bestreta')
+            .in('collita_entrada_id', entrades.map(e => e.id));
+        if (errBes) throw errBes;
 
-        if (error) throw error;
-
-        const total = (data || []).reduce((sum, b) => sum + Number(b.import_total || 0), 0);
+        const total = (bestretes || []).reduce((sum, b) => sum + Number(b.import_bestreta || 0), 0);
         document.getElementById('liq-bestretes').value = total.toFixed(2);
         mostrarNotificacio(`Proposat: ${total.toFixed(2)} € (revisa abans de guardar)`, 'info');
     } catch (error) {
         mostrarNotificacio('No s\'ha pogut calcular la proposta de bestretes: ' + error.message, 'error');
         console.error(error);
     }
+}
+
+// Troba la fila de collita_preus_anuals que representa el preu de liquidació
+// (data_liquidacio informada; si n'hi ha diverses, la més recent per created_at)
+async function obtenirPreusAnualsIdLiquidacio(campanya, fruitaId) {
+    const { data, error } = await supabaseClient
+        .from('collita_preus_anuals')
+        .select('id, data_liquidacio, created_at')
+        .eq('campanya', campanya)
+        .eq('fruita_id', fruitaId)
+        .not('data_liquidacio', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+    if (error) {
+        console.error('Error obtenint preus_anuals per liquidació:', error);
+        return null;
+    }
+    return (data && data[0]) ? data[0].id : null;
 }
 
 // ============================================================
@@ -362,48 +406,67 @@ async function generarLiniesDesEscandall() {
             }
         }
 
-        // ⚠️ PENDENT: preus reals — collita_preus_liquidacio_calibres es filtra
-        // per preus_anuals_id (no fruita_varietat_id directe), i encara no en
-        // conec l'esquema exacte de fruita_varietat_id/classificacio a les
-        // taules de preus. De moment es creen les línies amb preu_unitari = 0;
-        // caldrà completar l'assignació de preu quan tinguem l'esquema confirmat.
+        // 3. Preus de liquidació configurats — collita_preus_anuals és la
+        // capçalera per campanya+fruita_id (pot tenir diverses files, una
+        // per num_bestreta; agafem la que té data_liquidacio informada,
+        // si n'hi ha diverses la més recent).
+        const fruitaId = document.getElementById('liq-fruita').value;
+        const preusAnualsId = await obtenirPreusAnualsIdLiquidacio(campanya, fruitaId);
+
+        let preusCalibres = [], preusNoComercial = [], preusIndustria = [];
+        if (preusAnualsId) {
+            const [rCal, rNc, rInd] = await Promise.all([
+                supabaseClient.from('collita_preus_liquidacio_calibres').select('*').eq('preus_anuals_id', preusAnualsId),
+                supabaseClient.from('collita_preus_liquidacio_no_comercial').select('*').eq('preus_anuals_id', preusAnualsId).eq('fruita_varietat_id', varietatId),
+                supabaseClient.from('collita_preus_liquidacio_industria').select('*').eq('preus_anuals_id', preusAnualsId).eq('fruita_varietat_id', varietatId)
+            ]);
+            preusCalibres = rCal.data || [];
+            preusNoComercial = rNc.data || [];
+            preusIndustria = rInd.data || [];
+        } else {
+            mostrarNotificacio('No s\'ha trobat preu de liquidació configurat per aquesta campanya/fruita — línies creades a 0€', 'warning');
+        }
+
         let liniesCreades = 0;
         for (const clau in agCalibres) {
             const ag = agCalibres[clau];
+            const preuCfg = preusCalibres.find(p => p.calibre === ag.calibre);
             await createLiquidacioLinia({
                 liquidacio_id: liquidacioModalId,
                 qualitat_nom: ag.qualitat_nom,
                 calibre: ag.calibre,
                 kg: ag.kg,
-                preu_unitari: 0,
+                preu_unitari: preuCfg ? preuCfg.preu_unitari : 0,
                 editat_manualment: false
             });
             liniesCreades++;
         }
         for (const clau in agNoComercial) {
             const ag = agNoComercial[clau];
+            const preuCfg = preusNoComercial.find(p => p.classificacio === ag.fnc_tipus);
             await createLiquidacioLinia({
                 liquidacio_id: liquidacioModalId,
                 qualitat_nom: 'NO_COMERCIAL',
                 fnc_tipus: ag.fnc_tipus,
                 kg: ag.kg,
-                preu_unitari: 0,
+                preu_unitari: preuCfg ? preuCfg.preu_unitari : 0,
                 editat_manualment: false
             });
             liniesCreades++;
         }
         if (kgIndustria > 0) {
+            const preuCfg = preusIndustria[0]; // un sol preu per varietat, sense classificació
             await createLiquidacioLinia({
                 liquidacio_id: liquidacioModalId,
                 qualitat_nom: 'INDUSTRIA',
                 kg: kgIndustria,
-                preu_unitari: 0,
+                preu_unitari: preuCfg ? preuCfg.preu_unitari : 0,
                 editat_manualment: false
             });
             liniesCreades++;
         }
 
-        mostrarNotificacio(`${liniesCreades} línies generades (preus a 0€ — cal completar assignació de preus)`, 'warning');
+        mostrarNotificacio(`${liniesCreades} línies generades des dels escandalls`, 'success');
         tancarModalLiquidacio();
         await obrirModalLiquidacio(liquidacioModalId);
     } catch (error) {
