@@ -307,75 +307,103 @@ async function generarLiniesDesEscandall() {
         return;
     }
     const campanya = parseInt(document.getElementById('liq-campanya').value);
-    const fruitaId = document.getElementById('liq-fruita').value;
     const varietatId = document.getElementById('liq-varietat').value || null;
 
+    if (!varietatId) {
+        mostrarNotificacio('Selecciona una varietat concreta (collita_escandall es filtra per fruita_varietat_id)', 'warning');
+        return;
+    }
     if (!confirm('Això afegirà línies noves agregades des dels escandalls d\'aquesta campanya/varietat. Continuar?')) return;
 
     try {
-        // 1. Escandalls de la campanya+fruita(+varietat)
-        let queryEsc = supabaseClient
+        // Any agrícola oct(campanya-1) → set(campanya), mateix criteri que obtenirTodasEntradas()
+        const dataInici = (campanya - 1) + '-10-01';
+        const dataFi = campanya + '-09-30';
+
+        // 1. Escandalls de la varietat dins el període, amb línies incloses
+        const { data: escandalls, error: errEsc } = await supabaseClient
             .from('collita_escandall')
-            .select('id')
-            .eq('campanya', campanya)
-            .eq('fruita_id', fruitaId);
-        if (varietatId) queryEsc = queryEsc.eq('varietat_id', varietatId);
-        const { data: escandalls, error: errEsc } = await queryEsc;
+            .select(`
+                id, qualitat_reclassificada,
+                collita_escandall_calibres (calibre, pes_kg),
+                collita_escandall_no_comercial (classificacio, pes_kg),
+                collita_escandall_industria (pes_kg)
+            `)
+            .eq('fruita_varietat_id', varietatId)
+            .eq('estat', 'actiu')
+            .gte('data', dataInici)
+            .lte('data', dataFi);
         if (errEsc) throw errEsc;
 
         if (!escandalls || escandalls.length === 0) {
             mostrarNotificacio('No s\'han trobat escandalls per aquesta campanya/varietat', 'warning');
             return;
         }
-        const escandallIds = escandalls.map(e => e.id);
 
-        // 2. Línies de calibre agregades per qualitat+calibre
-        const { data: calibres, error: errCal } = await supabaseClient
-            .from('collita_escandall_calibres')
-            .select('*')
-            .in('escandall_id', escandallIds);
-        if (errCal) throw errCal;
+        // 2. Agregar kg per (qualitat_reclassificada + calibre), per classificacio NC, i indústria total
+        const agCalibres = {};   // clau: qualitat|calibre
+        const agNoComercial = {}; // clau: classificacio
+        let kgIndustria = 0;
 
-        // 3. Preus configurats per varietat
-        const { data: preus, error: errPreu } = await supabaseClient
-            .from('collita_preus_liquidacio_calibres')
-            .select('*')
-            .eq('fruita_varietat_id', varietatId || fruitaId);
-        if (errPreu) throw errPreu;
+        for (const esc of escandalls) {
+            const qualitat = esc.qualitat_reclassificada || 'SENSE_QUALIFICAR';
 
-        // 4. Agregar kg per qualitat+calibre i crear línies
-        const agregats = {};
-        for (const c of (calibres || [])) {
-            const clau = `${c.qualitat_nom}|${c.calibre}`;
-            if (!agregats[clau]) {
-                agregats[clau] = { qualitat_nom: c.qualitat_nom, calibre: c.calibre, kg: 0 };
+            for (const c of (esc.collita_escandall_calibres || [])) {
+                const clau = `${qualitat}|${c.calibre}`;
+                if (!agCalibres[clau]) agCalibres[clau] = { qualitat_nom: qualitat, calibre: c.calibre, kg: 0 };
+                agCalibres[clau].kg += Number(c.pes_kg || 0);
             }
-            agregats[clau].kg += Number(c.kg || 0);
+            for (const nc of (esc.collita_escandall_no_comercial || [])) {
+                if (!agNoComercial[nc.classificacio]) agNoComercial[nc.classificacio] = { fnc_tipus: nc.classificacio, kg: 0 };
+                agNoComercial[nc.classificacio].kg += Number(nc.pes_kg || 0);
+            }
+            for (const ind of (esc.collita_escandall_industria || [])) {
+                kgIndustria += Number(ind.pes_kg || 0);
+            }
         }
 
+        // ⚠️ PENDENT: preus reals — collita_preus_liquidacio_calibres es filtra
+        // per preus_anuals_id (no fruita_varietat_id directe), i encara no en
+        // conec l'esquema exacte de fruita_varietat_id/classificacio a les
+        // taules de preus. De moment es creen les línies amb preu_unitari = 0;
+        // caldrà completar l'assignació de preu quan tinguem l'esquema confirmat.
         let liniesCreades = 0;
-        for (const clau in agregats) {
-            const ag = agregats[clau];
-            const preuConfig = (preus || []).find(p => p.calibre === ag.calibre);
-            const preuUnitari = preuConfig ? preuConfig.preu_unitari : 0;
-
-            if (!preuConfig) {
-                console.warn(`Sense preu configurat per calibre ${ag.calibre}, línia creada amb preu 0 — cal editar manualment.`);
-            }
-
+        for (const clau in agCalibres) {
+            const ag = agCalibres[clau];
             await createLiquidacioLinia({
                 liquidacio_id: liquidacioModalId,
                 qualitat_nom: ag.qualitat_nom,
                 calibre: ag.calibre,
                 kg: ag.kg,
-                preu_unitari: preuUnitari,
-                origen_escandall_id: null, // agregat, no lligat a un escandall concret
+                preu_unitari: 0,
+                editat_manualment: false
+            });
+            liniesCreades++;
+        }
+        for (const clau in agNoComercial) {
+            const ag = agNoComercial[clau];
+            await createLiquidacioLinia({
+                liquidacio_id: liquidacioModalId,
+                qualitat_nom: 'NO_COMERCIAL',
+                fnc_tipus: ag.fnc_tipus,
+                kg: ag.kg,
+                preu_unitari: 0,
+                editat_manualment: false
+            });
+            liniesCreades++;
+        }
+        if (kgIndustria > 0) {
+            await createLiquidacioLinia({
+                liquidacio_id: liquidacioModalId,
+                qualitat_nom: 'INDUSTRIA',
+                kg: kgIndustria,
+                preu_unitari: 0,
                 editat_manualment: false
             });
             liniesCreades++;
         }
 
-        mostrarNotificacio(`${liniesCreades} línies generades des dels escandalls`, 'success');
+        mostrarNotificacio(`${liniesCreades} línies generades (preus a 0€ — cal completar assignació de preus)`, 'warning');
         tancarModalLiquidacio();
         await obrirModalLiquidacio(liquidacioModalId);
     } catch (error) {
