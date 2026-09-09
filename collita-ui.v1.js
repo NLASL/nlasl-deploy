@@ -20,6 +20,8 @@ async function carregarVistaCollita() {
         await mostrarVista_Registres();
     	} else if (vistaColltitaActual === 'analisi') {
 		await mostrarVista_Analisi();
+	} else if (vistaColltitaActual === 'liquidacions') {
+		await mostrarVistaLiquidacions();
 	}
 }
 
@@ -61,6 +63,7 @@ async function mostrarVista_Entrades() {
     html += '<button class="btn btn-info" onclick="mostrarResumEntrades()" style="margin-right:10px;">📊 Resum</button>';
     html += '<button class="btn btn-info" onclick="canviarVistaCollita(\'analisi\')" style="margin-right:10px;">📊 Anàlisi</button>';
     html += '<button class="btn btn-success" onclick="mostrarCalculBestreta()" style="margin-right:10px;">💰 Bestreta</button>';
+    html += '<button class="btn btn-success" onclick="canviarVistaCollita(\'liquidacions\')" style="margin-right:10px;">📄 Liquidacions</button>';
     html += '<button class="btn btn-secondary" onclick="canviarVistaCollita(\'escandalls\')" style="margin-right:10px;">→ Escandalls</button>';
     html += '</div>';
  
