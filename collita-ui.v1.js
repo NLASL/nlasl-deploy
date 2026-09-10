@@ -1343,9 +1343,24 @@ async function guardarAlbaraEscandall(event) {
         
         // Comparar entrada vs escandall
         const comparativa = await compararEntradaVsEscandall(entrada.id, dades);
-        
-        if (!comparativa.valida) {
-            const alertMissatge = comparativa.alerts.map(a => a.missatge).join('\n');
+        const alertsTotal = comparativa.alerts.slice();
+
+        // ✅ NOU: validar que la suma de línies (calibres+NC+indústria) quadri amb pes_net
+        const sumaLinies = calibres.reduce((s, c) => s + (c.pes_kg || 0), 0)
+            + noComercios.reduce((s, nc) => s + (nc.pes_kg || 0), 0)
+            + (industria.pes_kg || 0);
+        const diferenciaLinies = Math.abs(sumaLinies - dades.pes_net);
+        const percentDifLinies = dades.pes_net ? (diferenciaLinies / dades.pes_net) * 100 : 0;
+
+        if (percentDifLinies > 0.5) {
+            alertsTotal.push({
+                tipus: 'warning',
+                missatge: `⚠️ La suma de línies (${sumaLinies.toFixed(2)} kg) no quadra amb el pes net de l'escandall (${dades.pes_net.toFixed(2)} kg) — diferència de ${diferenciaLinies.toFixed(2)} kg (${percentDifLinies.toFixed(2)}%)`
+            });
+        }
+
+        if (alertsTotal.length > 0) {
+            const alertMissatge = alertsTotal.map(a => a.missatge).join('\n');
             if (!confirm('⚠️ Alerts de comparació:\n\n' + alertMissatge + '\n\n¿Continuar igualment?')) {
                 return;
             }
@@ -1953,6 +1968,20 @@ async function guardarEdicionEscandall(event, id) {
         // Indústria
         const industriaPes = parseFloat(document.getElementById('edicio-esc-industria-pes').value) || 0;
         const industriaPerc = parseFloat(document.getElementById('edicio-esc-industria-perc').value) || 0;
+
+        // ✅ NOU: validar que la suma de línies (calibres+NC+indústria) quadri amb pes_net
+        const sumaLinies = calibres.reduce(function(s, c) { return s + (c.pes_kg || 0); }, 0)
+            + noComercials.reduce(function(s, nc) { return s + (nc.pes_kg || 0); }, 0)
+            + industriaPes;
+        const diferenciaLinies = Math.abs(sumaLinies - dades.pes_net);
+        const percentDifLinies = dades.pes_net ? (diferenciaLinies / dades.pes_net) * 100 : 0;
+
+        if (percentDifLinies > 0.5) {
+            const missatge = `⚠️ La suma de línies (${sumaLinies.toFixed(2)} kg) no quadra amb el pes net de l'escandall (${dades.pes_net.toFixed(2)} kg) — diferència de ${diferenciaLinies.toFixed(2)} kg (${percentDifLinies.toFixed(2)}%)`;
+            if (!confirm('⚠️ Alerts de comparació:\n\n' + missatge + '\n\n¿Continuar igualment?')) {
+                return;
+            }
+        }
 		
 		// Obtenir fruita_varietat_id de l'escandall actual
 		const { data: escandallActual } = await supabaseClient
