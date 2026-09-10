@@ -138,7 +138,7 @@ async function obrirModalLiquidacio(id) {
             </div>
             <table class="data-table" style="width:100%;">
                 <thead><tr><th>Qualitat</th><th>Calibre</th><th>FNC</th><th style="text-align:right;">Kg</th><th style="text-align:right;">Preu/kg</th><th style="text-align:right;">Import</th><th></th></tr></thead>
-                <tbody>${linies.map(renderFilaLinia).join('')}</tbody>
+                <tbody>${ordenarLiniesLiquidacio(linies).map(renderFilaLinia).join('')}</tbody>
             </table>
             <div id="fila-nova-linia-container"></div>
         `;
@@ -210,18 +210,77 @@ async function obrirModalLiquidacio(id) {
     }
 }
 
+function calibreValorNumeric(calibre) {
+    if (!calibre) return -1;
+    const match = String(calibre).match(/\d+/);
+    return match ? parseInt(match[0]) : -1;
+}
+
+function ordenarLiniesLiquidacio(linies) {
+    const comercials = linies.filter(function(l) { return l.qualitat_nom !== 'NO_COMERCIAL' && l.qualitat_nom !== 'INDUSTRIA'; });
+    const noComercials = linies.filter(function(l) { return l.qualitat_nom === 'NO_COMERCIAL'; });
+    const industria = linies.filter(function(l) { return l.qualitat_nom === 'INDUSTRIA'; });
+
+    comercials.sort(function(a, b) {
+        if (a.qualitat_nom !== b.qualitat_nom) return a.qualitat_nom.localeCompare(b.qualitat_nom);
+        return calibreValorNumeric(b.calibre) - calibreValorNumeric(a.calibre); // descendent
+    });
+
+    noComercials.sort(function(a, b) {
+        return (b.fnc_tipus || '').localeCompare(a.fnc_tipus || ''); // descendent alfabètic
+    });
+
+    return comercials.concat(noComercials, industria);
+}
+
 function renderFilaLinia(l) {
     return `
-        <tr>
+        <tr data-linia-id="${l.id}">
             <td>${l.qualitat_nom}</td>
             <td>${l.calibre || '—'}</td>
             <td>${l.fnc_tipus || '—'}</td>
-            <td style="text-align:right;">${l.kg}</td>
-            <td style="text-align:right;">${Number(l.preu_unitari).toFixed(4)} €</td>
+            <td style="text-align:right;" class="cel-kg">${l.kg}</td>
+            <td style="text-align:right;" class="cel-preu">${Number(l.preu_unitari).toFixed(4)} €</td>
             <td style="text-align:right;">${Number(l.import).toFixed(2)} €</td>
-            <td><button class="btn btn-danger" onclick="eliminarLinia('${l.id}')" style="padding:4px 8px;">🗑️</button></td>
+            <td>
+                <button class="btn btn-secondary" onclick="editarLiniaInline('${l.id}', ${l.kg}, ${l.preu_unitari})" style="padding:4px 8px;margin-right:4px;">✏️</button>
+                <button class="btn btn-danger" onclick="eliminarLinia('${l.id}')" style="padding:4px 8px;">🗑️</button>
+            </td>
         </tr>
     `;
+}
+
+function editarLiniaInline(liniaId, kgActual, preuActual) {
+    const fila = document.querySelector('tr[data-linia-id="' + liniaId + '"]');
+    if (!fila) return;
+
+    fila.querySelector('.cel-kg').innerHTML = '<input type="number" step="0.01" id="edit-kg-' + liniaId + '" value="' + kgActual + '" style="width:80px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right;">';
+    fila.querySelector('.cel-preu').innerHTML = '<input type="number" step="0.0001" id="edit-preu-' + liniaId + '" value="' + preuActual + '" style="width:90px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right;">';
+
+    const cellAccions = fila.querySelector('td:last-child');
+    cellAccions.innerHTML =
+        '<button class="btn btn-primary" onclick="guardarEdicioLinia(\'' + liniaId + '\')" style="padding:4px 8px;margin-right:4px;">💾</button>' +
+        '<button class="btn btn-secondary" onclick="obrirModalLiquidacio(liquidacioModalId)" style="padding:4px 8px;">✕</button>';
+}
+
+async function guardarEdicioLinia(liniaId) {
+    const nouKg = parseFloat(document.getElementById('edit-kg-' + liniaId).value);
+    const nouPreu = parseFloat(document.getElementById('edit-preu-' + liniaId).value);
+
+    if (isNaN(nouKg) || isNaN(nouPreu)) {
+        mostrarNotificacio('Kg i preu han de ser valors numèrics', 'warning');
+        return;
+    }
+
+    try {
+        await updateLiquidacioLinia(liniaId, { kg: nouKg, preu_unitari: nouPreu, editat_manualment: true });
+        mostrarNotificacio('Línia actualitzada', 'success');
+        tancarModal('modal-liquidacio');
+        await obrirModalLiquidacio(liquidacioModalId);
+    } catch (error) {
+        mostrarNotificacio('Error actualitzant línia: ' + error.message, 'error');
+        console.error(error);
+    }
 }
 
 function onCanviFruitaLiquidacio(varietatSeleccionada) {
