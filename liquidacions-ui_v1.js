@@ -124,7 +124,7 @@ async function obrirModalLiquidacio(id) {
     let linesHtml = '';
     if (liquidacio) {
         linesHtml = `
-            <div style="display:flex;gap:20px;margin:15px 0;padding:10px;background:#f5f5f5;border-radius:6px;">
+            <div id="liquidacio-totals-resum" style="display:flex;gap:20px;margin:15px 0;padding:10px;background:#f5f5f5;border-radius:6px;">
                 <span>Kg total: <strong>${liquidacio.kg_total}</strong></span>
                 <span>Import brut: <strong>${Number(liquidacio.import_brut).toFixed(2)} €</strong></span>
                 <span>Net a pagar: <strong>${Number(liquidacio.import_net).toFixed(2)} €</strong></span>
@@ -138,8 +138,11 @@ async function obrirModalLiquidacio(id) {
             </div>
             <table class="data-table" style="width:100%;">
                 <thead><tr><th>Qualitat</th><th>Calibre</th><th>FNC</th><th style="text-align:right;">Kg</th><th style="text-align:right;">Preu/kg</th><th style="text-align:right;">Import</th><th></th></tr></thead>
-                <tbody>${ordenarLiniesLiquidacio(linies).map(renderFilaLinia).join('')}</tbody>
+                <tbody id="liquidacio-linies-tbody">${ordenarLiniesLiquidacio(linies).map(renderFilaLinia).join('')}</tbody>
             </table>
+            <div style="text-align:right;margin-top:10px;">
+                <button class="btn btn-primary" onclick="guardarTotsElsPreus()">💾 Guardar tots els preus</button>
+            </div>
             <div id="fila-nova-linia-container"></div>
         `;
     } else {
@@ -227,7 +230,7 @@ function ordenarLiniesLiquidacio(linies) {
     });
 
     noComercials.sort(function(a, b) {
-        return (b.fnc_tipus || '').localeCompare(a.fnc_tipus || ''); // descendent alfabètic
+        return (a.fnc_tipus || '').localeCompare(b.fnc_tipus || ''); // ascendent: DEFECTES, IMMADUR, MADUR, PEDRA, PETIT
     });
 
     return comercials.concat(noComercials, industria);
@@ -239,47 +242,57 @@ function renderFilaLinia(l) {
             <td>${l.qualitat_nom}</td>
             <td>${l.calibre || '—'}</td>
             <td>${l.fnc_tipus || '—'}</td>
-            <td style="text-align:right;" class="cel-kg">${l.kg}</td>
-            <td style="text-align:right;" class="cel-preu">${Number(l.preu_unitari).toFixed(4)} €</td>
-            <td style="text-align:right;">${Number(l.import).toFixed(2)} €</td>
-            <td>
-                <button class="btn btn-secondary" onclick="editarLiniaInline('${l.id}', ${l.kg}, ${l.preu_unitari})" style="padding:4px 8px;margin-right:4px;">✏️</button>
-                <button class="btn btn-danger" onclick="eliminarLinia('${l.id}')" style="padding:4px 8px;">🗑️</button>
+            <td style="text-align:right;">${l.kg}</td>
+            <td style="text-align:right;">
+                <input type="number" step="0.0001" class="input-preu-linia" data-linia-id="${l.id}" value="${l.preu_unitari}" style="width:90px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right;">
             </td>
+            <td style="text-align:right;">${Number(l.import).toFixed(2)} €</td>
+            <td><button class="btn btn-danger" onclick="eliminarLinia('${l.id}')" style="padding:4px 8px;">🗑️</button></td>
         </tr>
     `;
 }
 
-function editarLiniaInline(liniaId, kgActual, preuActual) {
-    const fila = document.querySelector('tr[data-linia-id="' + liniaId + '"]');
-    if (!fila) return;
+async function guardarTotsElsPreus() {
+    const inputs = document.querySelectorAll('#liquidacio-linies-tbody .input-preu-linia');
+    if (inputs.length === 0) return;
 
-    fila.querySelector('.cel-kg').innerHTML = '<input type="number" step="0.01" id="edit-kg-' + liniaId + '" value="' + kgActual + '" style="width:80px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right;">';
-    fila.querySelector('.cel-preu').innerHTML = '<input type="number" step="0.0001" id="edit-preu-' + liniaId + '" value="' + preuActual + '" style="width:90px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right;">';
-
-    const cellAccions = fila.querySelector('td:last-child');
-    cellAccions.innerHTML =
-        '<button class="btn btn-primary" onclick="guardarEdicioLinia(\'' + liniaId + '\')" style="padding:4px 8px;margin-right:4px;">💾</button>' +
-        '<button class="btn btn-secondary" onclick="obrirModalLiquidacio(liquidacioModalId)" style="padding:4px 8px;">✕</button>';
-}
-
-async function guardarEdicioLinia(liniaId) {
-    const nouKg = parseFloat(document.getElementById('edit-kg-' + liniaId).value);
-    const nouPreu = parseFloat(document.getElementById('edit-preu-' + liniaId).value);
-
-    if (isNaN(nouKg) || isNaN(nouPreu)) {
-        mostrarNotificacio('Kg i preu han de ser valors numèrics', 'warning');
-        return;
-    }
+    const actualitzacions = [];
+    inputs.forEach(function(input) {
+        const preu = parseFloat(input.value);
+        if (!isNaN(preu)) {
+            actualitzacions.push(updateLiquidacioLinia(input.dataset.liniaId, { preu_unitari: preu, editat_manualment: true }));
+        }
+    });
 
     try {
-        await updateLiquidacioLinia(liniaId, { kg: nouKg, preu_unitari: nouPreu, editat_manualment: true });
-        mostrarNotificacio('Línia actualitzada', 'success');
-        tancarModal('modal-liquidacio');
-        await obrirModalLiquidacio(liquidacioModalId);
+        await Promise.all(actualitzacions);
+        mostrarNotificacio('Preus actualitzats', 'success');
+        await refrescarLiniesModal();
     } catch (error) {
-        mostrarNotificacio('Error actualitzant línia: ' + error.message, 'error');
+        mostrarNotificacio('Error guardant preus: ' + error.message, 'error');
         console.error(error);
+    }
+}
+
+// Refresca només la taula de línies i els totals, sense recarregar tot el modal
+// (evita el salt de pantalla de tancar/reobrir)
+async function refrescarLiniesModal() {
+    if (!liquidacioModalId) return;
+    const liquidacio = await getLiquidacio(liquidacioModalId);
+    const linies = await getLiquidacioLinies(liquidacioModalId);
+
+    const totalsEl = document.getElementById('liquidacio-totals-resum');
+    if (totalsEl) {
+        totalsEl.innerHTML = `
+            <span>Kg total: <strong>${liquidacio.kg_total}</strong></span>
+            <span>Import brut: <strong>${Number(liquidacio.import_brut).toFixed(2)} €</strong></span>
+            <span>Net a pagar: <strong>${Number(liquidacio.import_net).toFixed(2)} €</strong></span>
+        `;
+    }
+
+    const tbody = document.getElementById('liquidacio-linies-tbody');
+    if (tbody) {
+        tbody.innerHTML = ordenarLiniesLiquidacio(linies).map(renderFilaLinia).join('');
     }
 }
 
@@ -540,8 +553,7 @@ async function generarLiniesDesEscandall() {
         }
 
         mostrarNotificacio(liniesCreades + ' línies generades des dels escandalls', 'success');
-        tancarModal('modal-liquidacio');
-        await obrirModalLiquidacio(liquidacioModalId);
+        await refrescarLiniesModal();
     } catch (error) {
         mostrarNotificacio('Error generant línies des d\'escandalls: ' + error.message, 'error');
         console.error(error);
@@ -588,8 +600,8 @@ async function guardarLiniaManual() {
             editat_manualment: true
         });
         mostrarNotificacio('Línia afegida', 'success');
-        tancarModal('modal-liquidacio');
-        await obrirModalLiquidacio(liquidacioModalId);
+        document.getElementById('fila-nova-linia-container').innerHTML = '';
+        await refrescarLiniesModal();
     } catch (error) {
         mostrarNotificacio('Error afegint línia: ' + error.message, 'error');
         console.error(error);
@@ -601,8 +613,7 @@ async function eliminarLinia(liniaId) {
     try {
         await deleteLiquidacioLinia(liniaId);
         mostrarNotificacio('Línia eliminada', 'success');
-        tancarModal('modal-liquidacio');
-        await obrirModalLiquidacio(liquidacioModalId);
+        await refrescarLiniesModal();
     } catch (error) {
         mostrarNotificacio('Error eliminant línia: ' + error.message, 'error');
     }
