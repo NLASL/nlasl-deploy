@@ -1320,6 +1320,21 @@ async function obtenirPesMigPecaMap(fruitaId, campanya) {
     return map;
 }
 
+async function obtenirPromigGeneralFruita(fruitaId, campanya, pesMigMap) {
+    // Fallback: mitjana simple dels calibres comercials actius (no ponderada per
+    // distribució real, ja que aquest escandall no en té cap per calcular-la).
+    const { data, error } = await supabaseClient
+        .from('calibres_fruites')
+        .select('calibre, pes_mig_peca_g')
+        .eq('fruita_id', fruitaId)
+        .eq('campanya', campanya)
+        .eq('actiu', true)
+        .not('pes_mig_peca_g', 'is', null);
+    if (error || !data || data.length === 0) return 0;
+    const suma = data.reduce(function(s, r) { return s + Number(r.pes_mig_peca_g); }, 0);
+    return suma / data.length;
+}
+
 // Retorna els mateixos arrays de calibres/noComercios amb un camp .peces afegit
 async function calcularPecesEscandall(calibres, noComercios, fruitaId, campanya) {
     const pesMigMap = await obtenirPesMigPecaMap(fruitaId, campanya);
@@ -1333,7 +1348,15 @@ async function calcularPecesEscandall(calibres, noComercios, fruitaId, campanya)
 
     const sumKgComercial = calibresAmbPeces.reduce(function(s, c) { return s + (c.pes_kg || 0); }, 0);
     const sumPecesComercial = calibresAmbPeces.reduce(function(s, c) { return s + (c.peces || 0); }, 0);
-    const promigComercial_g = sumPecesComercial > 0 ? (sumKgComercial * 1000 / sumPecesComercial) : 0;
+    let promigComercial_g = sumPecesComercial > 0 ? (sumKgComercial * 1000 / sumPecesComercial) : 0;
+
+    if (promigComercial_g === 0) {
+        // Sense comercials en aquest escandall: fallback al promig general de la fruita/campanya
+        promigComercial_g = await obtenirPromigGeneralFruita(fruitaId, campanya, pesMigMap);
+        if (promigComercial_g > 0) {
+            console.warn('⚠️ Escandall sense línies comercials — s\'ha fet servir el promig general de la fruita/campanya (' + promigComercial_g.toFixed(1) + ' g) per calcular peces de No Comercial.');
+        }
+    }
 
     const pesMigPetit = pesMigMap['PETIT'];
 
@@ -1477,7 +1500,7 @@ async function veureEscandall(id) {
     html += '<div style="margin: 20px 0; border-bottom: 2px solid #ddd; padding-bottom: 20px;">';
     html += '<h3>📏 Calibres (Òptim)</h3>';
     html += '<table style="width: 100%; border-collapse: collapse;">';
-    html += '<thead style="background: #f0f0f0;"><tr><th style="border: 1px solid #ddd; padding: 10px;">Calibre</th><th style="border: 1px solid #ddd; padding: 10px;">Pes (kg)</th><th style="border: 1px solid #ddd; padding: 10px;">%</th><th style="border: 1px solid #ddd; padding: 10px;">Categoria</th></tr></thead>';
+    html += '<thead style="background: #f0f0f0;"><tr><th style="border: 1px solid #ddd; padding: 10px;">Calibre</th><th style="border: 1px solid #ddd; padding: 10px;">Pes (kg)</th><th style="border: 1px solid #ddd; padding: 10px;">%</th><th style="border: 1px solid #ddd; padding: 10px;">Categoria</th><th style="border: 1px solid #ddd; padding: 10px;">Peces</th></tr></thead>';
     html += '<tbody>';
     
     if (escandall.collita_escandall_calibres && escandall.collita_escandall_calibres.length > 0) {
@@ -1487,10 +1510,11 @@ async function veureEscandall(id) {
             html += '<td style="border: 1px solid #ddd; padding: 10px;">' + (c.pes_kg || 0).toFixed(2) + '</td>';
             html += '<td style="border: 1px solid #ddd; padding: 10px;">' + (c.percentatge || 0).toFixed(2) + '%</td>';
             html += '<td style="border: 1px solid #ddd; padding: 10px;">' + (c.categoria || '-') + '</td>';
+            html += '<td style="border: 1px solid #ddd; padding: 10px;">' + (c.peces != null ? c.peces.toLocaleString('ca-ES') : '-') + '</td>';
             html += '</tr>';
         });
     } else {
-        html += '<tr><td colspan="4" style="border: 1px solid #ddd; padding: 10px; text-align: center;">-</td></tr>';
+        html += '<tr><td colspan="5" style="border: 1px solid #ddd; padding: 10px; text-align: center;">-</td></tr>';
     }
     
     html += '</tbody></table>';
@@ -1500,7 +1524,7 @@ async function veureEscandall(id) {
     html += '<div style="margin: 20px 0; border-bottom: 2px solid #ddd; padding-bottom: 20px;">';
     html += '<h3>🚫 No Comercial</h3>';
     html += '<table style="width: 100%; border-collapse: collapse;">';
-    html += '<thead style="background: #f0f0f0;"><tr><th style="border: 1px solid #ddd; padding: 10px;">Classificació</th><th style="border: 1px solid #ddd; padding: 10px;">Pes (kg)</th><th style="border: 1px solid #ddd; padding: 10px;">%</th></tr></thead>';
+    html += '<thead style="background: #f0f0f0;"><tr><th style="border: 1px solid #ddd; padding: 10px;">Classificació</th><th style="border: 1px solid #ddd; padding: 10px;">Pes (kg)</th><th style="border: 1px solid #ddd; padding: 10px;">%</th><th style="border: 1px solid #ddd; padding: 10px;">Peces</th></tr></thead>';
     html += '<tbody>';
     
     if (escandall.collita_escandall_no_comercial && escandall.collita_escandall_no_comercial.length > 0) {
@@ -1509,10 +1533,11 @@ async function veureEscandall(id) {
             html += '<td style="border: 1px solid #ddd; padding: 10px;"><strong>' + nc.classificacio + '</strong></td>';
             html += '<td style="border: 1px solid #ddd; padding: 10px;">' + (nc.pes_kg || 0).toFixed(2) + '</td>';
             html += '<td style="border: 1px solid #ddd; padding: 10px;">' + (nc.percentatge || 0).toFixed(2) + '%</td>';
+            html += '<td style="border: 1px solid #ddd; padding: 10px;">' + (nc.peces != null ? nc.peces.toLocaleString('ca-ES') : '-') + '</td>';
             html += '</tr>';
         });
     } else {
-        html += '<tr><td colspan="3" style="border: 1px solid #ddd; padding: 10px; text-align: center;">-</td></tr>';
+        html += '<tr><td colspan="4" style="border: 1px solid #ddd; padding: 10px; text-align: center;">-</td></tr>';
     }
     
     html += '</tbody></table>';
