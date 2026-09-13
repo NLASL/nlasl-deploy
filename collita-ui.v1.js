@@ -1400,6 +1400,14 @@ async function guardarAlbaraEscandall(event) {
                 percentatge: parseFloat(tr.querySelectorAll('input')[1].value) || 0
             });
         });
+
+        // ✅ NOU: bloquejar si hi ha algun calibre/classificació sense seleccionar
+        const calibreSenseSeleccionar = calibres.some(c => !c.calibre || c.calibre === '- Selecciona -');
+        const noComSenseSeleccionar = noComercios.some(nc => !nc.classificacio || nc.classificacio === '- Selecciona -');
+        if (calibreSenseSeleccionar || noComSenseSeleccionar) {
+            mostrarNotificacio('❌ Falta seleccionar el calibre o la classificació en alguna línia', 'error');
+            return;
+        }
         
         const industria = {
             pes_kg: parseFloat(document.getElementById('escandall-industria-pes').value) || 0,
@@ -2035,10 +2043,14 @@ async function guardarEdicionEscandall(event, id) {
         
         // Calibres
         const calibres = [];
+        let calibreSenseSeleccionar = false;
         document.querySelectorAll('#calibres-tbody tr').forEach(function(tr) {
             var calibre = tr.querySelectorAll('select')[0].value;
             var pesKg = parseFloat(tr.querySelectorAll('input')[0].value) || 0;
             var perc = parseFloat(tr.querySelectorAll('input')[1].value) || 0;
+            if ((!calibre || calibre === '- Selecciona -') && pesKg > 0) {
+                calibreSenseSeleccionar = true;
+            }
             if (calibre && calibre !== '- Selecciona -' && pesKg > 0) {
                 calibres.push({ calibre: calibre, pes_kg: pesKg, percentatge: perc });
             }
@@ -2046,14 +2058,24 @@ async function guardarEdicionEscandall(event, id) {
         
         // NC
         const noComercials = [];
+        let noComSenseSeleccionar = false;
         document.querySelectorAll('#nocom-tbody tr').forEach(function(tr) {
             var clas = tr.querySelectorAll('select')[0].value;
             var pesKg = parseFloat(tr.querySelectorAll('input')[0].value) || 0;
             var perc = parseFloat(tr.querySelectorAll('input')[1].value) || 0;
-            if (clas && pesKg !== 0) {
+            if ((!clas || clas === '- Selecciona -') && pesKg !== 0) {
+                noComSenseSeleccionar = true;
+            }
+            if (clas && clas !== '- Selecciona -' && pesKg !== 0) {
                 noComercials.push({ classificacio: clas, pes_kg: pesKg, percentatge: perc });
             }
         });
+
+        // ✅ NOU: bloquejar si hi ha kg introduïts sense calibre/classificació seleccionada
+        if (calibreSenseSeleccionar || noComSenseSeleccionar) {
+            mostrarNotificacio('❌ Falta seleccionar el calibre o la classificació en alguna línia amb pes introduït', 'error');
+            return;
+        }
         
         // Indústria
         const industriaPes = parseFloat(document.getElementById('edicio-esc-industria-pes').value) || 0;
