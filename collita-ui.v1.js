@@ -1294,6 +1294,65 @@ function actualitzarPercentatgesCal() {
     }
 }
 
+// ============================================================
+// CÀLCUL DE PECES (segons calibratge comercial i promig d'albarà)
+// ============================================================
+
+function calcularCampanyaEscandall(dataStr) {
+    const d = new Date(dataStr);
+    const mes = d.getMonth() + 1;
+    const any = d.getFullYear();
+    return mes >= 10 ? any + 1 : any; // mateix criteri que obtenirTodasEntradas()
+}
+
+async function obtenirPesMigPecaMap(fruitaId, campanya) {
+    const { data, error } = await supabaseClient
+        .from('calibres_fruites')
+        .select('calibre, pes_mig_peca_g')
+        .eq('fruita_id', fruitaId)
+        .eq('campanya', campanya);
+    if (error) {
+        console.error('Error obtenint pes_mig_peca_g:', error);
+        return {};
+    }
+    const map = {};
+    (data || []).forEach(function(r) { map[r.calibre] = r.pes_mig_peca_g; });
+    return map;
+}
+
+// Retorna els mateixos arrays de calibres/noComercios amb un camp .peces afegit
+async function calcularPecesEscandall(calibres, noComercios, fruitaId, campanya) {
+    const pesMigMap = await obtenirPesMigPecaMap(fruitaId, campanya);
+
+    const calibresAmbPeces = calibres.map(function(c) {
+        const pesMig = pesMigMap[c.calibre];
+        const peces = pesMig ? Math.round((c.pes_kg * 1000) / pesMig) : 0;
+        if (!pesMig) console.warn('⚠️ Sense pes_mig_peca_g configurat per calibre ' + c.calibre + ' (campanya ' + campanya + ') — peces = 0');
+        return Object.assign({}, c, { peces: peces });
+    });
+
+    const sumKgComercial = calibresAmbPeces.reduce(function(s, c) { return s + (c.pes_kg || 0); }, 0);
+    const sumPecesComercial = calibresAmbPeces.reduce(function(s, c) { return s + (c.peces || 0); }, 0);
+    const promigComercial_g = sumPecesComercial > 0 ? (sumKgComercial * 1000 / sumPecesComercial) : 0;
+
+    const pesMigPetit = pesMigMap['PETIT'];
+
+    const noComerciosAmbPeces = noComercios.map(function(nc) {
+        const esPetit = (nc.classificacio || '').toLowerCase().includes('petit');
+        let peces = 0;
+        if (esPetit && pesMigPetit) {
+            peces = Math.round((nc.pes_kg * 1000) / pesMigPetit);
+        } else if (!esPetit && promigComercial_g > 0) {
+            peces = Math.round((nc.pes_kg * 1000) / promigComercial_g);
+        } else if (!esPetit) {
+            console.warn('⚠️ Sense promig comercial per calcular peces de ' + nc.classificacio + ' — peces = 0');
+        }
+        return Object.assign({}, nc, { peces: peces });
+    });
+
+    return { calibres: calibresAmbPeces, noComercios: noComerciosAmbPeces };
+}
+
 async function guardarAlbaraEscandall(event) {
     event.preventDefault();
     
@@ -1341,6 +1400,12 @@ async function guardarAlbaraEscandall(event) {
             created_by: currentUser ? currentUser.id : null
         };
         
+        // Calcular peces (comercial per calibre, NC per promig o pes fix de "Petit")
+        const fruitaIdReal = (varietats.find(function(v) { return v.id === entrada.fruita_varietat_id; }) || {}).fruita_id;
+        const campanyaEscandall = calcularCampanyaEscandall(dades.data);
+        const { calibres: calibresAmbPeces, noComercios: noComerciosAmbPeces } =
+            await calcularPecesEscandall(calibres, noComercios, fruitaIdReal, campanyaEscandall);
+
         // Comparar entrada vs escandall
         const comparativa = await compararEntradaVsEscandall(entrada.id, dades);
         const alertsTotal = comparativa.alerts.slice();
@@ -1366,7 +1431,7 @@ async function guardarAlbaraEscandall(event) {
             }
         }
         
-        await crearAlbaraEscandall(dades, calibres, noComercios, industria);
+        await crearAlbaraEscandall(dades, calibresAmbPeces, noComerciosAmbPeces, industria);
         mostrarNotificacio('✅ Escandall guardat correctament', 'success');
         canviarVistaCollita('escandalls');
     } catch (error) {
@@ -1991,7 +2056,11 @@ async function guardarEdicionEscandall(event, id) {
 			.single();
 
 		const fruitaVarietatId = escandallActual?.fruita_varietat_id;
-	
+		const fruitaIdReal = (varietats.find(function(v) { return v.id === fruitaVarietatId; }) || {}).fruita_id;
+		const campanyaEscandall = calcularCampanyaEscandall(dades.data);
+		const { calibres: calibresAmbPeces, noComercios: noComercialsAmbPeces } =
+			await calcularPecesEscandall(calibres, noComercials, fruitaIdReal, campanyaEscandall);
+
         
         // Actualitzar dades bàsiques
         await actualitzarAlbaraEscandall(id, dades);
@@ -1999,8 +2068,8 @@ async function guardarEdicionEscandall(event, id) {
 		await supabaseClient.from('collita_escandall_calibres').delete().eq('escandall_id', id);
         
         // Esborrar i reinserir calibres
-       if (calibres.length > 0) {
-		const calibresAmbId = calibres.map(function(c) { 
+       if (calibresAmbPeces.length > 0) {
+		const calibresAmbId = calibresAmbPeces.map(function(c) { 
         return { 
             ...c, 
             escandall_id: id,
@@ -2012,8 +2081,8 @@ async function guardarEdicionEscandall(event, id) {
         
         // Esborrar i reinserir NC
         await supabaseClient.from('collita_escandall_no_comercial').delete().eq('escandall_id', id);
-        if (noComercials.length > 0) {
-            const ncAmbId = noComercials.map(function(nc) { return { ...nc, escandall_id: id }; });
+        if (noComercialsAmbPeces.length > 0) {
+            const ncAmbId = noComercialsAmbPeces.map(function(nc) { return { ...nc, escandall_id: id }; });
             await supabaseClient.from('collita_escandall_no_comercial').insert(ncAmbId);
         }
         
