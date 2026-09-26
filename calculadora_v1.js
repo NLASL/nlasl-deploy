@@ -159,18 +159,51 @@
     else obrirCalculadora();
   }
 
+  // Tecles que la calculadora entén quan està oberta i el focus NO és
+  // sobre un camp editable de la pàgina (input/textarea/select) — així
+  // no interfereix mai amb l'edició normal dels formularis (per exemple
+  // els inputs de preu/kg d'una liquidació).
+  const TECLES_DIGIT = new Set(['0','1','2','3','4','5','6','7','8','9','.','+','-','*','/']);
+
+  function focusEsCampEditable() {
+    const el = document.activeElement;
+    if (!el) return false;
+    const tag = el.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+  }
+
   function initCalculadora() {
     crearBotoFlotant();
     document.addEventListener('keydown', (e) => {
       if (e.altKey && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         toggleCalculadora();
-      } else if (e.key === 'Escape' && panelEl && panelEl.classList.contains('active')) {
+        return;
+      }
+      if (e.key === 'Escape' && panelEl && panelEl.classList.contains('active')) {
         // Si hi ha un modal obert que també escolta Escape a document,
         // aturem la propagació: amb la calculadora oberta, Escape només
         // la tanca a ella (cal un segon Escape per tancar el modal de sota).
         e.stopPropagation();
         tancarCalculadora();
+        return;
+      }
+      // Entrada per teclat dels dígits/operadors, només si el panell està
+      // obert i no s'està escrivint en un camp normal de la pàgina.
+      if (panelEl && panelEl.classList.contains('active') && !focusEsCampEditable()) {
+        if (TECLES_DIGIT.has(e.key)) {
+          e.preventDefault();
+          premeTecla(e.key);
+        } else if (e.key === 'Enter' || e.key === '=') {
+          e.preventDefault();
+          premeTecla('=');
+        } else if (e.key === 'Backspace') {
+          e.preventDefault();
+          premeTecla('⌫');
+        } else if (e.key.toLowerCase() === 'c' && !e.altKey) {
+          e.preventDefault();
+          premeTecla('C');
+        }
       }
     }, true); // fase de captura: ens assegurem d'executar-nos abans que l'escHandler del modal
   }

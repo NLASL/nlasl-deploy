@@ -279,6 +279,12 @@ async function guardarTotsElsPreus() {
     const inputs = document.querySelectorAll('#liquidacio-linies-tbody .input-preu-linia');
     if (inputs.length === 0) return;
 
+    try {
+        await desarCapcaleraSiCal();
+    } catch (error) {
+        return; // ja s'ha notificat l'error; no toquem les línies amb la capçalera desincronitzada
+    }
+
     const actualitzacions = [];
     inputs.forEach(function(input) {
         const preu = parseFloat(input.value);
@@ -338,8 +344,11 @@ function onCanviFruitaLiquidacio(varietatSeleccionada) {
 // GUARDAR CAPÇALERA
 // ============================================================
 
-async function guardarCapcaleraLiquidacio() {
-    const dades = {
+// Llegeix els camps del formulari de capçalera. Compartit entre el
+// guardat explícit (botó "Guardar capçalera") i el guardat silenciós
+// previ a accions sobre línies (veure desarCapcaleraSiCal).
+function recollirDadesCapcaleraForm() {
+    return {
         campanya: parseInt(document.getElementById('liq-campanya').value),
         fruita_id: document.getElementById('liq-fruita').value,
         varietat_id: document.getElementById('liq-varietat').value || null,
@@ -350,6 +359,10 @@ async function guardarCapcaleraLiquidacio() {
         estat: document.getElementById('liq-estat').value,
         notes: document.getElementById('liq-notes').value
     };
+}
+
+async function guardarCapcaleraLiquidacio() {
+    const dades = recollirDadesCapcaleraForm();
 
     if (!dades.fruita_id || !dades.data_liquidacio) {
         mostrarNotificacio('Fruita i data de liquidació són obligatoris', 'warning');
@@ -371,6 +384,27 @@ async function guardarCapcaleraLiquidacio() {
     } catch (error) {
         mostrarNotificacio('Error guardant la liquidació: ' + error.message, 'error');
         console.error(error);
+    }
+}
+
+// Desa la capçalera silenciosament (sense tancar/reobrir el modal) just
+// abans d'una acció sobre línies (generar des d'escandalls, guardar preus).
+// Evita que bestretes/deducció editades al formulari però no desades
+// explícitament quedin desincronitzades respecte a la BD quan després es
+// refresca el resum de totals (refrescarLiniesModal llegeix sempre de BD).
+// Per a una liquidació encara sense ID (nova, capçalera no desada), no fa
+// res: en aquest cas els altres fluxos ja exigeixen guardar la capçalera
+// primer explícitament.
+async function desarCapcaleraSiCal() {
+    if (!liquidacioModalId) return;
+    const dades = recollirDadesCapcaleraForm();
+    if (!dades.fruita_id || !dades.data_liquidacio) return;
+    try {
+        await updateLiquidacio(liquidacioModalId, dades);
+    } catch (error) {
+        console.error('Error desant capçalera automàticament:', error);
+        mostrarNotificacio('No s\'ha pogut desar la capçalera abans de continuar: ' + error.message, 'error');
+        throw error;
     }
 }
 
@@ -481,6 +515,12 @@ async function generarLiniesDesEscandall() {
         return;
     }
     if (!confirm('Això afegirà línies noves agregades des dels escandalls d\'aquesta campanya/varietat. Continuar?')) return;
+
+    try {
+        await desarCapcaleraSiCal();
+    } catch (error) {
+        return; // ja s'ha notificat l'error; no generem línies amb la capçalera desincronitzada
+    }
 
     try {
         const dataInici = (campanya - 1) + '-10-01';
