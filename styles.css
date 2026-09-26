@@ -893,7 +893,7 @@ body {
   height: 44px;
   border-radius: 50%;
   border: none;
-  background: var(--sao-primary, #7a1f2b);
+  background: var(--sao-primary, #2d5016);
   color: #fff;
   font-size: 20px;
   cursor: pointer;
@@ -922,7 +922,7 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 6px 10px;
-  background: var(--sao-primary, #7a1f2b);
+  background: var(--sao-primary, #2d5016);
   color: #fff;
   border-radius: 8px 8px 0 0;
   font-weight: 600;
@@ -964,12 +964,12 @@ body {
   font-size: 14px;
 }
 
-.sao-calc-grid button:hover { background: var(--sao-primary-light, #eee); }
+.sao-calc-grid button:hover { background: var(--sao-primary-light, #e3ecd9); }
 
 .sao-calc-wide { grid-column: span 2; }
 
 .sao-calc-eq {
-  background: var(--sao-primary, #7a1f2b) !important;
+  background: var(--sao-primary, #2d5016) !important;
   color: #fff;
   border: none !important;
 }
@@ -991,7 +991,7 @@ body {
 }
 
 .sao-calc-actions .sao-calc-insert {
-  background: var(--sao-primary, #7a1f2b);
+  background: var(--sao-primary, #2d5016);
   color: #fff;
   border: none;
 }
