@@ -1,6 +1,6 @@
 // calculadora_v1.js
 // Calculadora flotant global (SAO — Sistema Agrari Òptim / Quadern de Camp)
-// Adaptada del widget original de GACO. Obrir amb Alt+C o clic al botó;
+// Adaptada del widget original de GACO. Obrir amb Alt+K o clic al botó;
 // insereix el resultat al darrer camp enfocat, o el copia al porta-retalls.
 // Script clàssic (sense import/export) per seguir la convenció de la resta
 // de fitxers del projecte (app_v8.js, collita_v1.js, etc.).
@@ -133,7 +133,7 @@
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'sao-calc-fab';
-    btn.title = 'Calculadora (Alt+C)';
+    btn.title = 'Calculadora (Alt+K)';
     btn.textContent = '🧮';
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -162,7 +162,7 @@
   function initCalculadora() {
     crearBotoFlotant();
     document.addEventListener('keydown', (e) => {
-      if (e.altKey && e.key.toLowerCase() === 'c') {
+      if (e.altKey && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         toggleCalculadora();
       } else if (e.key === 'Escape' && panelEl && panelEl.classList.contains('active')) {
