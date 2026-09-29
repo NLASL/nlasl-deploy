@@ -182,18 +182,34 @@ async function generarInformeComparatiu() {
 }
 
 async function obtenirDadesComparativaCollita(campanyes, filtres) {
-    let query = supabaseClient
-        .from('vista_informe_collita')
-        .select('campanya, finca, fruita, varietat, categoria, subcategoria, calibre, pes_kg, peces')
-        .in('campanya', campanyes);
+    // Supabase/PostgREST retorna màxim 1000 files per petició per defecte.
+    // vista_informe_collita té diverses files per escandall (calibre x categoria),
+    // així que cal paginar amb .range() fins a buidar el resultat.
+    const MIDA_PAGINA = 1000;
+    let totes = [];
+    let offset = 0;
 
-    if (filtres.fruita) query = query.eq('fruita', filtres.fruita);
-    if (filtres.varietat) query = query.eq('varietat', filtres.varietat);
-    if (filtres.finca) query = query.eq('finca', filtres.finca);
+    while (true) {
+        let query = supabaseClient
+            .from('vista_informe_collita')
+            .select('campanya, finca, fruita, varietat, categoria, subcategoria, calibre, pes_kg, peces')
+            .in('campanya', campanyes)
+            .range(offset, offset + MIDA_PAGINA - 1);
 
-    const { data, error } = await query;
-    if (error) throw error;
-    return data || [];
+        if (filtres.fruita) query = query.eq('fruita', filtres.fruita);
+        if (filtres.varietat) query = query.eq('varietat', filtres.varietat);
+        if (filtres.finca) query = query.eq('finca', filtres.finca);
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        totes = totes.concat(data || []);
+
+        if (!data || data.length < MIDA_PAGINA) break;
+        offset += MIDA_PAGINA;
+    }
+
+    return totes;
 }
 
 function agregarDadesPerCampanya(dades) {
@@ -202,7 +218,7 @@ function agregarDadesPerCampanya(dades) {
     dades.forEach(fila => {
         const c = fila.campanya;
         if (!resum[c]) {
-            resum[c] = { kgTotal: 0, pecesTotal: 0, perCategoria: {}, perCalibre: {} };
+            resum[c] = { kgTotal: 0, pecesTotal: 0, perCategoria: {}, perSubcategoria: {}, perCalibre: {} };
         }
         const kg = Number(fila.pes_kg) || 0;
         const peces = Number(fila.peces) || 0;
@@ -212,6 +228,9 @@ function agregarDadesPerCampanya(dades) {
 
         const categoria = fila.categoria || 'Sense categoria';
         resum[c].perCategoria[categoria] = (resum[c].perCategoria[categoria] || 0) + kg;
+
+        const subcategoria = fila.subcategoria || 'Sense subcategoria';
+        resum[c].perSubcategoria[subcategoria] = (resum[c].perSubcategoria[subcategoria] || 0) + kg;
 
         const calibre = fila.calibre || 'Sense calibre';
         resum[c].perCalibre[calibre] = (resum[c].perCalibre[calibre] || 0) + kg;
@@ -255,6 +274,18 @@ function renderitzarResultatsComparativa(resum, campanyes) {
         return `<tr><td>${cat}</td>${cel·les}</tr>`;
     }).join('');
 
+    // Taula comparativa de subcategories (% sobre kg total de cada campanya)
+    const totesSubcategories = [...new Set(campanyes.flatMap(c => Object.keys(resum[c]?.perSubcategoria || {})))].sort();
+    const filesSubcategories = totesSubcategories.map(sub => {
+        const cel·les = campanyes.map(c => {
+            const kgSub = resum[c]?.perSubcategoria[sub] || 0;
+            const kgTotal = resum[c]?.kgTotal || 1;
+            const pct = (kgSub / kgTotal * 100).toFixed(1);
+            return `<td>${pct}%</td>`;
+        }).join('');
+        return `<tr><td>${sub}</td>${cel·les}</tr>`;
+    }).join('');
+
     // Taula comparativa de calibres (% sobre kg total de cada campanya)
     const totsCalibres = [...new Set(campanyes.flatMap(c => Object.keys(resum[c]?.perCalibre || {})))].sort();
     const filesCalibres = totsCalibres.map(cal => {
@@ -276,6 +307,12 @@ function renderitzarResultatsComparativa(resum, campanyes) {
         <table class="informe-comp-taula">
             <thead><tr><th>Categoria</th>${capcaleraCampanyes}</tr></thead>
             <tbody>${filesCategories}</tbody>
+        </table>
+
+        <h3>% per subcategoria</h3>
+        <table class="informe-comp-taula">
+            <thead><tr><th>Subcategoria</th>${capcaleraCampanyes}</tr></thead>
+            <tbody>${filesSubcategories}</tbody>
         </table>
 
         <h3>% per calibre</h3>
