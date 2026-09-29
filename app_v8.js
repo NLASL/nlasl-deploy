@@ -217,6 +217,9 @@ function canviarVista(vista) {
 		case 'immobilitzat':
 			mostrarVistaImmobilitzat();  // Existent (de altres-assegurances-ui_v1.js)
 			break;
+		case 'informes-comparativa':
+			carregarVistaInformesComparativa();
+			break;	
 		case 'contactes':
 			carregarVistaContactes();
 			break;
