@@ -995,6 +995,81 @@ body {
   color: #fff;
   border: none;
 }
+
+.informe-comp-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 2px; }
+.informe-comp-header h2 { margin: 0; }
+.informe-comp-subtitol { color: #666; font-style: italic; margin-top: 0; margin-bottom: 20px; }
+
+.informe-comp-filtres {
+  display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end;
+  background: #f5f8f1; border: 1px solid #dfe8d4; border-radius: 8px;
+  padding: 16px 20px; margin-bottom: 24px;
+}
+.informe-comp-camp { display: flex; flex-direction: column; gap: 6px; }
+.informe-comp-checkboxes { display: flex; gap: 14px; flex-wrap: wrap; }
+.informe-comp-check { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+
+.informe-comp-resultats-accions { display: flex; justify-content: flex-end; margin-bottom: 16px; }
+.informe-comp-print-header { display: none; }
+
+/* Targetes resum per campanya */
+.informe-comp-targetes { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; }
+.informe-comp-targeta {
+  background: linear-gradient(135deg, #f5f8f1 0%, #e3ecd9 100%);
+  border: 1px solid #cddbc0; border-radius: 10px;
+  padding: 14px 20px; min-width: 190px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.informe-comp-targeta-campanya { font-size: 1.1em; color: #2D5016; margin-bottom: 4px; }
+.informe-comp-targeta-kg { font-size: 1.5em; font-weight: 600; margin: 4px 0; color: #1f3a0f; }
+.informe-comp-barra { background: #d9e3cd; border-radius: 4px; height: 8px; overflow: hidden; margin: 6px 0; }
+.informe-comp-barra-fill { background: #2D5016; height: 100%; border-radius: 4px; }
+.informe-comp-targeta-detall { color: #4a5a3f; font-size: 0.9em; }
+
+/* Seccions de taula */
+.informe-comp-seccio {
+  background: #fff; border: 1px solid #e5e5e5; border-radius: 8px;
+  padding: 16px 20px; margin-bottom: 20px;
+}
+.informe-comp-seccio h3 { margin-top: 0; color: #2D5016; }
+.informe-comp-nota { font-weight: normal; font-size: 0.75em; color: #888; }
+
+.informe-comp-taula { border-collapse: collapse; width: 100%; }
+.informe-comp-taula th, .informe-comp-taula td { border-bottom: 1px solid #eee; padding: 0; text-align: right; }
+.informe-comp-taula th { background: #eef3e6; color: #2D5016; padding: 8px 10px; text-align: right; }
+.informe-comp-taula th:first-child, .informe-comp-taula td:first-child { text-align: left; padding: 8px 10px; }
+.informe-comp-taula tbody tr:nth-child(even) { background: #fafbf8; }
+.informe-comp-taula tbody tr:hover { background: #f0f5e9; }
+
+/* Barra de percentatge dins de cada cel·la */
+.informe-comp-cel-bar { position: relative; padding: 8px 10px; overflow: hidden; }
+.informe-comp-cel-bar::before {
+  content: ''; position: absolute; inset: 0; right: auto;
+  width: calc(var(--val) * 1%); background: rgba(45, 80, 22, 0.14); z-index: 0;
+}
+.informe-comp-cel-bar span { position: relative; z-index: 1; }
+.informe-comp-cel-alerta::before { background: rgba(200, 60, 40, 0.18); }
+.informe-comp-cel-alerta span { color: #a33; font-weight: 600; }
+
+/* Etiquetes de categoria */
+.informe-comp-etiqueta { padding: 3px 10px; border-radius: 12px; font-size: 0.9em; font-weight: 600; }
+.informe-comp-etiqueta-ok { background: #dcecc9; color: #2D5016; }
+.informe-comp-etiqueta-avis { background: #fbe4c8; color: #8a5518; }
+.informe-comp-etiqueta-neutre { background: #e6e6e6; color: #555; }
+
+.informe-comp-avis { color: #666; font-style: italic; }
+
+/* ---- Impressió / PDF ---- */
+@media print {
+  .app-header, .main-nav, .sync-indicator, #notificacions,
+  .informe-comp-filtres, .informe-comp-resultats-accions { display: none !important; }
+  .informe-comp-print-header { display: block !important; margin-bottom: 20px; }
+  .informe-comp-print-header h2 { color: #2D5016; margin-bottom: 2px; }
+  .informe-comp-print-header p { color: #555; font-size: 0.9em; }
+  .informe-comp-seccio { border: 1px solid #ccc; box-shadow: none; page-break-inside: avoid; }
+  .informe-comp-targeta { box-shadow: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { background: #fff; }
+}
 /* ============================================================
    FI STYLES.CSS
    ============================================================ */

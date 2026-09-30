@@ -98,7 +98,7 @@ function renderitzarControlsComparativa(campanyes, fruites) {
         <label class="informe-comp-check">
             <input type="checkbox" value="${c}" ${comparativaCampanyesSeleccionades.has(c) ? 'checked' : ''}
                    onchange="toggleCampanyaComparativa(${c}, this.checked)">
-            ${c}
+            <strong>${c}</strong>
         </label>
     `).join('');
 
@@ -106,18 +106,19 @@ function renderitzarControlsComparativa(campanyes, fruites) {
 
     contenidor.innerHTML = `
         <div class="informe-comp-header">
-            <h2>Comparativa de campanyes</h2>
-            <p class="informe-comp-subtitol">Dades de producció (collita), no de liquidació</p>
+            <h2>📊 Comparativa de campanyes</h2>
+            <button class="btn btn-secondary" onclick="exportarPDFComparativa()">🖨️ Imprimir PDF</button>
         </div>
+        <p class="informe-comp-subtitol">Dades de producció (collita), no de liquidació</p>
 
         <div class="informe-comp-filtres">
             <div class="informe-comp-camp">
-                <span>Campanyes a comparar</span>
+                <span>📅 <strong>Campanyes a comparar</strong></span>
                 <div class="informe-comp-checkboxes">${checkboxesCampanyes}</div>
             </div>
 
             <div class="informe-comp-camp">
-                <label for="informe-comp-fruita">Fruita</label>
+                <label for="informe-comp-fruita">🍑 Fruita</label>
                 <select id="informe-comp-fruita" onchange="onCanviFruitaComparativa()">
                     <option value="">Totes</option>
                     ${opcionsFruita}
@@ -125,20 +126,20 @@ function renderitzarControlsComparativa(campanyes, fruites) {
             </div>
 
             <div class="informe-comp-camp">
-                <label for="informe-comp-varietat">Varietat</label>
+                <label for="informe-comp-varietat">🌱 Varietat</label>
                 <select id="informe-comp-varietat">
                     <option value="">Totes</option>
                 </select>
             </div>
 
             <div class="informe-comp-camp">
-                <label for="informe-comp-finca">Finca</label>
+                <label for="informe-comp-finca">🗺️ Finca</label>
                 <select id="informe-comp-finca">
                     <option value="">Totes</option>
                 </select>
             </div>
 
-            <button class="btn-primari" onclick="generarInformeComparatiu()">Generar informe</button>
+            <button class="btn btn-primary" onclick="generarInformeComparatiu()">🔍 Generar informe</button>
         </div>
 
         <div id="informe-comp-resultats" class="informe-comp-resultats"></div>
@@ -282,6 +283,9 @@ function renderitzarResultatsComparativa(resum, campanyes) {
     const divResultats = document.getElementById('informe-comp-resultats');
     const kgMax = Math.max(...campanyes.map(c => resum[c]?.kgTotal || 0), 1);
 
+    const iconesCategoria = { COMERCIAL: '🟢', INDUSTRIA: '🏭', NO_COMERCIAL: '⚪' };
+    const classeCategoria = { COMERCIAL: 'ok', INDUSTRIA: 'avis', NO_COMERCIAL: 'neutre' };
+
     // Targetes resum (kg, peces, pes mitjà/peça) amb barra comparativa
     const targetes = campanyes.map(c => {
         const d = resum[c] || { kgTotal: 0, pecesTotal: 0 };
@@ -289,10 +293,10 @@ function renderitzarResultatsComparativa(resum, campanyes) {
         const amplada = Math.round((d.kgTotal / kgMax) * 100);
         return `
             <div class="informe-comp-targeta">
-                <div class="informe-comp-targeta-campanya">${c}</div>
-                <div class="informe-comp-targeta-kg">${formatNumeroInforme(d.kgTotal)} kg</div>
+                <div class="informe-comp-targeta-campanya">📅 <strong>${c}</strong></div>
+                <div class="informe-comp-targeta-kg">📦 ${formatNumeroInforme(d.kgTotal)} kg</div>
                 <div class="informe-comp-barra"><div class="informe-comp-barra-fill" style="width:${amplada}%"></div></div>
-                <div class="informe-comp-targeta-detall">${formatNumeroInforme(d.pecesTotal)} peces · ${pesMitja} g/peça</div>
+                <div class="informe-comp-targeta-detall">🧺 ${formatNumeroInforme(d.pecesTotal)} peces · ⚖️ ${pesMitja} g/peça</div>
             </div>
         `;
     }).join('');
@@ -304,9 +308,11 @@ function renderitzarResultatsComparativa(resum, campanyes) {
             const kgCat = resum[c]?.perCategoria[cat] || 0;
             const kgTotal = resum[c]?.kgTotal || 1;
             const pct = (kgCat / kgTotal * 100).toFixed(1);
-            return `<td>${pct}%</td>`;
+            return cel·laPercentatge(pct);
         }).join('');
-        return `<tr><td>${cat}</td>${cel·les}</tr>`;
+        const icona = iconesCategoria[cat] || '🏷️';
+        const classe = classeCategoria[cat] || 'neutre';
+        return `<tr><td><span class="informe-comp-etiqueta informe-comp-etiqueta-${classe}">${icona} ${cat}</span></td>${cel·les}</tr>`;
     }).join('');
 
     // Taula comparativa de subcategories (% sobre kg total de cada campanya)
@@ -316,46 +322,73 @@ function renderitzarResultatsComparativa(resum, campanyes) {
             const kgSub = resum[c]?.perSubcategoria[sub] || 0;
             const kgTotal = resum[c]?.kgTotal || 1;
             const pct = (kgSub / kgTotal * 100).toFixed(1);
-            return `<td>${pct}%</td>`;
+            const alerta = sub.startsWith('Sense');
+            return cel·laPercentatge(pct, alerta);
         }).join('');
-        return `<tr><td>${sub}</td>${cel·les}</tr>`;
+        return `<tr><td>${sub.startsWith('Sense') ? '⚠️ ' : '🏷️ '}${sub}</td>${cel·les}</tr>`;
     }).join('');
 
-    // Taula comparativa de calibres (% sobre kg total de cada campanya)
+    // Taula comparativa de calibres (% sobre kg COMERCIAL de cada campanya — indústria/no-comercial no en tenen)
     const totsCalibres = [...new Set(campanyes.flatMap(c => Object.keys(resum[c]?.perCalibre || {})))].sort();
     const filesCalibres = totsCalibres.map(cal => {
         const cel·les = campanyes.map(c => {
             const kgCal = resum[c]?.perCalibre[cal] || 0;
-            const kgTotal = resum[c]?.kgTotal || 1;
-            const pct = (kgCal / kgTotal * 100).toFixed(1);
-            return `<td>${pct}%</td>`;
+            const kgComercial = resum[c]?.kgComercial || 1;
+            const pct = (kgCal / kgComercial * 100).toFixed(1);
+            const alerta = cal.startsWith('Sense');
+            return cel·laPercentatge(pct, alerta);
         }).join('');
-        return `<tr><td>${cal}</td>${cel·les}</tr>`;
+        return `<tr><td>${cal.startsWith('Sense') ? '⚠️ ' : '📏 '}${cal}</td>${cel·les}</tr>`;
     }).join('');
 
-    const capcaleraCampanyes = campanyes.map(c => `<th>${c}</th>`).join('');
+    const capcaleraCampanyes = campanyes.map(c => `<th>📅 <strong>${c}</strong></th>`).join('');
 
     divResultats.innerHTML = `
+        <div id="informe-comp-print-header" class="informe-comp-print-header">
+            <h2>🌾 Quadern de Camp — Comparativa de campanyes</h2>
+            <p>Generat el ${new Date().toLocaleDateString('ca-ES')} · Campanyes: ${campanyes.join(', ')}</p>
+        </div>
+
         <div class="informe-comp-targetes">${targetes}</div>
 
-        <h3>% per categoria (qualitat)</h3>
-        <table class="informe-comp-taula">
-            <thead><tr><th>Categoria</th>${capcaleraCampanyes}</tr></thead>
-            <tbody>${filesCategories}</tbody>
-        </table>
+        <div class="informe-comp-seccio">
+            <h3>🎯 % per categoria (qualitat)</h3>
+            <table class="informe-comp-taula">
+                <thead><tr><th>Categoria</th>${capcaleraCampanyes}</tr></thead>
+                <tbody>${filesCategories}</tbody>
+            </table>
+        </div>
 
-        <h3>% per subcategoria</h3>
-        <table class="informe-comp-taula">
-            <thead><tr><th>Subcategoria</th>${capcaleraCampanyes}</tr></thead>
-            <tbody>${filesSubcategories}</tbody>
-        </table>
+        <div class="informe-comp-seccio">
+            <h3>🏷️ % per subcategoria</h3>
+            <table class="informe-comp-taula">
+                <thead><tr><th>Subcategoria</th>${capcaleraCampanyes}</tr></thead>
+                <tbody>${filesSubcategories}</tbody>
+            </table>
+        </div>
 
-        <h3>% per calibre</h3>
-        <table class="informe-comp-taula">
-            <thead><tr><th>Calibre</th>${capcaleraCampanyes}</tr></thead>
-            <tbody>${filesCalibres}</tbody>
-        </table>
+        <div class="informe-comp-seccio">
+            <h3>📏 % per calibre <span class="informe-comp-nota">(sobre kg comercial)</span></h3>
+            <table class="informe-comp-taula">
+                <thead><tr><th>Calibre</th>${capcaleraCampanyes}</tr></thead>
+                <tbody>${filesCalibres}</tbody>
+            </table>
+        </div>
     `;
+}
+
+function cel·laPercentatge(pct, alerta = false) {
+    const valor = Math.max(0, Math.min(100, parseFloat(pct) || 0));
+    const classe = alerta ? 'informe-comp-cel-bar informe-comp-cel-alerta' : 'informe-comp-cel-bar';
+    return `<td><div class="${classe}" style="--val:${valor}"><span>${pct}%</span></div></td>`;
+}
+
+function exportarPDFComparativa() {
+    const titolOriginal = document.title;
+    const campanyes = [...comparativaCampanyesSeleccionades].sort();
+    document.title = 'Comparativa_Campanyes_' + campanyes.join('-');
+    window.print();
+    setTimeout(() => { document.title = titolOriginal; }, 500);
 }
 
 function formatNumeroInforme(n) {
