@@ -197,7 +197,7 @@ async function generarInformeComparatiu() {
     try {
         const [dades, superficiePerFinca] = await Promise.all([
             obtenirDadesComparativaCollita(campanyes, { fruita, varietat, finca }),
-            obtenirSuperficiePerFincaCampanya(campanyes)
+            obtenirSuperficiePerFincaCampanya()
         ]);
         if (dades.length === 0) {
             divResultats.innerHTML = '<p class="informe-comp-avis">No hi ha dades per aquesta selecció.</p>';
@@ -245,10 +245,10 @@ async function obtenirDadesComparativaCollita(campanyes, filtres) {
     return totes;
 }
 
-async function obtenirSuperficiePerFincaCampanya(campanyes) {
-    // Hectàrees TOTALS de cada finca (tots els cultius), per campanya.
-    // No es filtra per fruita: parcelles.cultiu podria no escriure's igual que
-    // vista_informe_collita.fruita (p. ex. "Nectariner" vs "Nectarina").
+async function obtenirSuperficiePerFincaCampanya() {
+    // Es carreguen TOTES les campanyes de parcelles (no només les seleccionades a la
+    // comparativa), perquè el fallback de hectàrees pugui trobar la campanya més propera
+    // encara que l'usuari no l'hagi marcada per comparar.
     const MIDA_PAGINA = 1000;
     let totes = [];
     let offset = 0;
@@ -257,7 +257,6 @@ async function obtenirSuperficiePerFincaCampanya(campanyes) {
         const { data, error } = await supabaseClient
             .from('parcelles')
             .select('finca, superficie, campanya')
-            .in('campanya', campanyes)
             .range(offset, offset + MIDA_PAGINA - 1);
         if (error) throw error;
 
@@ -275,6 +274,31 @@ async function obtenirSuperficiePerFincaCampanya(campanyes) {
         resultat[c][finca] = (resultat[c][finca] || 0) + (Number(p.superficie) || 0);
     });
     return resultat;
+}
+
+function trobarHaAmbFallback(superficiePerFinca, campanyaObjectiu, finca) {
+    const haExacta = superficiePerFinca[campanyaObjectiu]?.[finca];
+    if (haExacta > 0) {
+        return { ha: haExacta, esFallback: false };
+    }
+
+    // No hi ha superfície registrada per aquesta campanya: agafem la de la
+    // campanya més propera (passada o futura) que sí en tingui per aquesta finca.
+    let millorHa = null;
+    let millorDistancia = Infinity;
+    Object.keys(superficiePerFinca).forEach(campanyaStr => {
+        const campanya = Number(campanyaStr);
+        const ha = superficiePerFinca[campanya]?.[finca];
+        if (ha > 0) {
+            const distancia = Math.abs(campanya - campanyaObjectiu);
+            if (distancia < millorDistancia) {
+                millorDistancia = distancia;
+                millorHa = ha;
+            }
+        }
+    });
+
+    return millorHa !== null ? { ha: millorHa, esFallback: true } : { ha: 0, esFallback: false };
 }
 
 function agregarDadesPerCampanya(dades) {
@@ -381,17 +405,22 @@ function renderitzarResultatsComparativa(resum, campanyes, superficiePerFinca = 
 
     // Taula de rendiment per finca: kg totals i kg/ha
     // Les hectàrees són el total de la finca (tots els cultius), no específiques de la fruita filtrada.
+    // Si una finca no té superfície registrada per a una campanya concreta (p. ex. 2024/2025, abans de
+    // començar a portar aquest control), s'agafa la superfície de la campanya més propera que sí en tingui,
+    // marcada amb ≈ perquè es distingeixi d'un valor exacte.
     const totesFinques = [...new Set(campanyes.flatMap(c => Object.keys(resum[c]?.perFinca || {})))].sort();
 
     let kgFincaMax = 1, rendimentMax = 1;
+    let hiHaFallback = false;
     const taulaRendiment = totesFinques.map(f => {
         const perCampanya = campanyes.map(c => {
             const kg = resum[c]?.perFinca[f] || 0;
-            const ha = superficiePerFinca[c]?.[f] || 0;
+            const { ha, esFallback } = trobarHaAmbFallback(superficiePerFinca, c, f);
+            if (esFallback) hiHaFallback = true;
             const rendiment = ha > 0 ? kg / ha : null;
             kgFincaMax = Math.max(kgFincaMax, kg);
             if (rendiment !== null) rendimentMax = Math.max(rendimentMax, rendiment);
-            return { kg, ha, rendiment };
+            return { kg, ha, rendiment, esFallback };
         });
         return { finca: f, perCampanya };
     });
@@ -402,9 +431,10 @@ function renderitzarResultatsComparativa(resum, campanyes, superficiePerFinca = 
     }).join('');
 
     const filesRendimentFinca = taulaRendiment.map(({ finca: f, perCampanya }) => {
-        const cel·les = perCampanya.map(({ ha, rendiment }) => {
+        const cel·les = perCampanya.map(({ rendiment, esFallback }) => {
             if (rendiment === null) return cel·laValor('— (sense ha)', 0, rendimentMax, true);
-            return cel·laValor(rendiment.toFixed(0) + ' kg/ha', rendiment, rendimentMax);
+            const prefix = esFallback ? '≈ ' : '';
+            return cel·laValor(prefix + rendiment.toFixed(0) + ' kg/ha', rendiment, rendimentMax);
         }).join('');
         return `<tr><td>🌾 ${f}</td>${cel·les}</tr>`;
     }).join('');
@@ -449,6 +479,7 @@ function renderitzarResultatsComparativa(resum, campanyes, superficiePerFinca = 
                 <thead><tr><th>Finca</th>${capcaleraCampanyes}</tr></thead>
                 <tbody>${filesRendimentFinca}</tbody>
             </table>
+            ${hiHaFallback ? '<p class="informe-comp-nota">≈ Hectàrees estimades a partir de la campanya més propera amb superfície registrada (encara no hi ha dades pròpies d\'aquella campanya a Parcel·les).</p>' : ''}
         </div>
 
         <div class="informe-comp-seccio">
