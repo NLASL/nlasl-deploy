@@ -41,21 +41,50 @@ async function carregarVistaInformesComparativa() {
 }
 
 async function obtenirCampanyesDisponiblesInforme() {
-    const { data, error } = await supabaseClient
-        .from('vista_informe_collita')
-        .select('campanya')
-        .order('campanya', { ascending: false });
-    if (error) throw error;
-    return [...new Set((data || []).map(f => f.campanya))];
+    // Mateix problema de límit de 1000 files que a obtenirDadesComparativaCollita:
+    // cal paginar o la campanya més antiga (amb menys files recents per davant) no arriba mai a carregar-se.
+    const MIDA_PAGINA = 1000;
+    let totes = [];
+    let offset = 0;
+
+    while (true) {
+        const { data, error } = await supabaseClient
+            .from('vista_informe_collita')
+            .select('campanya')
+            .order('campanya', { ascending: false })
+            .range(offset, offset + MIDA_PAGINA - 1);
+        if (error) throw error;
+
+        totes = totes.concat(data || []);
+
+        if (!data || data.length < MIDA_PAGINA) break;
+        offset += MIDA_PAGINA;
+    }
+
+    return [...new Set(totes.map(f => f.campanya))].sort((a, b) => b - a);
 }
 
 async function obtenirValorsDistintsInforme(columna, filtres = {}) {
-    let query = supabaseClient.from('vista_informe_collita').select(columna);
-    if (filtres.fruita) query = query.eq('fruita', filtres.fruita);
-    const { data, error } = await query;
-    if (error) throw error;
-    const valors = [...new Set((data || []).map(f => f[columna]).filter(Boolean))];
-    return valors.sort();
+    const MIDA_PAGINA = 1000;
+    let totes = [];
+    let offset = 0;
+
+    while (true) {
+        let query = supabaseClient
+            .from('vista_informe_collita')
+            .select(columna)
+            .range(offset, offset + MIDA_PAGINA - 1);
+        if (filtres.fruita) query = query.eq('fruita', filtres.fruita);
+        const { data, error } = await query;
+        if (error) throw error;
+
+        totes = totes.concat(data || []);
+
+        if (!data || data.length < MIDA_PAGINA) break;
+        offset += MIDA_PAGINA;
+    }
+
+    return [...new Set(totes.map(f => f[columna]).filter(Boolean))].sort();
 }
 
 // ------------------------------------------------------------
@@ -218,10 +247,11 @@ function agregarDadesPerCampanya(dades) {
     dades.forEach(fila => {
         const c = fila.campanya;
         if (!resum[c]) {
-            resum[c] = { kgTotal: 0, pecesTotal: 0, perCategoria: {}, perSubcategoria: {}, perCalibre: {} };
+            resum[c] = { kgTotal: 0, kgComercial: 0, pecesTotal: 0, perCategoria: {}, perSubcategoria: {}, perCalibre: {} };
         }
         const kg = Number(fila.pes_kg) || 0;
         const peces = Number(fila.peces) || 0;
+        const esComercial = (fila.categoria || '').toUpperCase().trim() === 'COMERCIAL';
 
         resum[c].kgTotal += kg;
         resum[c].pecesTotal += peces;
@@ -232,8 +262,13 @@ function agregarDadesPerCampanya(dades) {
         const subcategoria = fila.subcategoria || 'Sense subcategoria';
         resum[c].perSubcategoria[subcategoria] = (resum[c].perSubcategoria[subcategoria] || 0) + kg;
 
-        const calibre = fila.calibre || 'Sense calibre';
-        resum[c].perCalibre[calibre] = (resum[c].perCalibre[calibre] || 0) + kg;
+        // El calibre només s'aplica a fruita comercial (indústria/no-comercial no en tenen).
+        // Es calcula i es mostra només sobre aquest subconjunt.
+        if (esComercial) {
+            resum[c].kgComercial += kg;
+            const calibre = fila.calibre || 'Sense calibre (revisar escandall)';
+            resum[c].perCalibre[calibre] = (resum[c].perCalibre[calibre] || 0) + kg;
+        }
     });
 
     return resum;
