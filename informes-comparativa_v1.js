@@ -195,13 +195,16 @@ async function generarInformeComparatiu() {
     const finca = document.getElementById('informe-comp-finca')?.value || '';
 
     try {
-        const dades = await obtenirDadesComparativaCollita(campanyes, { fruita, varietat, finca });
+        const [dades, superficiePerFinca] = await Promise.all([
+            obtenirDadesComparativaCollita(campanyes, { fruita, varietat, finca }),
+            obtenirSuperficiePerFincaCampanya(campanyes)
+        ]);
         if (dades.length === 0) {
             divResultats.innerHTML = '<p class="informe-comp-avis">No hi ha dades per aquesta selecció.</p>';
             return;
         }
         const resum = agregarDadesPerCampanya(dades);
-        renderitzarResultatsComparativa(resum, campanyes);
+        renderitzarResultatsComparativa(resum, campanyes, superficiePerFinca);
     } catch (error) {
         console.error(error);
         if (typeof mostrarNotificacio === 'function') {
@@ -242,13 +245,45 @@ async function obtenirDadesComparativaCollita(campanyes, filtres) {
     return totes;
 }
 
+async function obtenirSuperficiePerFincaCampanya(campanyes) {
+    // Hectàrees TOTALS de cada finca (tots els cultius), per campanya.
+    // No es filtra per fruita: parcelles.cultiu podria no escriure's igual que
+    // vista_informe_collita.fruita (p. ex. "Nectariner" vs "Nectarina").
+    const MIDA_PAGINA = 1000;
+    let totes = [];
+    let offset = 0;
+
+    while (true) {
+        const { data, error } = await supabaseClient
+            .from('parcelles')
+            .select('finca, superficie, campanya')
+            .in('campanya', campanyes)
+            .range(offset, offset + MIDA_PAGINA - 1);
+        if (error) throw error;
+
+        totes = totes.concat(data || []);
+
+        if (!data || data.length < MIDA_PAGINA) break;
+        offset += MIDA_PAGINA;
+    }
+
+    const resultat = {};
+    totes.forEach(p => {
+        const c = p.campanya;
+        const finca = p.finca || 'Sense finca';
+        if (!resultat[c]) resultat[c] = {};
+        resultat[c][finca] = (resultat[c][finca] || 0) + (Number(p.superficie) || 0);
+    });
+    return resultat;
+}
+
 function agregarDadesPerCampanya(dades) {
     const resum = {};
 
     dades.forEach(fila => {
         const c = fila.campanya;
         if (!resum[c]) {
-            resum[c] = { kgTotal: 0, kgComercial: 0, pecesTotal: 0, perCategoria: {}, perSubcategoria: {}, perCalibre: {} };
+            resum[c] = { kgTotal: 0, kgComercial: 0, pecesTotal: 0, perCategoria: {}, perSubcategoria: {}, perCalibre: {}, perFinca: {} };
         }
         const kg = Number(fila.pes_kg) || 0;
         const peces = Number(fila.peces) || 0;
@@ -256,6 +291,9 @@ function agregarDadesPerCampanya(dades) {
 
         resum[c].kgTotal += kg;
         resum[c].pecesTotal += peces;
+
+        const fincaFila = fila.finca || 'Sense finca';
+        resum[c].perFinca[fincaFila] = (resum[c].perFinca[fincaFila] || 0) + kg;
 
         const categoria = fila.categoria || 'Sense categoria';
         resum[c].perCategoria[categoria] = (resum[c].perCategoria[categoria] || 0) + kg;
@@ -279,7 +317,7 @@ function agregarDadesPerCampanya(dades) {
 // RENDERITZAT DE RESULTATS
 // ------------------------------------------------------------
 
-function renderitzarResultatsComparativa(resum, campanyes) {
+function renderitzarResultatsComparativa(resum, campanyes, superficiePerFinca = {}) {
     const divResultats = document.getElementById('informe-comp-resultats');
     const kgMax = Math.max(...campanyes.map(c => resum[c]?.kgTotal || 0), 1);
 
@@ -341,6 +379,36 @@ function renderitzarResultatsComparativa(resum, campanyes) {
         return `<tr><td>${cal.startsWith('Sense') ? '⚠️ ' : '📏 '}${cal}</td>${cel·les}</tr>`;
     }).join('');
 
+    // Taula de rendiment per finca: kg totals i kg/ha
+    // Les hectàrees són el total de la finca (tots els cultius), no específiques de la fruita filtrada.
+    const totesFinques = [...new Set(campanyes.flatMap(c => Object.keys(resum[c]?.perFinca || {})))].sort();
+
+    let kgFincaMax = 1, rendimentMax = 1;
+    const taulaRendiment = totesFinques.map(f => {
+        const perCampanya = campanyes.map(c => {
+            const kg = resum[c]?.perFinca[f] || 0;
+            const ha = superficiePerFinca[c]?.[f] || 0;
+            const rendiment = ha > 0 ? kg / ha : null;
+            kgFincaMax = Math.max(kgFincaMax, kg);
+            if (rendiment !== null) rendimentMax = Math.max(rendimentMax, rendiment);
+            return { kg, ha, rendiment };
+        });
+        return { finca: f, perCampanya };
+    });
+
+    const filesKgFinca = taulaRendiment.map(({ finca: f, perCampanya }) => {
+        const cel·les = perCampanya.map(({ kg }) => cel·laValor(formatNumeroInforme(kg) + ' kg', kg, kgFincaMax)).join('');
+        return `<tr><td>🗺️ ${f}</td>${cel·les}</tr>`;
+    }).join('');
+
+    const filesRendimentFinca = taulaRendiment.map(({ finca: f, perCampanya }) => {
+        const cel·les = perCampanya.map(({ ha, rendiment }) => {
+            if (rendiment === null) return cel·laValor('— (sense ha)', 0, rendimentMax, true);
+            return cel·laValor(rendiment.toFixed(0) + ' kg/ha', rendiment, rendimentMax);
+        }).join('');
+        return `<tr><td>🌾 ${f}</td>${cel·les}</tr>`;
+    }).join('');
+
     const capcaleraCampanyes = campanyes.map(c => `<th>📅 <strong>${c}</strong></th>`).join('');
 
     divResultats.innerHTML = `
@@ -368,6 +436,22 @@ function renderitzarResultatsComparativa(resum, campanyes) {
         </div>
 
         <div class="informe-comp-seccio">
+            <h3>📦 Kg per finca</h3>
+            <table class="informe-comp-taula">
+                <thead><tr><th>Finca</th>${capcaleraCampanyes}</tr></thead>
+                <tbody>${filesKgFinca}</tbody>
+            </table>
+        </div>
+
+        <div class="informe-comp-seccio">
+            <h3>🌾 Rendiment (kg/ha) per finca <span class="informe-comp-nota">(ha totals de la finca, tots els cultius)</span></h3>
+            <table class="informe-comp-taula">
+                <thead><tr><th>Finca</th>${capcaleraCampanyes}</tr></thead>
+                <tbody>${filesRendimentFinca}</tbody>
+            </table>
+        </div>
+
+        <div class="informe-comp-seccio">
             <h3>📏 % per calibre <span class="informe-comp-nota">(sobre kg comercial)</span></h3>
             <table class="informe-comp-taula">
                 <thead><tr><th>Calibre</th>${capcaleraCampanyes}</tr></thead>
@@ -381,6 +465,12 @@ function cel·laPercentatge(pct, alerta = false) {
     const valor = Math.max(0, Math.min(100, parseFloat(pct) || 0));
     const classe = alerta ? 'informe-comp-cel-bar informe-comp-cel-alerta' : 'informe-comp-cel-bar';
     return `<td><div class="${classe}" style="--val:${valor}"><span>${pct}%</span></div></td>`;
+}
+
+function cel·laValor(text, valor, maxReferencia, alerta = false) {
+    const amplada = maxReferencia > 0 ? Math.max(0, Math.min(100, (valor / maxReferencia) * 100)) : 0;
+    const classe = alerta ? 'informe-comp-cel-bar informe-comp-cel-alerta' : 'informe-comp-cel-bar';
+    return `<td><div class="${classe}" style="--val:${amplada}"><span>${text}</span></div></td>`;
 }
 
 function exportarPDFComparativa() {
