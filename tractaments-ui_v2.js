@@ -211,20 +211,40 @@ function crearModalTractamentV2() {
 }
 
 function afegirLiniaProducte(dades) {
-    // dades: { producte_id, dosi, unitat, data_limit } (opcional, per edició)
+    // dades: { producte_id, fertilitzant_id, dosi, unitat, data_limit } (opcional, per edició)
     const container = document.getElementById('linies-productes-container');
     const idx = container.querySelectorAll('.linia-producte').length;
     const superficie = parseFloat(document.getElementById('superficie-total').textContent) || 0;
 
-    const fitosanitarisOrdenats = (fitosanitaris || []).slice().sort(function(a, b) {
+    // Fitosanitaris "de debò" (s'exclouen els marcats com a bioestimulant: es registren com a fertilitzant)
+    const fitosanitarisOrdenats = (fitosanitaris || [])
+        .filter(function(f) { return !f.es_bioestimulant; })
+        .slice()
+        .sort(function(a, b) { return (a.nom || '').localeCompare(b.nom || ''); });
+
+    const fertilitzantsOrdenats = (fertilitzants || []).slice().sort(function(a, b) {
         return (a.nom || '').localeCompare(b.nom || '');
     });
 
+    const valorActual = dades
+        ? (dades.fertilitzant_id ? 'fert:' + dades.fertilitzant_id : (dades.producte_id ? 'fito:' + dades.producte_id : ''))
+        : '';
+
     let optionsHtml = '<option value="">Seleccionar...</option>';
+    optionsHtml += '<optgroup label="🧪 Fitosanitaris">';
     fitosanitarisOrdenats.forEach(function(f) {
-        const sel = (dades && dades.producte_id === f.id) ? 'selected' : '';
-        optionsHtml += '<option value="' + f.id + '" ' + sel + '>' + f.nom + '</option>';
+        const valor = 'fito:' + f.id;
+        const sel = valorActual === valor ? 'selected' : '';
+        optionsHtml += '<option value="' + valor + '" ' + sel + '>' + f.nom + '</option>';
     });
+    optionsHtml += '</optgroup>';
+    optionsHtml += '<optgroup label="🌱 Fertilitzants / Bioestimulants">';
+    fertilitzantsOrdenats.forEach(function(f) {
+        const valor = 'fert:' + f.id;
+        const sel = valorActual === valor ? 'selected' : '';
+        optionsHtml += '<option value="' + valor + '" ' + sel + '>' + f.nom + '</option>';
+    });
+    optionsHtml += '</optgroup>';
 
     const unitatOpts = ['L/Ha', 'kg/Ha', 'g/Ha'].map(function(u) {
         return '<option value="' + u + '"' + (dades && dades.unitat === u ? ' selected' : '') + '>' + u + '</option>';
@@ -245,7 +265,7 @@ function afegirLiniaProducte(dades) {
                         ${optionsHtml}
                     </select>
                     <button type="button" title="Veure fitxa del producte" style="background:#e8f5e9; border:1px solid #c8e6c9; border-radius:4px; padding:6px 8px; cursor:pointer; font-size:14px; white-space:nowrap;"
-                        onclick="veureFitxaFitosanitariPerSelect(this)">📋</button>
+                        onclick="veureFitxaProductePerSelect(this)">📋</button>
                 </div>
             </div>
             <div>
@@ -292,8 +312,12 @@ function eliminarLiniaProducte(btn) {
 
 function actualitzarDataLimitLinia(selectProducte) {
     const linia = selectProducte.closest('.linia-producte');
-    const producteId = selectProducte.value;
-    const producte = (fitosanitaris || []).find(function(f) { return f.id === producteId; });
+    const [tipus, id] = (selectProducte.value || '').split(':');
+
+    // El PLAC (termini de seguretat) només aplica a fitosanitaris
+    if (tipus !== 'fito') return;
+
+    const producte = (fitosanitaris || []).find(function(f) { return f.id === id; });
     if (!producte || !producte.plac) return;
 
     const dataInput = document.getElementById('tractament-data');
@@ -327,9 +351,15 @@ function actualitzarDataLimitEfectiva() {
 function obrirCalculadoraPerLinia(btn) {
     const superficie = parseFloat(document.getElementById('superficie-total').textContent) || 0;
     const linia = btn.closest('.linia-producte');
-    const producteId = linia.querySelector('.lp-producte').value;
-    const producte = (fitosanitaris || []).find(function(f) { return f.id === producteId; });
-    const producteNom = producte ? producte.nom : 'Producte no seleccionat';
+    const [tipus, id] = (linia.querySelector('.lp-producte').value || '').split(':');
+    let producteNom = 'Producte no seleccionat';
+    if (tipus === 'fito') {
+        const p = (fitosanitaris || []).find(function(f) { return f.id === id; });
+        if (p) producteNom = p.nom;
+    } else if (tipus === 'fert') {
+        const p = (fertilitzants || []).find(function(f) { return f.id === id; });
+        if (p) producteNom = p.nom;
+    }
 
     obrirCalculadoraTractament({
         superficie: superficie,
@@ -397,14 +427,19 @@ async function veureTractamentGrupV2(grupTractament) {
     if (productes.length) {
         htmlProductes = '<table class="data-table" style="margin-top:8px;"><thead><tr><th>Producte</th><th>Dosi</th><th>Unitat</th><th>Qtitat Total</th><th>Data Límit</th><th></th></tr></thead><tbody>';
         productes.forEach(function(p) {
-            const nom = p.fitosanitaris ? p.fitosanitaris.nom : '—';
-            const producteId = p.producte_id || '';
+            const esFertilitzant = !!p.fertilitzant_id;
+            const nom = p.fitosanitaris ? p.fitosanitaris.nom : (p.fertilitzants ? p.fertilitzants.nom : '—');
+            const producteId = p.producte_id || p.fertilitzant_id || '';
             const quantitatTotal = (parseFloat(p.dosi) || 0) * superficieTotal;
             const unitatBase = (p.unitat || '').split('/')[0];
-            const botoFitxa = producteId
-                ? '<button class="btn btn-sm" style="background:#e8f5e9;border:1px solid #c8e6c9;color:#2e7d32;padding:3px 8px;font-size:12px;" onclick="veureFitxaFitosanitari(\'' + producteId + '\')">📋 Fitxa</button>'
+            const etiquetaTipus = esFertilitzant
+                ? ' <span style="background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:8px;font-size:10px;">🌱 Fertilitzant</span>'
                 : '';
-            htmlProductes += '<tr><td><strong>' + nom + '</strong></td><td>' + p.dosi + '</td><td>' + p.unitat + '</td><td><strong>' + quantitatTotal.toFixed(2) + ' ' + unitatBase + '</strong></td><td>' + (p.data_limit ? formatData(p.data_limit) : '—') + '</td><td>' + botoFitxa + '</td></tr>';
+            const botoFitxa = producteId
+                ? '<button class="btn btn-sm" style="background:#e8f5e9;border:1px solid #c8e6c9;color:#2e7d32;padding:3px 8px;font-size:12px;" onclick="' +
+                    (esFertilitzant ? 'veureFitxaFertilitzant' : 'veureFitxaFitosanitari') + '(\'' + producteId + '\')">📋 Fitxa</button>'
+                : '';
+            htmlProductes += '<tr><td><strong>' + nom + '</strong>' + etiquetaTipus + '</td><td>' + p.dosi + '</td><td>' + p.unitat + '</td><td><strong>' + quantitatTotal.toFixed(2) + ' ' + unitatBase + '</strong></td><td>' + (p.data_limit ? formatData(p.data_limit) : '—') + '</td><td>' + botoFitxa + '</td></tr>';
         });
         htmlProductes += '</tbody></table>';
     } else {
@@ -499,6 +534,7 @@ async function editarTractamentGrupV2(grupTractament) {
         productes.forEach(function(p) {
             afegirLiniaProducte({
                 producte_id: p.producte_id,
+                fertilitzant_id: p.fertilitzant_id,
                 dosi: p.dosi,
                 unitat: p.unitat,
                 data_limit: p.data_limit
@@ -922,12 +958,63 @@ function veureFitxaFitosanitari(producteId) {
     document.body.insertAdjacentHTML('beforeend', html);
 }
 
-function veureFitxaFitosanitariPerSelect(btn) {
+function veureFitxaFertilitzant(producteId) {
+    const producte = (fertilitzants || []).find(function(f) { return f.id === producteId; });
+    if (!producte) {
+        mostrarNotificacio('Producte no trobat', 'error');
+        return;
+    }
+
+    const anterior = document.getElementById('modal-fitxa-fitosanitari');
+    if (anterior) anterior.remove();
+
+    const camps = [
+        { label: '🏷️ Nom', valor: producte.nom },
+        { label: '📋 Tipus', valor: producte.tipus },
+        { label: '🧪 N-P-K', valor: [producte.n, producte.p, producte.k].map(function(v) { return v != null ? v : '—'; }).join(' - ') },
+        { label: '🔎 Altres', valor: producte.altres },
+        { label: '📦 Unitat estoc', valor: producte.unitat_stock },
+        { label: '📝 Observacions', valor: producte.observacions },
+    ];
+
+    let htmlCamps = '';
+    camps.forEach(function(c) {
+        if (!c.valor) return;
+        htmlCamps += '<div style="display:flex; gap:12px; padding:8px 0; border-bottom:1px solid #f0f0f0;">' +
+            '<span style="min-width:160px; color:#666; font-size:14px;">' + c.label + '</span>' +
+            '<span style="font-size:14px;">' + c.valor + '</span>' +
+            '</div>';
+    });
+
+    const html = `
+    <div id="modal-fitxa-fitosanitari" class="modal" style="display:block; z-index:10000;">
+        <div class="modal-content" style="max-width:520px;">
+            <span class="close" onclick="document.getElementById('modal-fitxa-fitosanitari').remove()">&times;</span>
+            <h2>🌱 Fitxa: ${producte.nom}</h2>
+            <div style="margin:16px 0;">
+                ${htmlCamps || '<p style="color:#999;">Sense dades addicionals</p>'}
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-secondary" onclick="document.getElementById('modal-fitxa-fitosanitari').remove()">
+                    ← Tornar
+                </button>
+            </div>
+        </div>
+    </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function veureFitxaProductePerSelect(btn) {
     const linia = btn.closest('.linia-producte');
-    const producteId = linia.querySelector('.lp-producte').value;
-    if (!producteId) {
+    const [tipus, id] = (linia.querySelector('.lp-producte').value || '').split(':');
+    if (!id) {
         mostrarNotificacio('Selecciona primer un producte', 'error');
         return;
     }
-    veureFitxaFitosanitari(producteId);
+    if (tipus === 'fert') {
+        veureFitxaFertilitzant(id);
+    } else {
+        veureFitxaFitosanitari(id);
+    }
 }

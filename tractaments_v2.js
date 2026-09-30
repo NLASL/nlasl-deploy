@@ -30,7 +30,7 @@ async function getTractamentsComplet(campanya) {
 async function getProductesByGrup(grupTractament) {
     const { data, error } = await supabaseClient
         .from('tractaments_productes')
-        .select('*, fitosanitaris(id, nom, materia_activa, tipus, plac, registre)')
+        .select('*, fitosanitaris(id, nom, materia_activa, tipus, plac, registre), fertilitzants(id, nom, tipus, n, p, k)')
         .eq('grup_tractament', grupTractament)
         .order('created_at');
     if (error) throw error;
@@ -38,12 +38,14 @@ async function getProductesByGrup(grupTractament) {
 }
 
 async function insertProductesGrup(grupTractament, productes) {
-    // productes: [{ producte_id, dosi, unitat, data_limit, observacions_producte }]
+    // productes: [{ producte_id?, fertilitzant_id?, dosi, unitat, data_limit, observacions_producte }]
+    // Exactament un de producte_id / fertilitzant_id ha d'anar emplenat (constraint a BD).
     if (!productes || !productes.length) return;
     const rows = productes.map(function(p) {
         return {
             grup_tractament: grupTractament,
             producte_id: p.producte_id || null,
+            fertilitzant_id: p.fertilitzant_id || null,
             dosi: parseFloat(p.dosi) || 0,
             unitat: p.unitat || 'L/Ha',
             data_limit: p.data_limit || null,
@@ -146,16 +148,19 @@ async function guardarTractament(event) {
         await insertProductesGrup(grupTractament, liniesProducte);
 
         // Moviments d'estoc: un per producte per finca+varietat
+        // (cada línia sap si és fitosanitari o fertilitzant/bioestimulant per si mateixa)
         const moviments = [];
         Object.values(grupsEstoc).forEach(function(g) {
             liniesProducte.forEach(function(lp) {
-                if (!lp.producte_id) return;
+                const esFertilitzant = !!lp.fertilitzant_id;
+                const idProducte = lp.producte_id || lp.fertilitzant_id;
+                if (!idProducte) return;
                 const dosi = parseFloat(lp.dosi) || 0;
                 const unitatBase = (lp.unitat || '').split('/')[0];
                 moviments.push({
                     data,
-                    producte_id: lp.producte_id,
-                    tipus_producte: 'fitosanitari',
+                    producte_id: idProducte,
+                    tipus_producte: esFertilitzant ? 'fertilitzant' : 'fitosanitari',
                     tipus_moviment: 'tractament',
                     quantitat: -(g.superficieTotal * dosi),
                     unitat: unitatBase,
@@ -184,21 +189,23 @@ async function guardarTractament(event) {
 function recollirLiniesProducte() {
     const linies = [];
     document.querySelectorAll('.linia-producte').forEach(function(row) {
-        const producteId = row.querySelector('.lp-producte').value;
+        const valorSelect = row.querySelector('.lp-producte').value; // "fito:<id>" o "fert:<id>"
         const dosi = parseFloat(row.querySelector('.lp-dosi').value);
         const unitat = row.querySelector('.lp-unitat').value;
         const dataLimit = row.querySelector('.lp-data-limit').value;
         const obs = row.querySelector('.lp-obs') ? row.querySelector('.lp-obs').value : '';
 
-        if (producteId && dosi > 0) {
-            linies.push({
-                producte_id: producteId,
-                dosi,
-                unitat,
-                data_limit: dataLimit || null,
-                observacions_producte: obs || null
-            });
-        }
+        if (!valorSelect || !(dosi > 0)) return;
+        const [tipus, id] = valorSelect.split(':');
+
+        linies.push({
+            producte_id: tipus === 'fito' ? id : null,
+            fertilitzant_id: tipus === 'fert' ? id : null,
+            dosi,
+            unitat,
+            data_limit: dataLimit || null,
+            observacions_producte: obs || null
+        });
     });
     return linies;
 }
