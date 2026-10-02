@@ -173,7 +173,10 @@ async function carregarTaulaFacturesAigua() {
             html += `<td style="text-align:right;">${f.total_asg.toLocaleString('ca-ES', {minimumFractionDigits:2})}</td>`;
             html += `<td style="text-align:right;">${f.total_comunitat.toLocaleString('ca-ES', {minimumFractionDigits:2})}</td>`;
             html += `<td style="text-align:right;font-weight:bold;">${f.import_total.toLocaleString('ca-ES', {minimumFractionDigits:2})}</td>`;
-            html += `<td><button class="btn btn-secondary" onclick="obrirFormFacturaAigua(${f.id})" style="padding:4px 10px;">✏️</button></td>`;
+            html += `<td>`;
+            html += `<button class="btn btn-secondary" onclick="obrirFormFacturaAigua(${f.id}, true)" style="padding:4px 10px;margin-right:4px;" title="Veure">👁️</button>`;
+            html += `<button class="btn btn-secondary" onclick="obrirFormFacturaAigua(${f.id}, false)" style="padding:4px 10px;" title="Editar">✏️</button>`;
+            html += `</td>`;
             html += '</tr>';
         });
 
@@ -225,7 +228,7 @@ async function validarConsumFactura(numExplotacio, periodeInicial, periodeFinal,
 // FORMULARI ALTA / EDICIÓ
 // ============================================================
 
-async function obrirFormFacturaAigua(idFactura) {
+async function obrirFormFacturaAigua(idFactura, nomesLectura = false) {
     let factura = null;
     if (idFactura) {
         const { data, error } = await supabaseClient
@@ -249,8 +252,9 @@ async function obrirFormFacturaAigua(idFactura) {
         .map(fi => `<option value="${fi.num_explotacio}" ${fi.num_explotacio === f.num_explotacio ? 'selected' : ''}>${fi.nom_finca}</option>`)
         .join('');
 
+    const titol = nomesLectura ? '👁️ Veure' : (idFactura ? '✏️ Editar' : '➕ Nova');
     let html = `<div style="background:#f5f5f5;border-radius:8px;padding:20px;">`;
-    html += `<h3>${idFactura ? 'Editar' : 'Nova'} factura d'aigua</h3>`;
+    html += `<h3>${titol} factura d'aigua</h3>`;
     html += `<input type="hidden" id="fa-id" value="${idFactura || ''}">`;
 
     html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">';
@@ -301,13 +305,20 @@ async function obrirFormFacturaAigua(idFactura) {
     html += `<div style="text-align:right;font-weight:bold;font-size:16px;background:#f5f5f5;padding:10px;border-radius:6px;margin-bottom:16px;">IMPORT TOTAL FACTURA: <span id="fa-import-total-viu">0.00</span> €</div>`;
 
     html += '<div style="display:flex;gap:10px;">';
-    html += `<button class="btn btn-primary" onclick="guardarFacturaAigua()">💾 Guardar</button>`;
-    html += `<button class="btn btn-secondary" onclick="tancarModalAigua()">Cancel·lar</button>`;
+    if (!nomesLectura) {
+        html += `<button class="btn btn-primary" onclick="guardarFacturaAigua()">💾 Guardar</button>`;
+    }
+    html += `<button class="btn btn-secondary" onclick="tancarModalAigua()">${nomesLectura ? 'Tancar' : 'Cancel·lar'}</button>`;
     html += '</div>';
     html += '</div>';
 
     obrirModalAigua(html);
     recalcularTotalsForm();
+
+    if (nomesLectura) {
+        document.querySelectorAll('#modal-aigua-overlay input, #modal-aigua-overlay select')
+            .forEach(el => el.disabled = true);
+    }
 }
 
 // Recalcula Total ASG / Total Comunitat / Import Total en viu,
