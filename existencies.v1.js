@@ -57,7 +57,8 @@ async function carregarTaulaExistencies() {
         const { data: moviments, error } = await supabaseClient
 			.from('estoc_moviments')
 			.select('*')
-			.eq('estat', 'actiu');
+			.eq('estat', 'actiu')
+			.gte('data', ESTOC_DATA_INICI);
         if (error) throw error;
 
         // Calcular estoc per producte
@@ -190,6 +191,8 @@ async function veureMovimentsProducte(producteId, tipusProducte) {
         .from('estoc_moviments')
         .select('*')
         .eq('producte_id', producteId)
+        .eq('estat', 'actiu')
+        .gte('data', ESTOC_DATA_INICI)
         .order('data', { ascending: false });
     if (error) { mostrarNotificacio('Error: ' + error.message, 'error'); return; }
 
@@ -228,6 +231,7 @@ async function veureMovimentsProducte(producteId, tipusProducte) {
                 'fertilitzacio': '🌾 Fertilització',
                 'inventari_inicial': '📋 Inventari inicial',
                 'ajust': '🔧 Ajust',
+                'ajust_inventari': '📦 Ajust inventari físic',
                 'perdua': '❌ Pèrdua'
             }[m.tipus_moviment] || m.tipus_moviment;
 
@@ -460,7 +464,7 @@ function exportarExistenciesExcel() {
     for (let i = 1; i < wsData.length; i++) {
         const row = i + 1; // Excel és 1-indexat i fila 1 és capçalera
         const cellRef = XLSX.utils.encode_cell({ r: i, c: 7 }); // Columna H
-        ws[cellRef] = { f: 'G' + row + '-F' + row };            // =G2-F2
+        ws[cellRef] = { f: 'IF(G' + row + '="","",G' + row + '-F' + row + ')' };  // buit si no hi ha estoc físic
     }
  
     // Amplada columnes

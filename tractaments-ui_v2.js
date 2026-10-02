@@ -261,7 +261,7 @@ function afegirLiniaProducte(dades) {
             <div>
                 <label style="font-size:12px; color:#666; display:block; margin-bottom:4px;">Producte *</label>
                 <div style="display:flex; gap:4px;">
-                    <select class="lp-producte" onchange="actualitzarDataLimitLinia(this)" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    <select class="lp-producte" onchange="actualitzarUnitatLinia(this); actualitzarDataLimitLinia(this)" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:4px;">
                         ${optionsHtml}
                     </select>
                     <button type="button" title="Veure fitxa del producte" style="background:#e8f5e9; border:1px solid #c8e6c9; border-radius:4px; padding:6px 8px; cursor:pointer; font-size:14px; white-space:nowrap;"
@@ -297,7 +297,34 @@ function afegirLiniaProducte(dades) {
         </div>`;
 
     container.appendChild(div);
+    // La unitat es deriva del producte (catàleg), no es tria
+    actualitzarUnitatLinia(div.querySelector('.lp-producte'));
+    if (dades && dades.unitat) {
+        const uCat = unitatCatalegValor(div.querySelector('.lp-producte').value);
+        if (uCat && _estocUnitatBase(dades.unitat).toLowerCase() !== uCat.toLowerCase()) {
+            mostrarNotificacio('⚠️ La unitat guardada (' + dades.unitat + ') no coincideix amb el catàleg (' + uCat + '). Revisa la dosi.', 'warning');
+        }
+    }
     actualitzarDataLimitEfectiva();
+}
+
+// Unitat d'estoc del producte seleccionat ('fito:<id>' | 'fert:<id>') o null
+function unitatCatalegValor(valor) {
+    const [tipus, id] = (valor || '').split(':');
+    if (!id) return null;
+    const llista = tipus === 'fert' ? fertilitzants : fitosanitaris;
+    const p = (llista || []).find(function(x) { return x.id === id; });
+    return p ? (p.unitat_stock || 'L') : null;
+}
+
+// Fixa la unitat de la línia a <unitat_stock>/Ha (un únic valor possible)
+function actualitzarUnitatLinia(selectProducte) {
+    const linia = selectProducte.closest('.linia-producte');
+    const sel = linia.querySelector('.lp-unitat');
+    const u = unitatCatalegValor(selectProducte.value);
+    sel.innerHTML = u
+        ? '<option value="' + u + '/Ha">' + u + '/Ha</option>'
+        : '<option value="">— tria producte —</option>';
 }
 
 function eliminarLiniaProducte(btn) {
@@ -364,6 +391,7 @@ function obrirCalculadoraPerLinia(btn) {
     obrirCalculadoraTractament({
         superficie: superficie,
         producteNom: producteNom,
+        unitat: unitatCatalegValor(linia.querySelector('.lp-producte').value),
         onConfirm: function(dosi, unitat) {
             linia.querySelector('.lp-dosi').value = dosi;
             const selectUnitat = linia.querySelector('.lp-unitat');

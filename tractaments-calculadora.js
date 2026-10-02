@@ -91,7 +91,11 @@ function obrirCalculadoraTractament(config) {
     if (anterior) anterior.remove();
 
     const nomLower = producteNom.toLowerCase();
-    const unitatDefecte = (nomLower.includes('sofre') || nomLower.includes('pols') || nomLower.includes('wg') || nomLower.includes('wp')) ? 'Kg' : 'L';
+    // La unitat ve del catàleg (config.unitat = 'kg' | 'L'). Només si no ve, s'endevina pel nom.
+    const unitatDefecte = config.unitat
+        ? config.unitat
+        : ((nomLower.includes('sofre') || nomLower.includes('pols') || nomLower.includes('wg') || nomLower.includes('wp')) ? 'kg' : 'L');
+    window._calcSupForm = superficieBase;
 
     const html = `
     <div id="modal-calculadora-tractament" class="modal" style="display:block; z-index:9999; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); overflow-y:auto; padding:10px;">
@@ -281,6 +285,7 @@ function calcExecutarRutaDinamic(unitatDefecte) {
     document.getElementById('calc-res-dosi').textContent = resultats.dosi_per_a_app_produccio + ' ' + unitatDefecte + '/ha';
 
     window._calcDosiResultat = resultats.dosi_per_a_app_produccio;
+    window._calcSupUsada = superficieTotal;
     window._calcUnitatResultat = `${unitatDefecte}/Ha`;
 
     const cubesDiv = document.getElementById('calc-cubes');
@@ -303,7 +308,7 @@ function calcCanviMetode() {
     const inputGasto = document.getElementById('calc-gasto');
     const selectTipus = document.getElementById('calc-tipus-dosi');
     const labelDosi = document.getElementById('calc-label-dosi').textContent;
-    const unitatActual = labelDosi.includes('Kg') ? 'Kg' : 'L';
+    const unitatActual = labelDosi.includes('kg') ? 'kg' : 'L';
 
     if (metode === 'goteig_pinyol') {
         groupGasto.style.display = 'none';
@@ -336,6 +341,13 @@ function calcCanviTipusDosi(unitat = 'L') {
 }
 
 function calcConfirmar() {
+    // La dosi es calcula sobre la superfície de la calculadora, però l'app la multiplica
+    // per la superfície seleccionada al formulari. Si difereixen, el consum quedaria mal.
+    if (window._calcSupUsada !== undefined && window._calcSupForm !== undefined &&
+        Math.abs(window._calcSupUsada - window._calcSupForm) > 0.005) {
+        if (!confirm('Superfície de la calculadora (' + window._calcSupUsada.toFixed(2) + ' Ha) diferent de la del formulari (' +
+            window._calcSupForm.toFixed(2) + ' Ha). La dosi per Ha es registrarà igual i el consum total no coincidirà amb el real. Continuar?')) return;
+    }
     if (window._calcOnConfirm && window._calcDosiResultat !== undefined) {
         window._calcOnConfirm(window._calcDosiResultat, window._calcUnitatResultat);
     }
@@ -348,4 +360,5 @@ function tancarCalculadoraTractament() {
     window._calcOnConfirm = null;
     window._calcDosiResultat = undefined;
     window._calcUnitatResultat = undefined;
+    window._calcSupUsada = undefined;
 }

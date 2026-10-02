@@ -64,8 +64,19 @@ async function deleteProductesGrup(grupTractament) {
     if (error) throw error;
 }
 
+async function eliminarGrupTractamentComplet(grupTractament) {
+    // Ordre: estoc → línies → capçaleres. Si falla, llença l'error (no s'empassa).
+    await eliminarEstocGrup('tractament', grupTractament);
+    await deleteProductesGrup(grupTractament);
+    const { error } = await supabaseClient.from('tractaments').delete().eq('grup_tractament', grupTractament);
+    if (error) throw error;
+}
+
 async function guardarTractament(event) {
     event.preventDefault();
+
+    const form = document.getElementById('form-tractament');
+    if (form.dataset.guardant === '1') return; // evita doble enviament
 
     const data = document.getElementById('tractament-data').value;
     const operador = document.getElementById('tractament-operador').value.trim();
@@ -74,105 +85,76 @@ async function guardarTractament(event) {
     const observacions = document.getElementById('tractament-observacions').value.trim();
     const campanya = getCampanyaDefecte().toString();
 
-    // Recollir línies de producte
     const liniesProducte = recollirLiniesProducte();
     if (!liniesProducte.length) {
         mostrarNotificacio('Cal afegir almenys un producte', 'error');
         return;
     }
 
-    // Recollir parcel·les via selector arbre (getParcellesSeleccionades filtra per campanya activa)
+    const errUnitat = validarUnitatsLinies(liniesProducte, false);
+    if (errUnitat) {
+        mostrarNotificacio(errUnitat, 'error');
+        return;
+    }
+
     const parcellesATractar = getParcellesSeleccionades();
     if (!parcellesATractar.length) {
         mostrarNotificacio('Cal seleccionar almenys una parcel·la', 'error');
         return;
     }
 
-    const form = document.getElementById('form-tractament');
     const editMode = form.dataset.editMode === 'true';
     const editGrup = form.dataset.editGrup || null;
+    const btn = form.querySelector('button[type="submit"]');
+    form.dataset.guardant = '1';
+    if (btn) btn.disabled = true;
+
+    const grupNou = crypto.randomUUID();
 
     try {
+        // Edició: avisar si el grup original tenia parcel·les que el selector ja no mostra
+        // (si continuem, es perdrien en silenci)
         if (editMode && editGrup) {
-            // Edició: eliminar tractaments i productes del grup anterior
-            await supabaseClient.from('tractaments').delete().eq('grup_tractament', editGrup);
-            await supabaseClient.from('estoc_moviments').delete()
-                .in('referencia_id',
-                    (await supabaseClient.from('tractaments').select('id').eq('grup_tractament', editGrup)).data?.map(function(t) { return t.id; }) || []
-                );
+            const ra = await supabaseClient.from('tractaments')
+                .select('parcella_id, superficie_tractada').eq('grup_tractament', editGrup);
+            if (ra.error) throw ra.error;
+            const ids = new Set(parcellesATractar.map(function(p) { return p.id; }));
+            const perdudes = (ra.data || []).filter(function(o) { return !ids.has(o.parcella_id); });
+            if (perdudes.length) {
+                const haPerdudes = perdudes.reduce(function(s, o) { return s + (parseFloat(o.superficie_tractada) || 0); }, 0);
+                if (!confirm('Aquest tractament tenia ' + perdudes.length + ' parcel·les (' + haPerdudes.toFixed(2) +
+                    ' Ha) que ja no són seleccionades i es perdran. Continuar?')) {
+                    form.dataset.guardant = '0';
+                    if (btn) btn.disabled = false;
+                    return;
+                }
+            }
         }
 
-        // Generar un grup_tractament únic per tot el tractament
-        const grupTractament = crypto.randomUUID();
-
-        // Preparar agrupació per estoc (per finca+varietat)
-        const grupsEstoc = {};
-
-        // Inserir tractaments per parcel·la
-        const primerTractamentId = { id: null };
+        // 1) Crear el grup NOU (l'antic no es toca fins que tot ha anat bé)
         for (const p of parcellesATractar) {
-            const superficieParcel = parseFloat(p.superficie) || 0;
-            const finca = p.finca || 'Sense finca';
-            const varietat = p.varietat || 'Sense varietat';
-            const clauGrup = finca + '|' + varietat;
-
-            const nouTractament = {
+            await createTractament({
                 data,
                 operador,
                 maquinaria,
                 condicions_meteo: meteo,
                 observacions,
                 parcella_id: p.id,
-                superficie_tractada: superficieParcel,
+                superficie_tractada: parseFloat(p.superficie) || 0,
                 estat: 'actiu',
                 campanya,
-                grup_tractament: grupTractament,
+                grup_tractament: grupNou,
                 created_by: currentUser ? currentUser.id : null
-            };
-
-            const creat = await createTractament(nouTractament);
-            if (!primerTractamentId.id) primerTractamentId.id = creat.id;
-
-            if (!grupsEstoc[clauGrup]) {
-                grupsEstoc[clauGrup] = {
-                    finca,
-                    varietat,
-                    superficieTotal: 0,
-                    referenciaId: creat.id
-                };
-            }
-            grupsEstoc[clauGrup].superficieTotal += superficieParcel;
-        }
-
-        // Inserir línies de producte
-        await insertProductesGrup(grupTractament, liniesProducte);
-
-        // Moviments d'estoc: un per producte per finca+varietat
-        // (cada línia sap si és fitosanitari o fertilitzant/bioestimulant per si mateixa)
-        const moviments = [];
-        Object.values(grupsEstoc).forEach(function(g) {
-            liniesProducte.forEach(function(lp) {
-                const esFertilitzant = !!lp.fertilitzant_id;
-                const idProducte = lp.producte_id || lp.fertilitzant_id;
-                if (!idProducte) return;
-                const dosi = parseFloat(lp.dosi) || 0;
-                const unitatBase = (lp.unitat || '').split('/')[0];
-                moviments.push({
-                    data,
-                    producte_id: idProducte,
-                    tipus_producte: esFertilitzant ? 'fertilitzant' : 'fitosanitari',
-                    tipus_moviment: 'tractament',
-                    quantitat: -(g.superficieTotal * dosi),
-                    unitat: unitatBase,
-                    referencia_id: g.referenciaId,
-                    observacions: 'Tractament a ' + g.finca + ' – ' + g.varietat + ' (' + g.superficieTotal.toFixed(2) + ' Ha)',
-                    creat_per: currentUser ? currentUser.id : null
-                });
             });
-        });
+        }
+        await insertProductesGrup(grupNou, liniesProducte);
 
-        if (moviments.length) {
-            await supabaseClient.from('estoc_moviments').insert(moviments);
+        // 2) Estoc: un moviment per línia de producte
+        await sincronitzarEstocGrup('tractament', grupNou);
+
+        // 3) Només ara, eliminar l'antic (si és edició)
+        if (editMode && editGrup) {
+            await eliminarGrupTractamentComplet(editGrup);
         }
 
         mostrarNotificacio(editMode ? 'Tractament actualitzat' : 'Tractament registrat', 'success');
@@ -182,7 +164,12 @@ async function guardarTractament(event) {
 
     } catch (error) {
         console.error('Error guardarTractament:', error);
+        // Desfer el grup nou; l'original (si n'hi ha) queda intacte
+        try { await eliminarGrupTractamentComplet(grupNou); } catch (e2) { console.error('Rollback:', e2); }
         mostrarNotificacio('Error en guardar: ' + error.message, 'error');
+    } finally {
+        form.dataset.guardant = '0';
+        if (btn) btn.disabled = false;
     }
 }
 
@@ -212,33 +199,13 @@ function recollirLiniesProducte() {
 
 async function eliminarTractamentGrup(grupTractament) {
     if (!confirm('Segur que vols eliminar aquest tractament?')) return;
-
     try {
-        // Obtenir ids per eliminar estoc
-        const { data: tractIds } = await supabaseClient
-            .from('tractaments')
-            .select('id')
-            .eq('grup_tractament', grupTractament);
-
-        const ids = (tractIds || []).map(function(t) { return t.id; });
-
-        // Eliminar productes del grup
-        await deleteProductesGrup(grupTractament);
-
-        // Eliminar moviments d'estoc
-        if (ids.length) {
-            await supabaseClient.from('estoc_moviments').delete().in('referencia_id', ids);
-        }
-
-        // Eliminar tractaments
-        await supabaseClient.from('tractaments').delete().eq('grup_tractament', grupTractament);
-
+        await eliminarGrupTractamentComplet(grupTractament);
         mostrarNotificacio('Tractament eliminat', 'success');
         await carregarTaulaTractaments();
-
     } catch (error) {
         console.error(error);
-        mostrarNotificacio('Error eliminant tractament', 'error');
+        mostrarNotificacio('Error eliminant tractament: ' + error.message, 'error');
     }
 }
 
