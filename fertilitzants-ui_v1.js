@@ -339,8 +339,19 @@ function resetFormulariFertilitzacions() {
 // GUARDAR
 // ============================================================
 
+async function eliminarGrupFertilitzacioComplet(grupFertilitzacio) {
+    await eliminarEstocGrup('fertilitzacio', grupFertilitzacio);
+    const r1 = await supabaseClient.from('fertilitzacions_productes').delete().eq('grup_fertilitzacio', grupFertilitzacio);
+    if (r1.error) throw r1.error;
+    const r2 = await supabaseClient.from('fertilitzacions').delete().eq('grup_fertilitzacio', grupFertilitzacio);
+    if (r2.error) throw r2.error;
+}
+
 async function guardarFertilitzacio(event) {
     event.preventDefault();
+
+    var form = document.getElementById('form-fertilitzacio');
+    if (form.dataset.guardant === '1') return; // evita doble enviament
 
     var data       = document.getElementById('fertilitzacio-data').value;
     var metode     = document.getElementById('fertilitzacio-metode').value;
@@ -354,6 +365,11 @@ async function guardarFertilitzacio(event) {
         mostrarNotificacio('Cal afegir almenys un producte', 'error');
         return;
     }
+    var errUnitat = validarUnitatsLinies(liniesProducte, true);
+    if (errUnitat) {
+        mostrarNotificacio(errUnitat, 'error');
+        return;
+    }
 
     var parcellesAFertilitzar = getParcellesFertilitzacioSeleccionades();
     if (!parcellesAFertilitzar.length) {
@@ -361,77 +377,81 @@ async function guardarFertilitzacio(event) {
         return;
     }
 
-    var form = document.getElementById('form-fertilitzacio');
     var editMode = form.dataset.editMode === 'true';
     var editGrup = form.dataset.editGrup || null;
+    var btn = form.querySelector('button[type="submit"]');
+    form.dataset.guardant = '1';
+    if (btn) btn.disabled = true;
+
+    var grupNou = crypto.randomUUID();
 
     try {
+        // Edició: avisar si el grup original tenia parcel·les que el selector ja no mostra
         if (editMode && editGrup) {
-            // Edició: esborrar registres anteriors del grup
-            await supabaseClient.from('fertilitzacions_productes').delete().eq('grup_fertilitzacio', editGrup);
-            await supabaseClient.from('fertilitzacions').delete().eq('grup_fertilitzacio', editGrup);
+            var ra = await supabaseClient.from('fertilitzacions')
+                .select('parcella_id, superficie_tractada').eq('grup_fertilitzacio', editGrup);
+            if (ra.error) throw ra.error;
+            var ids = new Set(parcellesAFertilitzar.map(function(p) { return p.id; }));
+            var perdudes = (ra.data || []).filter(function(o) { return !ids.has(o.parcella_id); });
+            if (perdudes.length) {
+                var haPerdudes = perdudes.reduce(function(s, o) { return s + (parseFloat(o.superficie_tractada) || 0); }, 0);
+                if (!confirm('Aquesta fertilització tenia ' + perdudes.length + ' parcel·les (' + haPerdudes.toFixed(2) +
+                    ' Ha) que ja no són seleccionades i es perdran. Continuar?')) {
+                    form.dataset.guardant = '0';
+                    if (btn) btn.disabled = false;
+                    return;
+                }
+            }
         }
 
-        var grupFertilitzacio = crypto.randomUUID();
-
-        // Inserir una fila a `fertilitzacions` per cada parcel·la
+        // 1) Crear el grup NOU (l'antic no es toca fins que tot ha anat bé)
         for (var pi = 0; pi < parcellesAFertilitzar.length; pi++) {
             var p = parcellesAFertilitzar[pi];
             var superficieParcel = parseFloat(p.superficie) || 0;
-
-            // Calcular NPK agregat (suma de tots els productes) per aquesta parcel·la
-            // S'escriu a n_total/p_total/k_total per compatibilitat amb el Llibre actual.
-            // Quan el Llibre es migri per llegir de fertilitzacions_productes,
-            // aquests camps deixaran de ser necessaris.
             var npk = calcularNPKGrup(liniesProducte, superficieParcel);
 
-            var novaFila = {
-                data:               data,
-                metode:             metode || null,
-                operador:           operador || null,
-                maquinaria:         maquinaria || null,
-                observacions:       observacions || null,
-                parcella_id:        p.id,
+            var res = await supabaseClient.from('fertilitzacions').insert([{
+                data:                data,
+                metode:              metode || null,
+                operador:            operador || null,
+                maquinaria:          maquinaria || null,
+                observacions:        observacions || null,
+                parcella_id:         p.id,
                 superficie_tractada: superficieParcel,
-                estat:              'actiu',
-                campanya:           campanya,
-                grup_fertilitzacio: grupFertilitzacio,
-                n_total:            parseFloat(npk.n.toFixed(4)),
-                p_total:            parseFloat(npk.p.toFixed(4)),
-                k_total:            parseFloat(npk.k.toFixed(4)),
-                // Camps de compatibilitat amb el Llibre actual (llegeix dosi/producte_id directes)
-                // S'eliminarà quan el Llibre es migri per llegir de fertilitzacions_productes
-                producte_id:        liniesProducte[0].producte_id || null,
-                dosi:               parseFloat(liniesProducte[0].dosi) || 0,
-                unitat:             liniesProducte[0].unitat || 'kg/Ha',
-                created_by:         (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null
-            };
-
-            var res = await supabaseClient
-                .from('fertilitzacions')
-                .insert([novaFila])
-                .select()
-                .single();
+                estat:               'actiu',
+                campanya:            campanya,
+                grup_fertilitzacio:  grupNou,
+                n_total:             parseFloat(npk.n.toFixed(4)),
+                p_total:             parseFloat(npk.p.toFixed(4)),
+                k_total:             parseFloat(npk.k.toFixed(4)),
+                // Compatibilitat amb el Llibre actual (llegeix la primera línia)
+                producte_id:         liniesProducte[0].producte_id || null,
+                dosi:                parseFloat(liniesProducte[0].dosi) || 0,
+                unitat:              liniesProducte[0].unitat,
+                created_by:          (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null
+            }]);
             if (res.error) throw res.error;
         }
 
-        // Inserir línies de producte (una fila per producte, compartida per totes les parcel·les)
         var rowsProductes = liniesProducte.map(function(lp) {
             return {
-                grup_fertilitzacio:   grupFertilitzacio,
-                producte_id:          lp.producte_id || null,
-                dosi:                 parseFloat(lp.dosi) || 0,
-                unitat:               lp.unitat || 'kg/Ha',
+                grup_fertilitzacio:    grupNou,
+                producte_id:           lp.producte_id || null,
+                dosi:                  parseFloat(lp.dosi) || 0,
+                unitat:                lp.unitat,
                 observacions_producte: lp.observacions_producte || null
             };
         });
-
         var resProds = await supabaseClient.from('fertilitzacions_productes').insert(rowsProductes);
         if (resProds.error) throw resProds.error;
 
-        // NOTA ESTOC: quan s'activi el control d'estoc de fertilitzants,
-        // afegir aquí els moviments seguint el patró de guardarTractament:
-        //   un moviment per producte per finca|varietat, quantitat = -(superficieTotal × dosi)
+        // 2) Estoc: un moviment per línia de producte
+        await sincronitzarEstocGrup('fertilitzacio', grupNou);
+
+        // 3) Només ara, eliminar l'antic (si és edició)
+        if (editMode && editGrup) {
+            await eliminarGrupFertilitzacioComplet(editGrup);
+        }
 
         mostrarNotificacio(editMode ? 'Fertilització actualitzada' : 'Fertilització registrada', 'success');
         tancarModal('modal-fertilitzacio');
@@ -440,7 +460,11 @@ async function guardarFertilitzacio(event) {
 
     } catch (error) {
         console.error('Error guardarFertilitzacio:', error);
+        try { await eliminarGrupFertilitzacioComplet(grupNou); } catch (e2) { console.error('Rollback:', e2); }
         mostrarNotificacio('Error en guardar: ' + error.message, 'error');
+    } finally {
+        form.dataset.guardant = '0';
+        if (btn) btn.disabled = false;
     }
 }
 
@@ -476,7 +500,7 @@ function afegirLiniaProducteFertilitzant(dades) {
             <div>
                 <label style="font-size:12px; color:#666; display:block; margin-bottom:4px;">Producte *</label>
                 <div style="display:flex; gap:4px;">
-                    <select class="lp-fert-producte" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    <select class="lp-fert-producte" onchange="actualitzarUnitatLiniaFert(this)" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:4px;">
                         ${optionsHtml}
                     </select>
                     <button type="button" title="Veure fitxa del producte"
@@ -507,6 +531,28 @@ function afegirLiniaProducteFertilitzant(dades) {
         </div>`;
 
     container.appendChild(div);
+    // La unitat es deriva del producte (catàleg), no es tria
+    actualitzarUnitatLiniaFert(div.querySelector('.lp-fert-producte'));
+    if (dades && dades.unitat) {
+        var uCat = unitatCatalegFert(div.querySelector('.lp-fert-producte').value);
+        if (uCat && _estocUnitatBase(dades.unitat).toLowerCase() !== uCat.toLowerCase()) {
+            mostrarNotificacio('⚠️ La unitat guardada (' + dades.unitat + ') no coincideix amb el catàleg (' + uCat + '). Revisa la dosi.', 'warning');
+        }
+    }
+}
+
+function unitatCatalegFert(producteId) {
+    var p = (fertilitzants || []).find(function(f) { return f.id === producteId; });
+    return p ? (p.unitat_stock || 'L') : null;
+}
+
+function actualitzarUnitatLiniaFert(selectProducte) {
+    var linia = selectProducte.closest('.linia-producte-fert');
+    var sel = linia.querySelector('.lp-fert-unitat');
+    var u = unitatCatalegFert(selectProducte.value);
+    sel.innerHTML = u
+        ? '<option value="' + u + '/Ha">' + u + '/Ha</option>'
+        : '<option value="">— tria producte —</option>';
 }
 
 function eliminarLiniaProducteFertilitzant(btn) {
@@ -932,15 +978,13 @@ async function editarFertilitzacioGrupV2(grupFertilitzacio) {
 
 async function eliminarFertilitzacioGrup(grupFertilitzacio) {
     if (!confirm('Segur que vols eliminar aquesta fertilització?')) return;
-
     try {
-        await supabaseClient.from('fertilitzacions_productes').delete().eq('grup_fertilitzacio', grupFertilitzacio);
-        await supabaseClient.from('fertilitzacions').delete().eq('grup_fertilitzacio', grupFertilitzacio);
+        await eliminarGrupFertilitzacioComplet(grupFertilitzacio);
         mostrarNotificacio('Fertilització eliminada', 'success');
         await carregarTaulaFertilitzacions();
     } catch (error) {
         console.error('eliminarFertilitzacioGrup:', error);
-        mostrarNotificacio('Error eliminant fertilització', 'error');
+        mostrarNotificacio('Error eliminant fertilització: ' + error.message, 'error');
     }
 }
 
@@ -1073,6 +1117,7 @@ function obrirCalculadoraFertPerLinia(btn) {
     obrirCalculadoraTractament({
         superficie: superficie,
         producteNom: producteNom,
+        unitat: unitatCatalegFert(producteId),
         onConfirm: function(dosi, unitat) {
             linia.querySelector('.lp-fert-dosi').value = dosi;
             var selectUnitat = linia.querySelector('.lp-fert-unitat');
