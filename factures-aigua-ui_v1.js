@@ -18,9 +18,9 @@ function obrirModalAigua(contingutHtml) {
     overlay.id = 'modal-aigua-overlay';
     overlay.style.cssText = `
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0,0,0,0.5); z-index: 9999;
+        background: rgba(0,0,0,0.6); z-index: 2147483647;
         display: flex; align-items: flex-start; justify-content: center;
-        overflow-y: auto; padding: 30px 15px;
+        overflow-y: auto; padding: 50px 15px;
     `;
     overlay.onclick = (e) => { if (e.target === overlay) tancarModalAigua(); };
 
