@@ -423,6 +423,20 @@ async function guardarFacturaAigua() {
         console.error('❌ Error guardant factura aigua:', error);
         mostrarNotificacio('Error: ' + error.message, 'error');
     }
+	
+}
+const { data, error } = await supabase
+  .from('factures_aigua_asg')
+  .insert([dadesFactura]); // o .upsert()
+
+if (error) {
+  console.error("❌ Error guardant factura aigua:", {
+    message: error.message,
+    details: error.details,
+    hint: error.hint,
+    code: error.code
+  });
+  return;
 }
 
 console.log('✅ Factures Aigua UI carregat');
