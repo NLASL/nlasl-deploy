@@ -227,7 +227,7 @@ function renderitzarControlsComparativa(campanyes, fruites) {
             </div>
 
             <div class="informe-comp-camp">
-                <label for="informe-comp-finca">🗺️ Finca <span class="informe-comp-nota">(només afecta blocs de collita)</span></label>
+                <label for="informe-comp-finca">🗺️ Finca <span class="informe-comp-nota">(afecta collita i aigua)</span></label>
                 <select id="informe-comp-finca">
                     <option value="">Totes</option>
                 </select>
@@ -326,9 +326,16 @@ async function generarInformeComparatiu() {
         }
 
         const resum = datasetsNecessaris.has('collita') ? agregarDadesPerCampanya(dadesCollita) : {};
-        const resumAigua = datasetsNecessaris.has('aigua') ? agregarDadesAiguaPerCampanya(filesAigua) : {};
+        const resumAiguaComplet = datasetsNecessaris.has('aigua') ? agregarDadesAiguaPerCampanya(filesAigua) : {};
+        // El recompte de finques ASG ("5/7") es calcula sempre sobre el total, abans de filtrar per finca
+        const totalFinquesASG = new Set(Object.values(resumAiguaComplet).flatMap(o => Object.keys(o))).size;
+        // El filtre de finca també s'aplica a l'aigua (fruita/varietat no: el reg és de tota la finca)
+        const resumAigua = {};
+        Object.entries(resumAiguaComplet).forEach(([c, finques]) => {
+            resumAigua[c] = finca ? Object.fromEntries(Object.entries(finques).filter(([nom]) => nom === finca)) : finques;
+        });
 
-        const ctx = { campanyes, resum, superficiePerFinca, resumAigua, filtres: { fruita, varietat, finca } };
+        const ctx = { campanyes, resum, superficiePerFinca, resumAigua, totalFinquesASG, filtres: { fruita, varietat, finca } };
         renderitzarResultatsComparativa(ctx, blocsSeleccionats);
 
     } catch (error) {
@@ -754,8 +761,7 @@ function cel·laValorDelta(text, valor, maxReferencia, delta, subnota = '') {
 // (aigua+ha per m³/ha, aigua+kg per €/kg), perquè numerador i
 // denominador provinguin sempre de les mateixes finques.
 function calcularTotalsAigua(ctx) {
-    const { campanyes, resum, resumAigua, superficiePerFinca } = ctx;
-    const totalFinquesASG = new Set(Object.values(resumAigua).flatMap(o => Object.keys(o))).size;
+    const { campanyes, resum, resumAigua, superficiePerFinca, totalFinquesASG } = ctx;
     const totals = {};
 
     campanyes.forEach(c => {
@@ -847,11 +853,15 @@ function renderTaulaAigua(ctx, totals, finques, opcions) {
     `;
 }
 
-function renderAvisSenseAigua(titol) {
+function renderAvisSenseAigua(titol, ctx) {
+    const finca = ctx?.filtres?.finca;
+    const missatge = finca
+        ? `SENSE DADES d'aigua per a «${finca}»: no és una finca del canal ASG o no té factures per a les campanyes seleccionades.`
+        : 'No hi ha factures d\'aigua registrades per a les campanyes seleccionades.';
     return `
         <div class="informe-comp-seccio">
             <h3>${titol}</h3>
-            <p class="informe-comp-avis">No hi ha factures d'aigua registrades per a les campanyes seleccionades.</p>
+            <p class="informe-comp-avis">${missatge}</p>
         </div>
     `;
 }
@@ -860,7 +870,7 @@ function renderBlocAiguaConsum(ctx) {
     assegurarEstilsDeltaInforme();
     const { campanyes, resumAigua, superficiePerFinca } = ctx;
     const finques = [...new Set(campanyes.flatMap(c => Object.keys(resumAigua[c] || {})))].sort();
-    if (finques.length === 0) return renderAvisSenseAigua('💧 Consum aigua');
+    if (finques.length === 0) return renderAvisSenseAigua('💧 Consum aigua', ctx);
 
     const totals = calcularTotalsAigua(ctx);
 
@@ -894,7 +904,7 @@ function renderBlocAiguaCost(ctx) {
     assegurarEstilsDeltaInforme();
     const { campanyes, resum, resumAigua, filtres } = ctx;
     const finques = [...new Set(campanyes.flatMap(c => Object.keys(resumAigua[c] || {})))].sort();
-    if (finques.length === 0) return renderAvisSenseAigua('💶 Cost aigua');
+    if (finques.length === 0) return renderAvisSenseAigua('💶 Cost aigua', ctx);
 
     const totals = calcularTotalsAigua(ctx);
 
