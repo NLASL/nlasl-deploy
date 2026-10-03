@@ -328,7 +328,7 @@ async function generarInformeComparatiu() {
         const resum = datasetsNecessaris.has('collita') ? agregarDadesPerCampanya(dadesCollita) : {};
         const resumAigua = datasetsNecessaris.has('aigua') ? agregarDadesAiguaPerCampanya(filesAigua) : {};
 
-        const ctx = { campanyes, resum, superficiePerFinca, resumAigua };
+        const ctx = { campanyes, resum, superficiePerFinca, resumAigua, filtres: { fruita, varietat, finca } };
         renderitzarResultatsComparativa(ctx, blocsSeleccionats);
 
     } catch (error) {
@@ -493,7 +493,9 @@ function agregarDadesAiguaPerCampanya(files) {
             consumFacturat: Number(fila.consum_m3_facturat) || 0,
             consumReg: Number(fila.consum_m3_reg) || 0,
             costTotal: Number(fila.cost_total) || 0,
-            costPerM3: fila.cost_per_m3 !== null && fila.cost_per_m3 !== undefined ? Number(fila.cost_per_m3) : null
+            costPerM3: fila.cost_per_m3 !== null && fila.cost_per_m3 !== undefined ? Number(fila.cost_per_m3) : null,
+            // Dependrà que la RPC retorni 'estat' (o equivalent); si no, simplement no es marca
+            simulada: fila.estat === 'simulada' || fila.te_simulades === true
         };
     });
     return resum;
@@ -707,127 +709,242 @@ function renderBlocCalibre(ctx) {
 // BLOCS — AIGUA
 // ------------------------------------------------------------
 
-function renderBlocAiguaConsum(ctx) {
-    const { campanyes, resumAigua, superficiePerFinca } = ctx;
-    const totesFinques = [...new Set(campanyes.flatMap(c => Object.keys(resumAigua[c] || {})))].sort();
-    const capcaleraCampanyes = campanyes.map(c => `<th>📅 <strong>${c}</strong></th>`).join('');
+const NOTA_AIGUA_ASG = 'Només inclou l\'aigua regada pel canal ASG (Segarra-Garrigues). No inclou Urgell ni cap finca fora d\'aquest canal.';
 
-    if (totesFinques.length === 0) {
-        return `
-            <div class="informe-comp-seccio">
-                <h3>💧 Consum aigua</h3>
-                <p class="informe-comp-avis">No hi ha factures d'aigua registrades per a les campanyes seleccionades.</p>
-            </div>
-        `;
-    }
+// Estils de les variacions (Δ%). S'injecten un sol cop des d'aquí
+// per no haver de tocar styles.css.
+function assegurarEstilsDeltaInforme() {
+    if (document.getElementById('informe-comp-estils-delta')) return;
+    const estil = document.createElement('style');
+    estil.id = 'informe-comp-estils-delta';
+    estil.textContent = `
+        .informe-comp-delta { margin-left: 6px; font-weight: 600; white-space: nowrap; }
+        .informe-comp-delta-millor { color: #2e7d32; }
+        .informe-comp-delta-pitjor { color: #c62828; }
+        .informe-comp-delta-neutre { color: #757575; }
+        .informe-comp-fila-total td { border-top: 2px solid #999; font-weight: 700; }
+        .informe-comp-subnota { display: block; font-size: 0.75em; font-weight: 400; color: #757575; }
+    `;
+    document.head.appendChild(estil);
+}
 
-    let consumMax = 1, m3haMax = 1;
-    const dades = totesFinques.map(f => {
-        const perCampanya = campanyes.map(c => {
-            const d = resumAigua[c]?.[f];
-            const consum = d ? d.consumReg : null;
+// Variació percentual respecte la campanya anterior seleccionada.
+// Tots els indicadors on l'usem (m³/ha, €/m³, €/kg) són "com més baix, millor".
+function deltaInforme(actual, anterior) {
+    if (actual === null || actual === undefined || anterior === null || anterior === undefined || anterior === 0) return null;
+    return ((actual - anterior) / Math.abs(anterior)) * 100;
+}
+
+function htmlDeltaInforme(delta) {
+    if (delta === null) return '';
+    const classe = Math.abs(delta) < 0.5 ? 'neutre' : (delta > 0 ? 'pitjor' : 'millor');
+    const fletxa = delta > 0 ? '▲' : '▼';
+    const text = Math.abs(delta).toLocaleString('ca-ES', { maximumFractionDigits: 1 });
+    return `<small class="informe-comp-delta informe-comp-delta-${classe}">${fletxa} ${text}%</small>`;
+}
+
+function cel·laValorDelta(text, valor, maxReferencia, delta, subnota = '') {
+    const amplada = maxReferencia > 0 ? Math.max(0, Math.min(100, (valor / maxReferencia) * 100)) : 0;
+    const sub = subnota ? `<span class="informe-comp-subnota">${subnota}</span>` : '';
+    return `<td><div class="informe-comp-cel-bar" style="--val:${amplada}"><span>${text}${htmlDeltaInforme(delta)}${sub}</span></div></td>`;
+}
+
+// Totals d'aigua per campanya. Regla clau: cada total només suma les
+// finques que tenen les dades necessàries per a AQUELL indicador
+// (aigua+ha per m³/ha, aigua+kg per €/kg), perquè numerador i
+// denominador provinguin sempre de les mateixes finques.
+function calcularTotalsAigua(ctx) {
+    const { campanyes, resum, resumAigua, superficiePerFinca } = ctx;
+    const totalFinquesASG = new Set(Object.values(resumAigua).flatMap(o => Object.keys(o))).size;
+    const totals = {};
+
+    campanyes.forEach(c => {
+        const finques = Object.keys(resumAigua[c] || {}).sort();
+        const t = {
+            finques, clau: finques.join('|'), totalFinquesASG,
+            consum: 0, cost: 0,
+            consumAmbHa: 0, ha: 0,
+            costAmbKg: 0, kg: 0,
+            simulada: false
+        };
+        finques.forEach(f => {
+            const d = resumAigua[c][f];
+            t.consum += d.consumReg;
+            t.cost += d.costTotal;
+            if (d.simulada) t.simulada = true;
             const { ha } = trobarHaAmbFallback(superficiePerFinca, c, f);
-            const m3ha = (consum !== null && ha > 0) ? consum / ha : null;
-            if (consum !== null) consumMax = Math.max(consumMax, consum);
-            if (m3ha !== null) m3haMax = Math.max(m3haMax, m3ha);
-            return { consum, m3ha };
+            if (ha > 0) { t.consumAmbHa += d.consumReg; t.ha += ha; }
+            const kg = resum[c]?.perFinca?.[f];
+            if (kg > 0) { t.costAmbKg += d.costTotal; t.kg += kg; }
         });
-        return { finca: f, perCampanya };
+        t.m3ha = t.ha > 0 ? t.consumAmbHa / t.ha : null;
+        t.euroM3 = t.consum > 0 ? t.cost / t.consum : null;
+        t.euroKg = t.kg > 0 ? t.costAmbKg / t.kg : null;
+        totals[c] = t;
+    });
+    return totals;
+}
+
+// Pinta una taula d'aigua genèrica (files per finca + fila TOTAL).
+// opcions: { titol, nota, valorFinca(f,c), claTotal, format(v), ambDelta, textBuit }
+function renderTaulaAigua(ctx, totals, finques, opcions) {
+    const { campanyes } = ctx;
+    const capcalera = campanyes.map(c => `<th>📅 <strong>${c}</strong></th>`).join('');
+    const { titol, nota, valorFinca, claTotal, format, ambDelta, textBuit = '—' } = opcions;
+
+    // Valors per finca i màxim de referència per a les barres
+    let max = 1;
+    const valors = {};
+    finques.forEach(f => {
+        valors[f] = campanyes.map(c => {
+            const v = valorFinca(f, c);
+            if (v !== null && v !== undefined) max = Math.max(max, Math.abs(v));
+            return v;
+        });
+    });
+    campanyes.forEach(c => {
+        const v = totals[c][claTotal];
+        if (v !== null && v !== undefined) max = Math.max(max, Math.abs(v));
     });
 
-    const filesConsum = dades.map(({ finca: f, perCampanya }) => {
-        const cel·les = perCampanya.map(({ consum }) =>
-            consum !== null ? cel·laValor(formatNumeroInforme(consum) + ' m³', consum, consumMax) : cel·laValor('—', 0, consumMax, true)
-        ).join('');
-        return `<tr><td>💧 ${f}</td>${cel·les}</tr>`;
+    const filesFinques = finques.map(f => {
+        const cel·les = campanyes.map((c, i) => {
+            const v = valors[f][i];
+            if (v === null || v === undefined) return cel·laValor(textBuit, 0, max, true);
+            const delta = (ambDelta && i > 0) ? deltaInforme(v, valors[f][i - 1]) : null;
+            return cel·laValorDelta(format(v), Math.abs(v), max, delta);
+        }).join('');
+        return `<tr><td>${f}</td>${cel·les}</tr>`;
     }).join('');
 
-    const filesM3ha = dades.map(({ finca: f, perCampanya }) => {
-        const cel·les = perCampanya.map(({ m3ha }) =>
-            m3ha !== null ? cel·laValor(m3ha.toFixed(0) + ' m³/ha', m3ha, m3haMax) : cel·laValor('— (sense ha)', 0, m3haMax, true)
-        ).join('');
-        return `<tr><td>🌾 ${f}</td>${cel·les}</tr>`;
+    // Fila TOTAL: la variació només es mostra si les dues campanyes
+    // tenen exactament les mateixes finques (si no, no és comparable).
+    const celTotal = campanyes.map((c, i) => {
+        const t = totals[c];
+        const v = t[claTotal];
+        if (v === null || v === undefined) return cel·laValor(textBuit, 0, max, true);
+        let delta = null;
+        if (ambDelta && i > 0) {
+            const prev = totals[campanyes[i - 1]];
+            if (prev.clau === t.clau) delta = deltaInforme(v, prev[claTotal]);
+        }
+        const sub = `${t.finques.length}/${t.totalFinquesASG} finques` + (t.simulada ? ' · ⚠️ inclou simulades' : '');
+        return cel·laValorDelta(format(v), Math.abs(v), max, delta, sub);
     }).join('');
 
     return `
         <div class="informe-comp-seccio">
-            <h3>💧 Consum aigua — m³ total <span class="informe-comp-nota">(consum real per telemetria, no el facturat)</span></h3>
+            <h3>${titol}</h3>
+            ${nota ? `<p class="informe-comp-nota">${nota}</p>` : ''}
             <table class="informe-comp-taula">
-                <thead><tr><th>Finca</th>${capcaleraCampanyes}</tr></thead>
-                <tbody>${filesConsum}</tbody>
-            </table>
-        </div>
-        <div class="informe-comp-seccio">
-            <h3>💧 Consum aigua — m³/ha</h3>
-            <table class="informe-comp-taula">
-                <thead><tr><th>Finca</th>${capcaleraCampanyes}</tr></thead>
-                <tbody>${filesM3ha}</tbody>
+                <thead><tr><th>Finca</th>${capcalera}</tr></thead>
+                <tbody>
+                    ${filesFinques}
+                    <tr class="informe-comp-fila-total"><td>TOTAL ASG</td>${celTotal}</tr>
+                </tbody>
             </table>
         </div>
     `;
 }
 
-function renderBlocAiguaCost(ctx) {
-    const { campanyes, resum, resumAigua } = ctx;
-    const totesFinques = [...new Set(campanyes.flatMap(c => Object.keys(resumAigua[c] || {})))].sort();
-    const capcaleraCampanyes = campanyes.map(c => `<th>📅 <strong>${c}</strong></th>`).join('');
-
-    if (totesFinques.length === 0) {
-        return `
-            <div class="informe-comp-seccio">
-                <h3>💶 Cost aigua</h3>
-                <p class="informe-comp-avis">No hi ha factures d'aigua registrades per a les campanyes seleccionades.</p>
-            </div>
-        `;
-    }
-
-    let costMax = 1, euroKgMax = 1;
-    const dades = totesFinques.map(f => {
-        const perCampanya = campanyes.map(c => {
-            const d = resumAigua[c]?.[f];
-            const cost = d ? d.costTotal : null;
-            // Pot ser undefined si el nom de finca no coincideix exactament
-            // entre vista_informe_collita i reg_configuracio.
-            const kgCollits = resum[c]?.perFinca?.[f];
-            const euroKg = (cost !== null && kgCollits > 0) ? cost / kgCollits : null;
-            if (cost !== null) costMax = Math.max(costMax, Math.abs(cost));
-            if (euroKg !== null) euroKgMax = Math.max(euroKgMax, euroKg);
-            return { cost, euroKg };
-        });
-        return { finca: f, perCampanya };
-    });
-
-    const filesCost = dades.map(({ finca: f, perCampanya }) => {
-        const cel·les = perCampanya.map(({ cost }) =>
-            cost !== null ? cel·laValor(cost.toLocaleString('ca-ES', { minimumFractionDigits: 2 }) + ' €', Math.abs(cost), costMax) : cel·laValor('—', 0, costMax, true)
-        ).join('');
-        return `<tr><td>💶 ${f}</td>${cel·les}</tr>`;
-    }).join('');
-
-    const filesEuroKg = dades.map(({ finca: f, perCampanya }) => {
-        const cel·les = perCampanya.map(({ euroKg }) =>
-            euroKg !== null ? cel·laValor(euroKg.toFixed(3) + ' €/kg', euroKg, euroKgMax) : cel·laValor('— (sense kg)', 0, euroKgMax, true)
-        ).join('');
-        return `<tr><td>⚖️ ${f}</td>${cel·les}</tr>`;
-    }).join('');
-
+function renderAvisSenseAigua(titol) {
     return `
         <div class="informe-comp-seccio">
-            <h3>💶 Cost aigua total (€)</h3>
-            <table class="informe-comp-taula">
-                <thead><tr><th>Finca</th>${capcaleraCampanyes}</tr></thead>
-                <tbody>${filesCost}</tbody>
-            </table>
-        </div>
-        <div class="informe-comp-seccio">
-            <h3>💶 Cost aigua per kg collit (€/kg)</h3>
-            <p class="informe-comp-nota">⚠️ Necessita que el nom de finca a 'vista_informe_collita' i 'reg_configuracio' coincideixin exactament. Si surt "— (sense kg)" tenint dades d'aigua i collita, cal homogeneïtzar els noms de finca als dos mòduls.</p>
-            <table class="informe-comp-taula">
-                <thead><tr><th>Finca</th>${capcaleraCampanyes}</tr></thead>
-                <tbody>${filesEuroKg}</tbody>
-            </table>
+            <h3>${titol}</h3>
+            <p class="informe-comp-avis">No hi ha factures d'aigua registrades per a les campanyes seleccionades.</p>
         </div>
     `;
+}
+
+function renderBlocAiguaConsum(ctx) {
+    assegurarEstilsDeltaInforme();
+    const { campanyes, resumAigua, superficiePerFinca } = ctx;
+    const finques = [...new Set(campanyes.flatMap(c => Object.keys(resumAigua[c] || {})))].sort();
+    if (finques.length === 0) return renderAvisSenseAigua('💧 Consum aigua');
+
+    const totals = calcularTotalsAigua(ctx);
+
+    const taulaM3 = renderTaulaAigua(ctx, totals, finques, {
+        titol: '💧 Consum aigua — m³ total <span class="informe-comp-nota">(consum real per telemetria, no el facturat)</span>',
+        nota: NOTA_AIGUA_ASG,
+        valorFinca: (f, c) => resumAigua[c]?.[f]?.consumReg ?? null,
+        claTotal: 'consum',
+        format: v => formatNumeroInforme(v) + ' m³',
+        ambDelta: false
+    });
+
+    const taulaM3ha = renderTaulaAigua(ctx, totals, finques, {
+        titol: '💧 Consum aigua — m³/ha <span class="informe-comp-nota">(▲▼ variació vs campanya anterior; verd = menys aigua)</span>',
+        valorFinca: (f, c) => {
+            const d = resumAigua[c]?.[f];
+            if (!d) return null;
+            const { ha } = trobarHaAmbFallback(superficiePerFinca, c, f);
+            return ha > 0 ? d.consumReg / ha : null;
+        },
+        claTotal: 'm3ha',
+        format: v => v.toFixed(0) + ' m³/ha',
+        ambDelta: true,
+        textBuit: '— (sense ha)'
+    });
+
+    return taulaM3 + taulaM3ha;
+}
+
+function renderBlocAiguaCost(ctx) {
+    assegurarEstilsDeltaInforme();
+    const { campanyes, resum, resumAigua, filtres } = ctx;
+    const finques = [...new Set(campanyes.flatMap(c => Object.keys(resumAigua[c] || {})))].sort();
+    if (finques.length === 0) return renderAvisSenseAigua('💶 Cost aigua');
+
+    const totals = calcularTotalsAigua(ctx);
+
+    const taulaCost = renderTaulaAigua(ctx, totals, finques, {
+        titol: '💶 Cost aigua total (€)',
+        nota: NOTA_AIGUA_ASG,
+        valorFinca: (f, c) => resumAigua[c]?.[f]?.costTotal ?? null,
+        claTotal: 'cost',
+        format: v => v.toLocaleString('ca-ES', { minimumFractionDigits: 2 }) + ' €',
+        ambDelta: false
+    });
+
+    // €/m³ = cost total / consum real (el mateix m³ que es veu a la taula de consum).
+    const taulaEuroM3 = renderTaulaAigua(ctx, totals, finques, {
+        titol: '💶 Preu de l\'aigua (€/m³) <span class="informe-comp-nota">(▲▼ vs campanya anterior; separa tarifa de volum)</span>',
+        valorFinca: (f, c) => {
+            const d = resumAigua[c]?.[f];
+            return (d && d.consumReg > 0) ? d.costTotal / d.consumReg : null;
+        },
+        claTotal: 'euroM3',
+        format: v => v.toFixed(3) + ' €/m³',
+        ambDelta: true
+    });
+
+    // €/kg: els kg de collita estan filtrats per fruita/varietat però l'aigua
+    // és de tota la finca. Amb aquests filtres el quocient seria fals.
+    let taulaEuroKg;
+    if (filtres && (filtres.fruita || filtres.varietat)) {
+        taulaEuroKg = `
+            <div class="informe-comp-seccio">
+                <h3>💶 Cost aigua per kg collit (€/kg)</h3>
+                <p class="informe-comp-avis">No es calcula amb un filtre de fruita o varietat actiu: l'aigua és de tota la finca i els kg només d'aquell cultiu. Treu el filtre per veure aquest indicador.</p>
+            </div>`;
+    } else {
+        taulaEuroKg = renderTaulaAigua(ctx, totals, finques, {
+            titol: '💶 Cost aigua per kg collit (€/kg) <span class="informe-comp-nota">(▲▼ vs campanya anterior)</span>',
+            nota: NOTA_AIGUA_ASG + ' El total només suma les finques amb aigua i collita alhora.',
+            valorFinca: (f, c) => {
+                const d = resumAigua[c]?.[f];
+                const kg = resum[c]?.perFinca?.[f];
+                return (d && kg > 0) ? d.costTotal / kg : null;
+            },
+            claTotal: 'euroKg',
+            format: v => v.toFixed(3) + ' €/kg',
+            ambDelta: true,
+            textBuit: '— (sense kg)'
+        });
+    }
+
+    return taulaCost + taulaEuroM3 + taulaEuroKg;
 }
 
 // ------------------------------------------------------------
@@ -858,4 +975,4 @@ function formatNumeroInforme(n) {
     return Math.round(n).toLocaleString('ca-ES');
 }
 
-console.log('✅ Informes comparativa v1 (amb blocs seleccionables) carregat');
+console.log('✅ Informes comparativa v1 (blocs seleccionables + totals i variacions aigua) carregat');
