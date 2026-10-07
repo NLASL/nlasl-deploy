@@ -396,6 +396,30 @@ async function obtenirDadesComparativaCollita(campanyes, filtres) {
     return totes;
 }
 
+// ------------------------------------------------------------
+// AGRUPACIÓ DE SUBCATEGORIES
+// Noms que signifiquen el mateix però s'han escrit diferent segons la campanya.
+// Clau = nom que es mostra a l'informe; valor = noms de la collita que hi van a parar.
+// Quan aparegui un nom nou que s'hagi de sumar a un grup, afegeix-lo aquí.
+// Les subcategories que no surtin aquí es mostren amb el seu propi nom.
+// ------------------------------------------------------------
+const GRUPS_SUBCATEGORIA = {
+    'Defectes': ['Defectes', 'Defec', 'FNC_DEFECTES'],
+    'Petit':    ['Petit', 'FNC_PETIT']
+};
+
+// Índex invers (en minúscules) per cercar ràpid: 'fnc_petit' → 'Petit'
+const MAPA_SUBCATEGORIA_GRUP = {};
+Object.entries(GRUPS_SUBCATEGORIA).forEach(([grup, noms]) => {
+    noms.forEach(nom => { MAPA_SUBCATEGORIA_GRUP[nom.trim().toLowerCase()] = grup; });
+});
+
+function nomGrupSubcategoria(subcategoria, categoria) {
+    // La indústria no té subcategoria a la collita: la mostrem com a "Industria" i no com a avís.
+    if (!subcategoria) return categoria === 'INDUSTRIA' ? 'Industria' : 'Sense subcategoria';
+    return MAPA_SUBCATEGORIA_GRUP[String(subcategoria).trim().toLowerCase()] || subcategoria;
+}
+
 function agregarDadesPerCampanya(dades) {
     const resum = {};
 
@@ -417,7 +441,7 @@ function agregarDadesPerCampanya(dades) {
         const categoria = fila.categoria || 'Sense categoria';
         resum[c].perCategoria[categoria] = (resum[c].perCategoria[categoria] || 0) + kg;
 
-        const subcategoria = fila.subcategoria || 'Sense subcategoria';
+        const subcategoria = nomGrupSubcategoria(fila.subcategoria, categoria);
         resum[c].perSubcategoria[subcategoria] = (resum[c].perSubcategoria[subcategoria] || 0) + kg;
         // Relació subcategoria → categoria (per poder agrupar la taula de subcategories)
         if (!resum[c].subcatCategoria) resum[c].subcatCategoria = {};
@@ -684,7 +708,9 @@ function renderBlocSubcategoria(ctx) {
                 const kgTotal = resum[c]?.kgTotal || 1;
                 return cel·laPercentatge((kgSubCampanya(sub, c) / kgTotal * 100).toFixed(1), alerta);
             }).join('');
-            return `<tr><td style="padding-left:28px">${alerta ? '⚠️ ' : ''}${sub}</td>${cel·les}</tr>`;
+            const agrupats = (GRUPS_SUBCATEGORIA[sub] || []).filter(n => n !== sub);
+            const detallGrup = agrupats.length ? `<span class="informe-comp-subnota">inclou: ${agrupats.join(', ')}</span>` : '';
+            return `<tr><td style="padding-left:28px">${alerta ? '⚠️ ' : ''}${sub}${detallGrup}</td>${cel·les}</tr>`;
         }).join('');
 
         return filaGrup + filesSubs;
