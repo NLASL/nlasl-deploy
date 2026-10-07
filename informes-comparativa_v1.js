@@ -39,6 +39,12 @@ const BLOCS_INFORME_COMPARATIVA = {
         necessita: ['collita'],
         render: renderBlocCategoria
     },
+    categoriaFincaVarietat: {
+        label: '🗺️ % per categoria, per finca i varietat',
+        grup: '🍑 Collita',
+        necessita: ['collita'],
+        render: renderBlocCategoriaFincaVarietat
+    },
     subcategoria: {
         label: '🏷️ % per subcategoria',
         grup: '🍑 Collita',
@@ -322,7 +328,7 @@ async function generarInformeComparatiu() {
     );
 
     try {
-        const [dadesCollita, superficiePerFinca, filesAigua] = await Promise.all([
+        const [dadesCollita, superficiePerFinca, filesAigua, simulatsAigua] = await Promise.all([
             datasetsNecessaris.has('collita')
                 ? obtenirDadesComparativaCollita(campanyes, { fruita, varietat, finca })
                 : Promise.resolve([]),
@@ -331,7 +337,10 @@ async function generarInformeComparatiu() {
                 : Promise.resolve({}),
             datasetsNecessaris.has('aigua')
                 ? obtenirDadesAiguaComparativa()
-                : Promise.resolve([])
+                : Promise.resolve([]),
+            datasetsNecessaris.has('aigua')
+                ? obtenirSimulatsAiguaInforme()
+                : Promise.resolve({})
         ]);
 
         if (datasetsNecessaris.has('collita') && dadesCollita.length === 0 && !datasetsNecessaris.has('aigua')) {
@@ -349,7 +358,7 @@ async function generarInformeComparatiu() {
             resumAigua[c] = finca ? Object.fromEntries(Object.entries(finques).filter(([nom]) => nom === finca)) : finques;
         });
 
-        const ctx = { campanyes, resum, superficiePerFinca, resumAigua, totalFinquesASG, filtres: { fruita, varietat, finca } };
+        const ctx = { campanyes, resum, superficiePerFinca, resumAigua, totalFinquesASG, simulatsAigua, filtres: { fruita, varietat, finca } };
         renderitzarResultatsComparativa(ctx, blocsSeleccionats);
 
     } catch (error) {
@@ -441,6 +450,16 @@ function agregarDadesPerCampanya(dades) {
         const categoria = fila.categoria || 'Sense categoria';
         resum[c].perCategoria[categoria] = (resum[c].perCategoria[categoria] || 0) + kg;
 
+        // Finca + varietat → kg per categoria (per a la taula de categories per finca i varietat)
+        const varietatFila = fila.varietat || 'Sense varietat';
+        if (!resum[c].perFincaVarietat) resum[c].perFincaVarietat = {};
+        const claFV = fincaFila + '\u0001' + varietatFila;
+        if (!resum[c].perFincaVarietat[claFV]) {
+            resum[c].perFincaVarietat[claFV] = { finca: fincaFila, varietat: varietatFila, kg: 0, perCategoria: {} };
+        }
+        resum[c].perFincaVarietat[claFV].kg += kg;
+        resum[c].perFincaVarietat[claFV].perCategoria[categoria] = (resum[c].perFincaVarietat[claFV].perCategoria[categoria] || 0) + kg;
+
         const subcategoria = nomGrupSubcategoria(fila.subcategoria, categoria);
         resum[c].perSubcategoria[subcategoria] = (resum[c].perSubcategoria[subcategoria] || 0) + kg;
         // Relació subcategoria → categoria (per poder agrupar la taula de subcategories)
@@ -522,6 +541,30 @@ function trobarHaAmbFallback(superficiePerFinca, campanyaObjectiu, finca) {
 // ------------------------------------------------------------
 // DATASET: AIGUA (factures_aigua_asg via get_resum_aigua_campanya)
 // ------------------------------------------------------------
+
+async function obtenirSimulatsAiguaInforme() {
+    // La RPC no retorna l'estat, així que el llegim directament de la taula (és petita).
+    // Resultat: { 2026: { total: 22093.09, simulat: 7876.02 }, ... }. Si falla, no bloquegem l'informe.
+    try {
+        const { data, error } = await supabaseClient
+            .from('factures_aigua_asg')
+            .select('campanya, estat, import_total')
+            .range(0, 999);
+        if (error) throw error;
+        const res = {};
+        (data || []).forEach(f => {
+            const c = Number(f.campanya);
+            if (!res[c]) res[c] = { total: 0, simulat: 0 };
+            const imp = Number(f.import_total) || 0;
+            res[c].total += imp;
+            if (f.estat === 'simulada') res[c].simulat += imp;
+        });
+        return res;
+    } catch (error) {
+        console.warn('No s\'ha pogut llegir l\'estat de les factures d\'aigua:', error);
+        return {};
+    }
+}
 
 async function obtenirDadesAiguaComparativa() {
     // p_campanya: null => totes les campanyes d'un cop; es filtra per
@@ -649,6 +692,99 @@ function renderBlocCategoria(ctx) {
             <h3>🎯 % per categoria (qualitat)</h3>
             <table class="informe-comp-taula">
                 <thead><tr><th>Categoria</th>${capcaleraCampanyes}</tr></thead>
+                <tbody>${files}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+// % comercial / no comercial / indústria d'un conjunt de kg per categoria
+function resumCategoriesInforme(perCategoria, kg) {
+    const suma = cat => Object.entries(perCategoria || {})
+        .filter(([nom]) => nom.toUpperCase().trim() === cat)
+        .reduce((t, [, v]) => t + v, 0);
+    const pct = cat => kg > 0 ? suma(cat) / kg * 100 : 0;
+    return { kg, com: pct('COMERCIAL'), nc: pct('NO_COMERCIAL'), ind: pct('INDUSTRIA') };
+}
+
+function cel·laPilaCategories(r) {
+    if (!r || r.kg <= 0) return '<td style="text-align:right;color:#9e9e9e">—</td>';
+    const f = v => v.toFixed(1);
+    return `<td>
+        <div class="informe-comp-pila" title="Comercial ${f(r.com)}% · No comercial ${f(r.nc)}% · Indústria ${f(r.ind)}%">
+            <span class="informe-comp-pila-com" style="width:${r.com}%"></span>
+            <span class="informe-comp-pila-nc" style="width:${r.nc}%"></span>
+            <span class="informe-comp-pila-ind" style="width:${r.ind}%"></span>
+        </div>
+        <div class="informe-comp-pila-text">🟢 ${f(r.com)} · ⚪ ${f(r.nc)} · 🏭 ${f(r.ind)}</div>
+        <div class="informe-comp-pila-text" style="color:#757575">${formatNumeroInforme(r.kg)} kg</div>
+    </td>`;
+}
+
+function renderBlocCategoriaFincaVarietat(ctx) {
+    assegurarEstilsDeltaInforme();
+    const { campanyes, resum } = ctx;
+
+    // finca → varietat → campanya → { kg, perCategoria }
+    const estructura = {};
+    campanyes.forEach(c => {
+        Object.values(resum[c]?.perFincaVarietat || {}).forEach(fv => {
+            if (!estructura[fv.finca]) estructura[fv.finca] = {};
+            if (!estructura[fv.finca][fv.varietat]) estructura[fv.finca][fv.varietat] = {};
+            estructura[fv.finca][fv.varietat][c] = fv;
+        });
+    });
+
+    const kgVarietat = porCampanya => campanyes.reduce((t, c) => t + (porCampanya[c]?.kg || 0), 0);
+
+    const files = Object.keys(estructura).sort().map(finca => {
+        const varietats = Object.keys(estructura[finca]).sort((x, y) => kgVarietat(estructura[finca][y]) - kgVarietat(estructura[finca][x]));
+
+        // Una sola varietat: una única fila "Finca — varietat"
+        if (varietats.length === 1) {
+            const v = varietats[0];
+            const cel·les = campanyes.map(c => {
+                const fv = estructura[finca][v][c];
+                return cel·laPilaCategories(fv ? resumCategoriesInforme(fv.perCategoria, fv.kg) : null);
+            }).join('');
+            return `<tr><td>🗺️ ${finca} <span class="informe-comp-subnota">${v}</span></td>${cel·les}</tr>`;
+        }
+
+        // Diverses varietats: fila de la finca (total) + una fila per varietat
+        const celFinca = campanyes.map(c => {
+            const perCategoria = {};
+            let kg = 0;
+            varietats.forEach(v => {
+                const fv = estructura[finca][v][c];
+                if (!fv) return;
+                kg += fv.kg;
+                Object.entries(fv.perCategoria).forEach(([cat, val]) => { perCategoria[cat] = (perCategoria[cat] || 0) + val; });
+            });
+            return cel·laPilaCategories(kg > 0 ? resumCategoriesInforme(perCategoria, kg) : null);
+        }).join('');
+        const filaFinca = `<tr class="informe-comp-fila-grup"><td>🗺️ ${finca}</td>${celFinca}</tr>`;
+
+        const filesVarietats = varietats.map(v => {
+            const cel·les = campanyes.map(c => {
+                const fv = estructura[finca][v][c];
+                return cel·laPilaCategories(fv ? resumCategoriesInforme(fv.perCategoria, fv.kg) : null);
+            }).join('');
+            return `<tr><td style="padding-left:28px">🌱 ${v}</td>${cel·les}</tr>`;
+        }).join('');
+
+        return filaFinca + filesVarietats;
+    }).join('');
+
+    if (!files) {
+        return `<div class="informe-comp-seccio"><h3>🗺️ % per categoria, per finca i varietat</h3><p class="informe-comp-avis">No hi ha dades de collita per aquesta selecció.</p></div>`;
+    }
+
+    const capcaleraCampanyes = campanyes.map(c => `<th>📅 <strong>${c}</strong></th>`).join('');
+    return `
+        <div class="informe-comp-seccio">
+            <h3>🗺️ % per categoria, per finca i varietat <span class="informe-comp-nota">(🟢 comercial · ⚪ no comercial · 🏭 indústria, sobre els kg de cada finca/varietat)</span></h3>
+            <table class="informe-comp-taula">
+                <thead><tr><th>Finca / varietat</th>${capcaleraCampanyes}</tr></thead>
                 <tbody>${files}</tbody>
             </table>
         </div>
@@ -820,6 +956,11 @@ function assegurarEstilsDeltaInforme() {
         .informe-comp-delta-neutre { color: #757575; }
         .informe-comp-fila-total td { border-top: 2px solid #999; font-weight: 700; }
         .informe-comp-fila-grup td { background: #eef3e6; font-weight: 700; border-top: 2px solid #c9d6b8; }
+        .informe-comp-pila { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: #eceff1; }
+        .informe-comp-pila-com { background: #66bb6a; }
+        .informe-comp-pila-nc { background: #b0bec5; }
+        .informe-comp-pila-ind { background: #ffa726; }
+        .informe-comp-pila-text { font-size: 0.82em; text-align: right; margin-top: 3px; white-space: nowrap; }
         .informe-comp-subnota { display: block; font-size: 0.75em; font-weight: 400; color: #757575; }
     `;
     document.head.appendChild(estil);
@@ -851,7 +992,7 @@ function cel·laValorDelta(text, valor, maxReferencia, delta, subnota = '') {
 // (aigua+ha per m³/ha, aigua+kg per €/kg), perquè numerador i
 // denominador provinguin sempre de les mateixes finques.
 function calcularTotalsAigua(ctx) {
-    const { campanyes, resum, resumAigua, superficiePerFinca, totalFinquesASG } = ctx;
+    const { campanyes, resum, resumAigua, superficiePerFinca, totalFinquesASG, simulatsAigua = {} } = ctx;
     const totals = {};
 
     campanyes.forEach(c => {
@@ -873,6 +1014,10 @@ function calcularTotalsAigua(ctx) {
             const kg = resum[c]?.perFinca?.[f];
             if (kg > 0) { t.costAmbKg += d.costTotal; t.kg += kg; }
         });
+        // Percentatge del cost ASG de la campanya que ve de factures simulades
+        const sim = simulatsAigua[c];
+        t.simulada = !!(sim && sim.simulat > 0);
+        t.pctSimulat = (sim && sim.total > 0) ? (sim.simulat / sim.total * 100) : 0;
         t.m3ha = t.ha > 0 ? t.consumAmbHa / t.ha : null;
         t.euroM3 = t.consum > 0 ? t.cost / t.consum : null;
         t.euroKg = t.kg > 0 ? t.costAmbKg / t.kg : null;
@@ -924,7 +1069,7 @@ function renderTaulaAigua(ctx, totals, finques, opcions) {
             const prev = totals[campanyes[i - 1]];
             if (prev.clau === t.clau) delta = deltaInforme(v, prev[claTotal]);
         }
-        const sub = `${t.finques.length}/${t.totalFinquesASG} finques` + (t.simulada ? ' · ⚠️ inclou simulades' : '');
+        const sub = `${t.finques.length}/${t.totalFinquesASG} finques` + (t.simulada ? ` · ⚠️ ${Math.round(t.pctSimulat)}% del cost simulat` : '');
         return cel·laValorDelta(format(v), Math.abs(v), max, delta, sub);
     }).join('');
 
