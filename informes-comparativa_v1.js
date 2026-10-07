@@ -93,10 +93,13 @@ async function carregarVistaInformesComparativa() {
     contenidor.innerHTML = '<p class="informe-comp-avis">Carregant dades...</p>';
 
     try {
-        const [campanyes, fruites] = await Promise.all([
+        const [campanyesCollita, campanyesAigua, fruites] = await Promise.all([
             obtenirCampanyesDisponiblesInforme(),
+            obtenirCampanyesAiguaInforme(),
             obtenirValorsDistintsInforme('fruita')
         ]);
+        // Unió: una campanya apareix si té collita O factures d'aigua
+        const campanyes = [...new Set([...campanyesCollita, ...campanyesAigua])].sort((x, y) => y - x);
         comparativaCampanyesDisponibles = campanyes;
 
         // Per defecte, seleccionem les dues campanyes més recents
@@ -107,6 +110,17 @@ async function carregarVistaInformesComparativa() {
     } catch (error) {
         console.error(error);
         contenidor.innerHTML = '<p class="informe-comp-avis">Error carregant l\'informe: ' + error.message + '</p>';
+    }
+}
+
+async function obtenirCampanyesAiguaInforme() {
+    // Si falla (p.ex. permisos de la RPC), no bloquegem l'informe: només es perden les campanyes només-aigua.
+    try {
+        const files = await obtenirDadesAiguaComparativa();
+        return [...new Set(files.map(f => Number(f.campanya)).filter(Boolean))];
+    } catch (error) {
+        console.warn('No s\'han pogut llegir les campanyes d\'aigua:', error);
+        return [];
     }
 }
 
@@ -405,6 +419,10 @@ function agregarDadesPerCampanya(dades) {
 
         const subcategoria = fila.subcategoria || 'Sense subcategoria';
         resum[c].perSubcategoria[subcategoria] = (resum[c].perSubcategoria[subcategoria] || 0) + kg;
+        // Relació subcategoria → categoria (per poder agrupar la taula de subcategories)
+        if (!resum[c].subcatCategoria) resum[c].subcatCategoria = {};
+        if (!resum[c].subcatCategoria[subcategoria]) resum[c].subcatCategoria[subcategoria] = {};
+        resum[c].subcatCategoria[subcategoria][categoria] = (resum[c].subcatCategoria[subcategoria][categoria] || 0) + kg;
 
         // El calibre només s'aplica a fruita comercial (indústria/no-comercial no en tenen).
         if (esComercial) {
@@ -614,23 +632,68 @@ function renderBlocCategoria(ctx) {
 }
 
 function renderBlocSubcategoria(ctx) {
+    assegurarEstilsDeltaInforme();
     const { campanyes, resum } = ctx;
-    const totesSubcategories = [...new Set(campanyes.flatMap(c => Object.keys(resum[c]?.perSubcategoria || {})))].sort();
-    const files = totesSubcategories.map(sub => {
-        const cel·les = campanyes.map(c => {
-            const kgSub = resum[c]?.perSubcategoria[sub] || 0;
+    const ordreCategories = ['COMERCIAL', 'NO_COMERCIAL', 'INDUSTRIA'];
+    const iconesCategoria = { COMERCIAL: '🟢', INDUSTRIA: '🏭', NO_COMERCIAL: '⚪' };
+
+    const kgSubCampanya = (sub, c) => resum[c]?.perSubcategoria?.[sub] || 0;
+    const totesSubcategories = [...new Set(campanyes.flatMap(c => Object.keys(resum[c]?.perSubcategoria || {})))];
+
+    // Cada subcategoria va al grup de la categoria on té més kg (sumant les campanyes seleccionades).
+    const grups = {};
+    totesSubcategories.forEach(sub => {
+        const kgPerCat = {};
+        campanyes.forEach(c => {
+            Object.entries(resum[c]?.subcatCategoria?.[sub] || {}).forEach(([cat, kg]) => {
+                kgPerCat[cat] = (kgPerCat[cat] || 0) + kg;
+            });
+        });
+        const cat = Object.entries(kgPerCat).sort((x, y) => y[1] - x[1])[0]?.[0] || 'Sense categoria';
+        (grups[cat] = grups[cat] || []).push(sub);
+    });
+
+    // Ordre dels grups: comercial, no comercial, indústria i, al final, qualsevol altre.
+    const nomsGrups = [
+        ...ordreCategories.filter(cat => grups[cat]),
+        ...Object.keys(grups).filter(cat => !ordreCategories.includes(cat)).sort()
+    ];
+
+    const columnes = campanyes.length + 1;
+    const files = nomsGrups.map(cat => {
+        // Dins del grup: de més a menys kg (total de les campanyes); "Sense ..." sempre al final.
+        const subs = grups[cat].sort((x, y) => {
+            const xs = x.startsWith('Sense') ? 1 : 0, ys = y.startsWith('Sense') ? 1 : 0;
+            if (xs !== ys) return xs - ys;
+            const kgX = campanyes.reduce((t, c) => t + kgSubCampanya(x, c), 0);
+            const kgY = campanyes.reduce((t, c) => t + kgSubCampanya(y, c), 0);
+            return kgY - kgX;
+        });
+
+        // Fila de subtotal del grup (suma de les subcategories que es mostren a sota)
+        const celGrup = campanyes.map(c => {
+            const kgGrup = subs.reduce((t, sub) => t + kgSubCampanya(sub, c), 0);
             const kgTotal = resum[c]?.kgTotal || 1;
-            const pct = (kgSub / kgTotal * 100).toFixed(1);
-            const alerta = sub.startsWith('Sense');
-            return cel·laPercentatge(pct, alerta);
+            return cel·laPercentatge((kgGrup / kgTotal * 100).toFixed(1));
         }).join('');
-        return `<tr><td>${sub.startsWith('Sense') ? '⚠️ ' : '🏷️ '}${sub}</td>${cel·les}</tr>`;
+        const filaGrup = `<tr class="informe-comp-fila-grup"><td>${iconesCategoria[cat] || '🏷️'} ${cat}</td>${celGrup}</tr>`;
+
+        const filesSubs = subs.map(sub => {
+            const alerta = sub.startsWith('Sense');
+            const cel·les = campanyes.map(c => {
+                const kgTotal = resum[c]?.kgTotal || 1;
+                return cel·laPercentatge((kgSubCampanya(sub, c) / kgTotal * 100).toFixed(1), alerta);
+            }).join('');
+            return `<tr><td style="padding-left:28px">${alerta ? '⚠️ ' : ''}${sub}</td>${cel·les}</tr>`;
+        }).join('');
+
+        return filaGrup + filesSubs;
     }).join('');
 
     const capcaleraCampanyes = campanyes.map(c => `<th>📅 <strong>${c}</strong></th>`).join('');
     return `
         <div class="informe-comp-seccio">
-            <h3>🏷️ % per subcategoria</h3>
+            <h3>🏷️ % per subcategoria <span class="informe-comp-nota">(agrupades per categoria; dins de cada grup, de més a menys kg)</span></h3>
             <table class="informe-comp-taula">
                 <thead><tr><th>Subcategoria</th>${capcaleraCampanyes}</tr></thead>
                 <tbody>${files}</tbody>
@@ -730,6 +793,7 @@ function assegurarEstilsDeltaInforme() {
         .informe-comp-delta-pitjor { color: #c62828; }
         .informe-comp-delta-neutre { color: #757575; }
         .informe-comp-fila-total td { border-top: 2px solid #999; font-weight: 700; }
+        .informe-comp-fila-grup td { background: #eef3e6; font-weight: 700; border-top: 2px solid #c9d6b8; }
         .informe-comp-subnota { display: block; font-size: 0.75em; font-weight: 400; color: #757575; }
     `;
     document.head.appendChild(estil);
