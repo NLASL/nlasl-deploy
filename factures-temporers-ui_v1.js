@@ -205,6 +205,7 @@ function ftPintarTaula() {
     });
 
     let totFact = 0, totReg = 0, totNet = 0, totTotal = 0, totCostReg = 0, totCostHores = 0;
+    let totFactCmp = 0, totCostHoresCmp = 0, mesosSenseRegistre = 0;   // només mesos amb registre
 
     let files = facturesCamp.map(function(f) {
         const reg = ftRegistrat[f.mes_servei] || { hores: 0, cost: 0 };
@@ -214,12 +215,16 @@ function ftPintarTaula() {
         const regPropia = parseFloat(f.regularitzacio_import) || 0;
         const regRebuda = regPerMes[f.mes_servei] || 0;
         const costHores = net - regPropia;               // cost de les hores del mes (sense regularitzacions)
+        // Mes sense cap registre de temporers al control horari: no es pot contrastar (no és un error de -100%)
+        const senseRegistre = !(reg.hores > 0);
         const dif = reg.hores - hFact;
-        const dev = hFact > 0 ? (dif / hFact) * 100 : null;
+        const dev = (!senseRegistre && hFact > 0) ? (dif / hFact) * 100 : null;
         const sem = ftSemafor(dev);
 
         totFact += hFact; totReg += reg.hores; totNet += net; totTotal += total;
         totCostReg += reg.cost; totCostHores += costHores;
+        if (senseRegistre) { mesosSenseRegistre++; }
+        else { totFactCmp += hFact; totCostHoresCmp += costHores; }
 
         const notes = [];
         if (regPropia !== 0) notes.push('inclou ' + ftSigne(regPropia) + ' € regul. ' + ftFormatMes(f.regularitzacio_mes));
@@ -235,7 +240,7 @@ function ftPintarTaula() {
             '<td>' + ftEsc(f.num_factura) + '</td>' +
             '<td style="text-align:right;">' + ftNum(hFact) + '</td>' +
             '<td style="text-align:right;">' + ftNum(reg.hores) + '</td>' +
-            '<td style="text-align:right;color:' + sem.color + ';">' + ftSigne(dif) + (dev != null ? ' (' + ftSigne(dev, 1) + '%)' : '') + '</td>' +
+            '<td style="text-align:right;color:' + sem.color + ';">' + (senseRegistre ? '<small style="color:#757575;">sense registre</small>' : ftSigne(dif) + (dev != null ? ' (' + ftSigne(dev, 1) + '%)' : '')) + '</td>' +
             '<td style="text-align:center;font-size:18px;">' + sem.icona + '</td>' +
             '<td style="text-align:right;">' + ftNum(f.preu_hora) + '</td>' +
             '<td style="text-align:right;">' + ftNum(net) + ' €' + sub + '</td>' +
@@ -244,13 +249,13 @@ function ftPintarTaula() {
     }).join('');
 
     // Fila de totals ('€/h' = només cost de les hores, sense regularitzacions)
-    const devTot = totFact > 0 ? ((totReg - totFact) / totFact) * 100 : null;
+    const devTot = totFactCmp > 0 ? ((totReg - totFactCmp) / totFactCmp) * 100 : null;
     const semTot = ftSemafor(devTot);
     files += '<tr style="background:#f1f8e9;font-weight:bold;">' +
         '<td colspan="2">TOTAL (' + facturesCamp.length + ' mes' + (facturesCamp.length > 1 ? 'os' : '') + ')</td>' +
         '<td style="text-align:right;">' + ftNum(totFact) + '</td>' +
         '<td style="text-align:right;">' + ftNum(totReg) + '</td>' +
-        '<td style="text-align:right;color:' + semTot.color + ';">' + ftSigne(totReg - totFact) +
+        '<td style="text-align:right;color:' + semTot.color + ';">' + ftSigne(totReg - totFactCmp) +
             (devTot != null ? ' (' + ftSigne(devTot, 1) + '%)' : '') + '</td>' +
         '<td style="text-align:center;font-size:18px;">' + semTot.icona + '</td>' +
         '<td style="text-align:right;">' + (totFact > 0 ? ftNum(totCostHores / totFact) : '-') + '</td>' +
@@ -261,7 +266,7 @@ function ftPintarTaula() {
 
     // Cost de campanya = cost de les hores dels mesos + regularitzacions que corresponen a l'any
     const costCampanya = totCostHores + totRegCampanya;
-    const sobrecost = totCostReg - totCostHores;   // registre vs cost de les hores (sense regularitzacions)
+    const sobrecost = totCostReg - totCostHoresCmp;   // registre vs cost de les hores (sense regularitzacions)
     if (resum) {
         resum.innerHTML =
             '<div style="display:flex;gap:15px;flex-wrap:wrap;">' +
@@ -271,7 +276,8 @@ function ftPintarTaula() {
             (totRegCampanya !== 0 ? '<div style="background:#ede7f6;padding:12px;border-radius:8px;">↩️ Regularitzacions de preu: <strong>' + ftSigne(totRegCampanya) + ' €</strong></div>' : '') +
             '<div style="background:' + semTot.color + '1a;padding:12px;border-radius:8px;">' + semTot.icona +
                 ' Sobrecost del registre: <strong>' + ftSigne(sobrecost) + ' €</strong>' +
-                (devTot != null ? ' (' + ftSigne(devTot, 1) + '% hores)' : '') + '</div>' +
+                (devTot != null ? ' (' + ftSigne(devTot, 1) + '% hores)' : '') +
+                (mesosSenseRegistre > 0 ? '<br><small style="color:#757575;">només mesos amb registre (' + mesosSenseRegistre + ' sense)</small>' : '') + '</div>' +
             '</div>';
     }
 }
@@ -423,7 +429,7 @@ async function ftActualitzarPanell() {
         const net = (parseFloat(document.getElementById('ft-net').value) || 0) - regImp;   // cost de les hores
         const dif = reg.hores - hFact;
         const dev = hFact > 0 ? (dif / hFact) * 100 : null;
-        const sem = ftSemafor(dev);
+        const sem = reg.hores > 0 ? ftSemafor(dev) : ftSemafor(null);
 
         let h = '<div style="background:#f5f5f5;border-left:4px solid ' + sem.color + ';padding:12px;border-radius:6px;font-size:13px;">';
         h += '<strong>📋 Control horari de ' + ftEsc(ftFormatMes(mes + '-01')) + ':</strong> ' + ftNum(reg.hores) + ' h · ' + ftNum(reg.cost) + ' €';
@@ -432,9 +438,9 @@ async function ftActualitzarPanell() {
                 return ftEsc(g.nom) + ': ' + ftNum(g.hores) + ' h (' + g.registres + ' reg.)';
             }).join(' · ') + '</span>';
         } else {
-            h += '<br><span style="color:#c62828;">No hi ha registres de temporers aquest mes.</span>';
+            h += '<br><span style="color:#757575;">No hi ha registres de temporers aquest mes: no es pot contrastar.</span>';
         }
-        if (hFact > 0) {
+        if (hFact > 0 && reg.hores > 0) {
             h += '<br>' + sem.icona + ' Diferència vs facturat: <strong style="color:' + sem.color + ';">' + ftSigne(dif) + ' h' +
                  (dev != null ? ' (' + ftSigne(dev, 1) + '%)' : '') + '</strong>';
             if (net > 0) h += ' · sobrecost del registre: <strong>' + ftSigne(reg.cost - net) + ' €</strong>';
