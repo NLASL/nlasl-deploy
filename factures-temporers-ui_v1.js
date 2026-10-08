@@ -48,6 +48,54 @@ function ftNum(n, dec) {
     return Number(n || 0).toLocaleString('ca-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
+// Selector de mes en català (el <input type="month"> usa l'idioma del navegador, no el de la pàgina).
+// Dos desplegables + un input ocult amb el valor 'YYYY-MM' (així la resta del codi no canvia).
+const FT_MESOS = ['gener', 'febrer', 'març', 'abril', 'maig', 'juny', 'juliol',
+                  'agost', 'setembre', 'octubre', 'novembre', 'desembre'];
+
+function ftHtmlSelectorMes(id, estil) {
+    const anyActual = new Date().getFullYear();
+    let h = '<div style="display:flex;gap:6px;">';
+    h += '<select id="' + id + '-m" onchange="ftCanviMes(\'' + id + '\')" style="' + estil + 'flex:2;min-width:0;">';
+    h += '<option value="">Mes...</option>';
+    FT_MESOS.forEach(function(m, i) {
+        h += '<option value="' + String(i + 1).padStart(2, '0') + '">' + m + '</option>';
+    });
+    h += '</select>';
+    h += '<select id="' + id + '-a" onchange="ftCanviMes(\'' + id + '\')" style="' + estil + 'flex:1;min-width:0;">';
+    h += '<option value="">Any</option>';
+    for (let a = anyActual + 1; a >= anyActual - 5; a--) h += '<option value="' + a + '">' + a + '</option>';
+    h += '</select>';
+    h += '<input type="hidden" id="' + id + '">';
+    h += '</div>';
+    return h;
+}
+
+function ftCanviMes(id) {
+    const m = document.getElementById(id + '-m').value;
+    const a = document.getElementById(id + '-a').value;
+    document.getElementById(id).value = (m && a) ? (a + '-' + m) : '';
+    if (id === 'ft-mes') ftActualitzarPanell();
+}
+
+// Posa el valor 'YYYY-MM' (o '' per buidar) als desplegables i a l'input ocult
+function ftPosarMes(id, ym) {
+    const selM = document.getElementById(id + '-m');
+    const selA = document.getElementById(id + '-a');
+    const p = (ym || '').split('-');
+    if (p.length === 2) {
+        if (!Array.prototype.some.call(selA.options, function(o) { return o.value === p[0]; })) {
+            selA.insertAdjacentHTML('beforeend', '<option value="' + p[0] + '">' + p[0] + '</option>');
+        }
+        selA.value = p[0];
+        selM.value = p[1];
+    } else {
+        selA.value = '';
+        selM.value = '';
+    }
+    document.getElementById(id).value = (selM.value && selA.value) ? (selA.value + '-' + selM.value) : '';
+}
+
 function ftFormatMes(dataStr) {
     if (!dataStr) return '-';
     const mesos = ['gener', 'febrer', 'març', 'abril', 'maig', 'juny', 'juliol',
@@ -301,7 +349,7 @@ function ftAssegurarModal() {
     h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;margin-bottom:10px;">';
     h += '<div class="form-group"><label>Nº Factura *</label><input type="text" id="ft-num" required style="' + inp + '"></div>';
     h += '<div class="form-group"><label>Data factura *</label><input type="date" id="ft-data-factura" required style="' + inp + '"></div>';
-    h += '<div class="form-group"><label>Mes de servei *</label><input type="month" id="ft-mes" required onchange="ftActualitzarPanell()" style="' + inp + '"></div>';
+    h += '<div class="form-group"><label>Mes de servei *</label>' + ftHtmlSelectorMes('ft-mes', inp) + '</div>';
     h += '</div>';
 
     h += '<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:15px;margin-bottom:10px;">';
@@ -327,7 +375,7 @@ function ftAssegurarModal() {
     h += '<div style="font-size:13px;font-weight:600;margin-bottom:8px;">↩️ Regularització de preu d\'un mes anterior (opcional, sense IVA)</div>';
     h += '<div style="display:grid;grid-template-columns:1fr 1fr 2fr;gap:15px;">';
     h += '<div class="form-group"><label>Import € (pot ser negatiu)</label><input type="number" id="ft-reg" step="0.01" oninput="ftRecalcular(true);ftActualitzarPanell()" style="' + inp + '"></div>';
-    h += '<div class="form-group"><label>Mes que regularitza</label><input type="month" id="ft-reg-mes" style="' + inp + '"></div>';
+    h += '<div class="form-group"><label>Mes que regularitza</label>' + ftHtmlSelectorMes('ft-reg-mes', inp) + '</div>';
     h += '<div class="form-group"><label>Concepte</label><input type="text" id="ft-reg-concepte" placeholder="Diferència preu hora gener" style="' + inp + '"></div>';
     h += '</div></div>';
 
@@ -352,18 +400,21 @@ function ftObrirModal(id, soloLectura) {
     document.getElementById('ft-form').reset();
     document.getElementById('ft-id').value = '';
     document.getElementById('ft-panell').innerHTML = '';
+    ftPosarMes('ft-mes', '');
+    ftPosarMes('ft-reg-mes', '');
 
     const f = id ? ftFactures.find(function(x) { return x.id === id; }) : null;
     const camps = ['ft-num', 'ft-data-factura', 'ft-mes', 'ft-proveidor', 'ft-article', 'ft-albara',
                    'ft-hores', 'ft-preu', 'ft-venciment', 'ft-net', 'ft-iva-pct', 'ft-obs',
-                   'ft-reg', 'ft-reg-mes', 'ft-reg-concepte'];
+                   'ft-reg', 'ft-reg-mes', 'ft-reg-concepte',
+                   'ft-mes-m', 'ft-mes-a', 'ft-reg-mes-m', 'ft-reg-mes-a'];
 
     if (f) {
         document.getElementById('ft-modal-titol').textContent = soloLectura ? 'Veure Factura Temporers' : 'Editar Factura Temporers';
         document.getElementById('ft-id').value = f.id;
         document.getElementById('ft-num').value = f.num_factura || '';
         document.getElementById('ft-data-factura').value = f.data_factura || '';
-        document.getElementById('ft-mes').value = (f.mes_servei || '').slice(0, 7);
+        ftPosarMes('ft-mes', (f.mes_servei || '').slice(0, 7));
         document.getElementById('ft-proveidor').value = f.proveidor || '';
         document.getElementById('ft-article').value = f.article || '';
         document.getElementById('ft-albara').value = f.albara || '';
@@ -375,7 +426,7 @@ function ftObrirModal(id, soloLectura) {
         document.getElementById('ft-obs').value = f.observacions || '';
         const regF = parseFloat(f.regularitzacio_import) || 0;
         document.getElementById('ft-reg').value = regF !== 0 ? regF : '';
-        document.getElementById('ft-reg-mes').value = (f.regularitzacio_mes || '').slice(0, 7);
+        ftPosarMes('ft-reg-mes', (f.regularitzacio_mes || '').slice(0, 7));
         document.getElementById('ft-reg-concepte').value = f.regularitzacio_concepte || '';
         ftRecalcular(false);
     } else {
@@ -387,7 +438,7 @@ function ftObrirModal(id, soloLectura) {
         // Mes de servei suggerit: el mes anterior (la factura arriba a principis del mes següent)
         const d = new Date();
         d.setMonth(d.getMonth() - 1);
-        document.getElementById('ft-mes').value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        ftPosarMes('ft-mes', d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
         ftRecalcular(true);
     }
 
