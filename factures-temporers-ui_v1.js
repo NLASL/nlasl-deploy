@@ -25,6 +25,7 @@ const FT_TOLERANCIA_IMPORT = 0.02;            // € de diferència admesa hores
 // ---- Estat ----
 let ftFactures = [];
 let ftRegistrat = {};      // mes_servei -> { hores, cost, grups: [...] }
+let ftAnyActiu = null;    // campanya (any) mostrada
 let ftPanellToken = 0;     // per ignorar respostes antigues del panell del modal
 
 // ============================================================
@@ -53,6 +54,12 @@ function ftFormatMes(dataStr) {
                    'agost', 'setembre', 'octubre', 'novembre', 'desembre'];
     const p = String(dataStr).split('-');
     return mesos[parseInt(p[1], 10) - 1] + ' ' + p[0];
+}
+
+// Factures del servei de la campanya mostrada (ftFactures també porta les que
+// només hi aporten una regularització d'un mes d'aquest any)
+function ftFacturesCampanya() {
+    return ftFactures.filter(function(f) { return f.campanya === ftAnyActiu; });
 }
 
 function ftRol() {
@@ -152,14 +159,15 @@ async function ftCarregarTaula() {
             .from('factures_temporers')
             .select('*')
             .eq('eliminat', false)
-            .eq('campanya', any)
+            .or('campanya.eq.' + any + ',and(regularitzacio_mes.gte.' + any + '-01-01,regularitzacio_mes.lte.' + any + '-12-31)')
             .order('mes_servei', { ascending: false });
         if (error) throw error;
         ftFactures = data || [];
+        ftAnyActiu = any;
 
         // Hores registrades de cada mes facturat (en paral·lel)
         ftRegistrat = {};
-        await Promise.all(ftFactures.map(async function(f) {
+        await Promise.all(ftFacturesCampanya().map(async function(f) {
             ftRegistrat[f.mes_servei] = await ftObtenirRegistrat(f.mes_servei);
         }));
 
@@ -175,7 +183,8 @@ function ftPintarTaula() {
     const resum = document.getElementById('ft-resum');
     if (!tbody) return;
 
-    if (ftFactures.length === 0) {
+    const facturesCamp = ftFacturesCampanya();
+    if (facturesCamp.length === 0) {
         tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No hi ha factures d\'aquesta campanya</td></tr>';
         if (resum) resum.innerHTML = '';
         return;
@@ -184,18 +193,38 @@ function ftPintarTaula() {
     const podeEditar = hasPermission('update');
     const podeEliminar = hasPermission('delete');
 
-    let totFact = 0, totReg = 0, totNet = 0, totTotal = 0, totCostReg = 0;
+    // Regularitzacions rebudes per mes (de qualsevol factura carregada, també d'un altre any)
+    const regPerMes = {};
+    let totRegCampanya = 0;
+    ftFactures.forEach(function(f) {
+        const r = parseFloat(f.regularitzacio_import) || 0;
+        if (r !== 0 && f.regularitzacio_mes) {
+            regPerMes[f.regularitzacio_mes] = (regPerMes[f.regularitzacio_mes] || 0) + r;
+            if (parseInt(String(f.regularitzacio_mes).slice(0, 4), 10) === ftAnyActiu) totRegCampanya += r;
+        }
+    });
 
-    let files = ftFactures.map(function(f) {
+    let totFact = 0, totReg = 0, totNet = 0, totTotal = 0, totCostReg = 0, totCostHores = 0;
+
+    let files = facturesCamp.map(function(f) {
         const reg = ftRegistrat[f.mes_servei] || { hores: 0, cost: 0 };
         const hFact = parseFloat(f.hores_facturades) || 0;
         const net = parseFloat(f.import_net) || 0;
         const total = parseFloat(f.import_total) || 0;
+        const regPropia = parseFloat(f.regularitzacio_import) || 0;
+        const regRebuda = regPerMes[f.mes_servei] || 0;
+        const costHores = net - regPropia;               // cost de les hores del mes (sense regularitzacions)
         const dif = reg.hores - hFact;
         const dev = hFact > 0 ? (dif / hFact) * 100 : null;
         const sem = ftSemafor(dev);
 
-        totFact += hFact; totReg += reg.hores; totNet += net; totTotal += total; totCostReg += reg.cost;
+        totFact += hFact; totReg += reg.hores; totNet += net; totTotal += total;
+        totCostReg += reg.cost; totCostHores += costHores;
+
+        const notes = [];
+        if (regPropia !== 0) notes.push('inclou ' + ftSigne(regPropia) + ' € regul. ' + ftFormatMes(f.regularitzacio_mes));
+        if (regRebuda !== 0) notes.push(ftSigne(regRebuda) + ' € regul. rebuda');
+        const sub = notes.length ? '<br><small style="color:#666;">' + ftEsc(notes.join(' · ')) + '</small>' : '';
 
         let accions = '<button class="btn btn-sm btn-primary" onclick="ftObrirModal(\'' + f.id + '\', true)">👁️</button> ';
         if (podeEditar) accions += '<button class="btn btn-sm btn-secondary" onclick="ftObrirModal(\'' + f.id + '\')">✏️</button> ';
@@ -209,35 +238,37 @@ function ftPintarTaula() {
             '<td style="text-align:right;color:' + sem.color + ';">' + ftSigne(dif) + (dev != null ? ' (' + ftSigne(dev, 1) + '%)' : '') + '</td>' +
             '<td style="text-align:center;font-size:18px;">' + sem.icona + '</td>' +
             '<td style="text-align:right;">' + ftNum(f.preu_hora) + '</td>' +
-            '<td style="text-align:right;">' + ftNum(net) + ' €</td>' +
+            '<td style="text-align:right;">' + ftNum(net) + ' €' + sub + '</td>' +
             '<td style="text-align:right;"><strong>' + ftNum(total) + ' €</strong></td>' +
             '<td>' + accions + '</td></tr>';
     }).join('');
 
-    // Fila de totals
+    // Fila de totals ('€/h' = només cost de les hores, sense regularitzacions)
     const devTot = totFact > 0 ? ((totReg - totFact) / totFact) * 100 : null;
     const semTot = ftSemafor(devTot);
     files += '<tr style="background:#f1f8e9;font-weight:bold;">' +
-        '<td colspan="2">TOTAL (' + ftFactures.length + ' mes' + (ftFactures.length > 1 ? 'os' : '') + ')</td>' +
+        '<td colspan="2">TOTAL (' + facturesCamp.length + ' mes' + (facturesCamp.length > 1 ? 'os' : '') + ')</td>' +
         '<td style="text-align:right;">' + ftNum(totFact) + '</td>' +
         '<td style="text-align:right;">' + ftNum(totReg) + '</td>' +
         '<td style="text-align:right;color:' + semTot.color + ';">' + ftSigne(totReg - totFact) +
             (devTot != null ? ' (' + ftSigne(devTot, 1) + '%)' : '') + '</td>' +
         '<td style="text-align:center;font-size:18px;">' + semTot.icona + '</td>' +
-        '<td style="text-align:right;">' + (totFact > 0 ? ftNum(totNet / totFact) : '-') + '</td>' +
+        '<td style="text-align:right;">' + (totFact > 0 ? ftNum(totCostHores / totFact) : '-') + '</td>' +
         '<td style="text-align:right;">' + ftNum(totNet) + ' €</td>' +
         '<td style="text-align:right;">' + ftNum(totTotal) + ' €</td><td></td></tr>';
 
     tbody.innerHTML = files;
 
-    // Targetes de resum
-    const sobrecost = totCostReg - totNet;
+    // Cost de campanya = cost de les hores dels mesos + regularitzacions que corresponen a l'any
+    const costCampanya = totCostHores + totRegCampanya;
+    const sobrecost = totCostReg - totCostHores;   // registre vs cost de les hores (sense regularitzacions)
     if (resum) {
         resum.innerHTML =
             '<div style="display:flex;gap:15px;flex-wrap:wrap;">' +
-            '<div style="background:#e8f5e9;padding:12px;border-radius:8px;">💶 Cost facturat (net): <strong>' + ftNum(totNet) + ' €</strong></div>' +
+            '<div style="background:#e8f5e9;padding:12px;border-radius:8px;">💶 Cost de campanya (net, ajustat): <strong>' + ftNum(costCampanya) + ' €</strong></div>' +
             '<div style="background:#e3f2fd;padding:12px;border-radius:8px;">⏱️ Hores facturades: <strong>' + ftNum(totFact) + ' h</strong></div>' +
             '<div style="background:#fff3e0;padding:12px;border-radius:8px;">📋 Cost segons registre: <strong>' + ftNum(totCostReg) + ' €</strong></div>' +
+            (totRegCampanya !== 0 ? '<div style="background:#ede7f6;padding:12px;border-radius:8px;">↩️ Regularitzacions de preu: <strong>' + ftSigne(totRegCampanya) + ' €</strong></div>' : '') +
             '<div style="background:' + semTot.color + '1a;padding:12px;border-radius:8px;">' + semTot.icona +
                 ' Sobrecost del registre: <strong>' + ftSigne(sobrecost) + ' €</strong>' +
                 (devTot != null ? ' (' + ftSigne(devTot, 1) + '% hores)' : '') + '</div>' +
@@ -286,6 +317,14 @@ function ftAssegurarModal() {
     h += '<div class="form-group"><label>Total €</label><input type="number" id="ft-total" readonly style="' + inp + 'background:#f5f5f5;font-weight:bold;"></div>';
     h += '</div>';
 
+    h += '<div style="background:#f3edf7;border-radius:8px;padding:12px;margin:5px 0 10px 0;">';
+    h += '<div style="font-size:13px;font-weight:600;margin-bottom:8px;">↩️ Regularització de preu d\'un mes anterior (opcional, sense IVA)</div>';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr 2fr;gap:15px;">';
+    h += '<div class="form-group"><label>Import € (pot ser negatiu)</label><input type="number" id="ft-reg" step="0.01" oninput="ftRecalcular(true);ftActualitzarPanell()" style="' + inp + '"></div>';
+    h += '<div class="form-group"><label>Mes que regularitza</label><input type="month" id="ft-reg-mes" style="' + inp + '"></div>';
+    h += '<div class="form-group"><label>Concepte</label><input type="text" id="ft-reg-concepte" placeholder="Diferència preu hora gener" style="' + inp + '"></div>';
+    h += '</div></div>';
+
     h += '<div id="ft-panell" style="margin:10px 0 15px 0;"></div>';
 
     h += '<div class="form-group"><label>Observacions</label><textarea id="ft-obs" rows="2" style="' + inp + '"></textarea></div>';
@@ -310,7 +349,8 @@ function ftObrirModal(id, soloLectura) {
 
     const f = id ? ftFactures.find(function(x) { return x.id === id; }) : null;
     const camps = ['ft-num', 'ft-data-factura', 'ft-mes', 'ft-proveidor', 'ft-article', 'ft-albara',
-                   'ft-hores', 'ft-preu', 'ft-venciment', 'ft-net', 'ft-iva-pct', 'ft-obs'];
+                   'ft-hores', 'ft-preu', 'ft-venciment', 'ft-net', 'ft-iva-pct', 'ft-obs',
+                   'ft-reg', 'ft-reg-mes', 'ft-reg-concepte'];
 
     if (f) {
         document.getElementById('ft-modal-titol').textContent = soloLectura ? 'Veure Factura Temporers' : 'Editar Factura Temporers';
@@ -327,6 +367,10 @@ function ftObrirModal(id, soloLectura) {
         document.getElementById('ft-net').value = f.import_net;
         document.getElementById('ft-iva-pct').value = f.iva_pct;
         document.getElementById('ft-obs').value = f.observacions || '';
+        const regF = parseFloat(f.regularitzacio_import) || 0;
+        document.getElementById('ft-reg').value = regF !== 0 ? regF : '';
+        document.getElementById('ft-reg-mes').value = (f.regularitzacio_mes || '').slice(0, 7);
+        document.getElementById('ft-reg-concepte').value = f.regularitzacio_concepte || '';
         ftRecalcular(false);
     } else {
         document.getElementById('ft-modal-titol').textContent = 'Nova Factura Temporers';
@@ -352,7 +396,8 @@ function ftRecalcular(desdeHoresPreu) {
     const hores = parseFloat(document.getElementById('ft-hores').value) || 0;
     const preu = parseFloat(document.getElementById('ft-preu').value) || 0;
     if (desdeHoresPreu && hores > 0 && preu > 0) {
-        document.getElementById('ft-net').value = ftArrodonir(hores * preu).toFixed(2);
+        const regImp = parseFloat(document.getElementById('ft-reg').value) || 0;
+        document.getElementById('ft-net').value = ftArrodonir(hores * preu + regImp).toFixed(2);
     }
     const net = parseFloat(document.getElementById('ft-net').value) || 0;
     const ivaPct = parseFloat(document.getElementById('ft-iva-pct').value) || 0;
@@ -374,7 +419,8 @@ async function ftActualitzarPanell() {
         if (token !== ftPanellToken) return;   // ha arribat una resposta més nova
 
         const hFact = parseFloat(document.getElementById('ft-hores').value) || 0;
-        const net = parseFloat(document.getElementById('ft-net').value) || 0;
+        const regImp = parseFloat(document.getElementById('ft-reg').value) || 0;
+        const net = (parseFloat(document.getElementById('ft-net').value) || 0) - regImp;   // cost de les hores
         const dif = reg.hores - hFact;
         const dev = hFact > 0 ? (dif / hFact) * 100 : null;
         const sem = ftSemafor(dev);
@@ -413,6 +459,13 @@ async function ftGuardar(event) {
     const hores = parseFloat(document.getElementById('ft-hores').value);
     const preu = parseFloat(document.getElementById('ft-preu').value);
     const net = parseFloat(document.getElementById('ft-net').value);
+    const regImp = parseFloat(document.getElementById('ft-reg').value) || 0;
+    const regMes = document.getElementById('ft-reg-mes').value;       // YYYY-MM
+
+    if (regImp !== 0 && !regMes) {
+        mostrarNotificacio('Cal indicar el mes que regularitza', 'error');
+        return;
+    }
 
     if (!mes || isNaN(hores) || isNaN(preu) || isNaN(net)) {
         mostrarNotificacio('Cal omplir mes de servei, hores, preu i import net', 'error');
@@ -420,9 +473,9 @@ async function ftGuardar(event) {
     }
 
     // Avís si hores x preu no quadra amb el net
-    const esperat = ftArrodonir(hores * preu);
+    const esperat = ftArrodonir(hores * preu + regImp);
     if (Math.abs(esperat - net) > FT_TOLERANCIA_IMPORT) {
-        if (!confirm('⚠️ Hores × preu = ' + ftNum(esperat) + ' € però l\'import net és ' + ftNum(net) + ' €.\n\nVols guardar igualment?')) {
+        if (!confirm('⚠️ Hores × preu' + (regImp !== 0 ? ' + regularització' : '') + ' = ' + ftNum(esperat) + ' € però l\'import net és ' + ftNum(net) + ' €.\n\nVols guardar igualment?')) {
             return;
         }
     }
@@ -441,7 +494,10 @@ async function ftGuardar(event) {
         import_iva: parseFloat(document.getElementById('ft-iva').value) || 0,
         import_total: parseFloat(document.getElementById('ft-total').value) || 0,
         data_venciment: document.getElementById('ft-venciment').value || null,
-        observacions: document.getElementById('ft-obs').value.trim() || null
+        observacions: document.getElementById('ft-obs').value.trim() || null,
+        regularitzacio_import: regImp !== 0 ? regImp : 0,
+        regularitzacio_mes: regImp !== 0 ? regMes + '-01' : null,
+        regularitzacio_concepte: regImp !== 0 ? (document.getElementById('ft-reg-concepte').value.trim() || null) : null
     };
 
     try {

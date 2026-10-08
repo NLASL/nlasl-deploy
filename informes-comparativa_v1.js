@@ -80,6 +80,12 @@ const BLOCS_INFORME_COMPARATIVA = {
         grup: '💧 Aigua (Segarra-Garrigues)',
         necessita: ['aigua', 'collita'],
         render: renderBlocAiguaCost
+    },
+    temporers: {
+        label: '👥 Mà d\'obra temporers (hores, €, €/h, €/ha, €/kg)',
+        grup: '👥 Mà d\'obra',
+        necessita: ['temporers', 'collita', 'superficie'],
+        render: renderBlocTemporers
     }
 };
 
@@ -328,7 +334,7 @@ async function generarInformeComparatiu() {
     );
 
     try {
-        const [dadesCollita, superficiePerFinca, filesAigua, simulatsAigua] = await Promise.all([
+        const [dadesCollita, superficiePerFinca, filesAigua, simulatsAigua, filesTemporers] = await Promise.all([
             datasetsNecessaris.has('collita')
                 ? obtenirDadesComparativaCollita(campanyes, { fruita, varietat, finca })
                 : Promise.resolve([]),
@@ -340,10 +346,13 @@ async function generarInformeComparatiu() {
                 : Promise.resolve([]),
             datasetsNecessaris.has('aigua')
                 ? obtenirSimulatsAiguaInforme()
-                : Promise.resolve({})
+                : Promise.resolve({}),
+            datasetsNecessaris.has('temporers')
+                ? obtenirFacturesTemporersInforme()
+                : Promise.resolve([])
         ]);
 
-        if (datasetsNecessaris.has('collita') && dadesCollita.length === 0 && !datasetsNecessaris.has('aigua')) {
+        if (datasetsNecessaris.has('collita') && dadesCollita.length === 0 && !datasetsNecessaris.has('aigua') && !datasetsNecessaris.has('temporers')) {
             divResultats.innerHTML = '<p class="informe-comp-avis">No hi ha dades de collita per aquesta selecció.</p>';
             return;
         }
@@ -358,7 +367,8 @@ async function generarInformeComparatiu() {
             resumAigua[c] = finca ? Object.fromEntries(Object.entries(finques).filter(([nom]) => nom === finca)) : finques;
         });
 
-        const ctx = { campanyes, resum, superficiePerFinca, resumAigua, totalFinquesASG, simulatsAigua, filtres: { fruita, varietat, finca } };
+        const temporers = datasetsNecessaris.has('temporers') ? agregarTemporersPerCampanya(filesTemporers) : {};
+        const ctx = { campanyes, resum, superficiePerFinca, resumAigua, totalFinquesASG, simulatsAigua, temporers, filtres: { fruita, varietat, finca } };
         renderitzarResultatsComparativa(ctx, blocsSeleccionats);
 
     } catch (error) {
@@ -1220,184 +1230,144 @@ function formatNumeroInforme(n) {
     return Math.round(n).toLocaleString('ca-ES');
 }
 
-// ============================================================
-// INFORMES - BLOC "👥 Mà d'obra temporers" (comparativa de campanyes)
-// Quadern de Camp NLASL
-//
-// ⚠️ ESBORRANY per integrar a informes-comparativa_v1.js
-// Aquest fitxer s'ha escrit SENSE veure informes-comparativa_v1.js, només
-// seguint l'arquitectura documentada (BLOCS_INFORME_COMPARATIVA, ctx).
-// Els punts a verificar estan marcats amb "ADAPTAR".
-//
-// Receptari (el del resum 2026-10-08):
-//  (1) dataset  -> obtenirFacturesTemporersInforme() + agregarTemporersPerCampanya()
-//  (2) render   -> renderBlocTemporers(ctx)
-//  (3) registre -> afegir l'entrada de sota a BLOCS_INFORME_COMPARATIVA
-//
-//     temporers: {
-//         label: "👥 Mà d'obra temporers",
-//         grup: "Mà d'obra",
-//         necessita: ['temporers'],          // ADAPTAR: com es declaren els datasets
-//         render: renderBlocTemporers
-//     },
-//
-// I allà on es carreguen els datasets (només si hi ha un bloc marcat que els necessita):
-//     ctx.temporers = agregarTemporersPerCampanya(await obtenirFacturesTemporersInforme());
-//
-// Criteri: campanya = ANY CALENDARI del mes de servei (ja calculat a la BD).
-// ============================================================
+// ------------------------------------------------------------
+// DATASET + BLOC: MÀ D'OBRA TEMPORERS (factures_temporers)
+// Cost facturat per Segre Fruits (TISA). Campanya = ANY CALENDARI del mes de servei
+// (la BD ja el calcula). Cost SENSE IVA: l'IVA és un concepte que desvirtua la
+// comparació entre anys (el tipus pot canviar), per això no s'hi suma mai.
+// ------------------------------------------------------------
 
-// Cost de referència: 'import_net' (sense IVA) o 'import_total' (amb IVA).
-// ADAPTAR: posar el mateix criteri que els blocs d'aigua perquè siguin sumables.
-const TEMPORERS_CAMP_COST = 'import_net';
-
-// ---------- (1) DATASET ----------
+const NOTA_TEMPORERS = 'Cost facturat per Segre Fruits (TISA), sense IVA. Campanya = any calendari del mes de servei. €/ha i €/kg només sobre les finques amb collita de fruita.';
 
 async function obtenirFacturesTemporersInforme() {
     // Paginat amb .range() (PostgREST limita a 1000 files)
-    const pagina = 1000;
-    let desde = 0;
+    const MIDA_PAGINA = 1000;
     let totes = [];
+    let offset = 0;
     while (true) {
         const { data, error } = await supabaseClient
             .from('factures_temporers')
-            .select('campanya, mes_servei, hores_facturades, import_net, import_total')
+            .select('campanya, mes_servei, hores_facturades, import_net, regularitzacio_import, regularitzacio_mes')
             .eq('eliminat', false)
             .order('mes_servei')
-            .range(desde, desde + pagina - 1);
+            .range(offset, offset + MIDA_PAGINA - 1);
         if (error) throw error;
         totes = totes.concat(data || []);
-        if (!data || data.length < pagina) break;
-        desde += pagina;
+        if (!data || data.length < MIDA_PAGINA) break;
+        offset += MIDA_PAGINA;
     }
     return totes;
 }
 
-// -> { [campanya]: { mesos, hores, cost, costPerHora } }
+// -> { [campanya]: { mesos, hores, cost, regul, euroHora } }
+// Cost de campanya = (import_net - regularització) a la campanya del mes de servei
+//                  + regularització a la campanya del mes que regularitza.
 function agregarTemporersPerCampanya(factures) {
     const res = {};
-    (factures || []).forEach(function(f) {
-        const c = String(f.campanya);
-        if (!res[c]) res[c] = { mesos: 0, hores: 0, cost: 0, costPerHora: null };
-        res[c].mesos += 1;
-        res[c].hores += parseFloat(f.hores_facturades) || 0;
-        res[c].cost += parseFloat(f[TEMPORERS_CAMP_COST]) || 0;
+    const obtenir = c => (res[c] = res[c] || { mesos: 0, hores: 0, cost: 0, regul: 0, euroHora: null });
+    (factures || []).forEach(f => {
+        const reg = Number(f.regularitzacio_import) || 0;
+        const d = obtenir(f.campanya);
+        d.mesos += 1;
+        d.hores += Number(f.hores_facturades) || 0;
+        d.cost += (Number(f.import_net) || 0) - reg;
+        if (reg !== 0 && f.regularitzacio_mes) {
+            const dReg = obtenir(parseInt(String(f.regularitzacio_mes).slice(0, 4), 10));
+            dReg.cost += reg;
+            dReg.regul += reg;
+        }
     });
-    Object.keys(res).forEach(function(c) {
-        res[c].costPerHora = res[c].hores > 0 ? res[c].cost / res[c].hores : null;
-    });
+    Object.values(res).forEach(d => { d.euroHora = d.hores > 0 ? d.cost / d.hores : null; });
     return res;
 }
 
-// ---------- ADAPTADORS (kg i ha per campanya) ----------
-// ADAPTAR: ajustar a l'estructura real de ctx.resum i ctx.superficiePerFinca.
-// Si no troben la dada retornen null i el bloc mostra "—" (no inventa res).
-
-function kgFruitaCampanyaTemporers(ctx, c) {
-    const r = ctx.resum && (ctx.resum[c] || ctx.resum[parseInt(c, 10)]);
-    if (!r) return null;
-    if (typeof r.kgTotal === 'number') return r.kgTotal;       // ADAPTAR: nom real del camp
-    if (typeof r.totalKg === 'number') return r.totalKg;       // ADAPTAR
-    return null;
+// kg i ha de fruita d'una campanya, sobre les MATEIXES finques (les que tenen kg),
+// perquè numerador (cost de tota l'explotació) i denominadors siguin coherents.
+function baseFruitaTemporers(ctx, c) {
+    const perFinca = ctx.resum?.[c]?.perFinca || {};
+    let kg = 0, ha = 0;
+    Object.entries(perFinca).forEach(([finca, kgFinca]) => {
+        if (!(kgFinca > 0)) return;
+        const { ha: haFinca } = trobarHaAmbFallback(ctx.superficiePerFinca, c, finca);
+        kg += kgFinca;
+        ha += haFinca;
+    });
+    return { kg: kg > 0 ? kg : null, ha: ha > 0 ? ha : null };
 }
-
-function haCampanyaTemporers(ctx, c) {
-    const s = ctx.superficiePerFinca && (ctx.superficiePerFinca[c] || ctx.superficiePerFinca[parseInt(c, 10)]);
-    if (!s || typeof s !== 'object') return null;               // ADAPTAR: forma real (campanya -> finca -> ha?)
-    const total = Object.keys(s).reduce(function(sum, k) {
-        const v = typeof s[k] === 'number' ? s[k] : parseFloat(s[k] && s[k].ha);
-        return sum + (isNaN(v) ? 0 : v);
-    }, 0);
-    return total > 0 ? total : null;
-}
-
-// ---------- UTILITATS DE FORMAT ----------
-
-function fmtTemporers(n, dec) {
-    if (n == null || isNaN(n)) return '—';
-    dec = (dec == null) ? 0 : dec;
-    return Number(n).toLocaleString('ca-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec });
-}
-
-// ADAPTAR: substituir per htmlDeltaInforme() del fitxer un cop el vegem.
-// Per a costos, baixar és bo (verd), pujar és dolent (vermell).
-function htmlDeltaTemporers(actual, anterior) {
-    if (actual == null || anterior == null || anterior === 0) return '';
-    const d = ((actual - anterior) / anterior) * 100;
-    const color = d <= 0 ? '#2e7d32' : '#c62828';
-    return ' <small style="color:' + color + ';">' + (d > 0 ? '+' : '') + d.toFixed(1).replace('.', ',') + '%</small>';
-}
-
-// ---------- (2) RENDER ----------
 
 function renderBlocTemporers(ctx) {
-    const dades = ctx.temporers || {};
-    const filtres = ctx.filtres || {};
-    const anyActual = String(new Date().getFullYear());
+    assegurarEstilsDeltaInforme();
+    const { campanyes, temporers = {}, filtres = {} } = ctx;
+    const anyActual = new Date().getFullYear();
 
-    // Campanyes seleccionades, ordenades ascendent (per calcular Δ% vs l'anterior)
-    const campanyes = (ctx.campanyes || []).map(String).sort();
-
-    let html = '<div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,0.1);margin-bottom:20px;">';
-    html += '<h3 style="margin-top:0;">👥 Mà d\'obra temporers</h3>';
-
-    // Avisos de criteri
-    html += '<p style="font-size:12px;color:#666;margin:0 0 10px 0;">' +
-            'Cost facturat per Segre Fruits (TISA), ' + (TEMPORERS_CAMP_COST === 'import_net' ? 'sense IVA' : 'amb IVA') +
-            '. Campanya = any calendari del mes de servei. €/ha i €/kg només sobre fruita.</p>';
-    if (filtres.finca) {
-        html += '<p style="font-size:12px;color:#e65100;margin:0 0 10px 0;">ℹ️ La factura de temporers no es desglossa per finca: ' +
-                'es mostra el total de l\'explotació, no el de «' + String(filtres.finca).replace(/</g, '&lt;') + '».</p>';
-    }
-    const filtreCultiu = !!(filtres.fruita || filtres.varietat);
-    if (filtreCultiu) {
-        html += '<p style="font-size:12px;color:#e65100;margin:0 0 10px 0;">ℹ️ Amb filtre de fruita/varietat el €/kg no es calcula: ' +
-                'la mà d\'obra és de tota l\'explotació i els kg només d\'aquell cultiu.</p>';
+    if (!campanyes.some(c => temporers[c])) {
+        return `
+            <div class="informe-comp-seccio">
+                <h3>👥 Mà d'obra temporers</h3>
+                <p class="informe-comp-avis">No hi ha factures de temporers per a les campanyes seleccionades.</p>
+            </div>`;
     }
 
-    html += '<div style="overflow-x:auto;"><table class="data-table"><thead><tr>' +
-            '<th>Campanya</th><th style="text-align:right;">Mesos facturats</th>' +
-            '<th style="text-align:right;">Hores</th><th style="text-align:right;">Cost (€)</th>' +
-            '<th style="text-align:right;">€/h</th><th style="text-align:right;">€/ha</th>' +
-            '<th style="text-align:right;">€/kg</th></tr></thead><tbody>';
+    // Amb qualsevol filtre, el cost (de tota l'explotació) no es pot dividir pels kg/ha filtrats
+    const hiHaFiltre = !!(filtres.fruita || filtres.varietat || filtres.finca);
+    const avisos = [];
+    if (filtres.finca) avisos.push('La factura de temporers no es desglossa per finca: es mostra el total de l\'explotació, no el de «' + filtres.finca + '».');
+    if (filtres.fruita || filtres.varietat) avisos.push('Amb un filtre de fruita o varietat no es calculen €/ha ni €/kg: la mà d\'obra és de tota l\'explotació.');
+    if (filtres.finca) avisos.push('Amb filtre de finca tampoc es calculen €/ha ni €/kg.');
 
-    let anterior = null;     // valors de la campanya anterior seleccionada
-    campanyes.forEach(function(c) {
-        const d = dades[c];
-        if (!d) {
-            html += '<tr><td><strong>' + c + '</strong></td><td colspan="6" style="color:#999;">Sense factures de temporers</td></tr>';
-            anterior = null;
-            return;
-        }
-
-        const ha = haCampanyaTemporers(ctx, c);
-        const kg = filtreCultiu ? null : kgFruitaCampanyaTemporers(ctx, c);
-        const costHa = ha ? d.cost / ha : null;
-        const costKg = kg ? d.cost / kg : null;
-
-        const enCurs = (c === anyActual);
-        const marca = enCurs ? ' <span title="Campanya en curs: falten factures dels mesos següents" style="color:#e65100;">⚠️ en curs</span>' : '';
-
-        html += '<tr>' +
-            '<td><strong>' + c + '</strong>' + marca + '</td>' +
-            '<td style="text-align:right;">' + d.mesos + '</td>' +
-            '<td style="text-align:right;">' + fmtTemporers(d.hores, 0) + '</td>' +
-            '<td style="text-align:right;">' + fmtTemporers(d.cost, 0) + '</td>' +
-            '<td style="text-align:right;">' + fmtTemporers(d.costPerHora, 2) + htmlDeltaTemporers(d.costPerHora, anterior && anterior.costPerHora) + '</td>' +
-            '<td style="text-align:right;">' + fmtTemporers(costHa, 0) + htmlDeltaTemporers(costHa, anterior && anterior.costHa) + '</td>' +
-            '<td style="text-align:right;">' + fmtTemporers(costKg, 3) + htmlDeltaTemporers(costKg, anterior && anterior.costKg) + '</td>' +
-            '</tr>';
-
-        // Només es compara si la campanya anterior seleccionada és la immediata anterior en dades
-        anterior = { costPerHora: d.costPerHora, costHa: costHa, costKg: costKg };
+    // Valors per campanya
+    const v = {};
+    campanyes.forEach(c => {
+        const d = temporers[c];
+        if (!d) { v[c] = null; return; }
+        const base = hiHaFiltre ? { kg: null, ha: null } : baseFruitaTemporers(ctx, c);
+        v[c] = {
+            mesos: d.mesos, hores: d.hores, cost: d.cost, regul: d.regul, euroHora: d.euroHora,
+            euroHa: base.ha ? d.cost / base.ha : null,
+            euroKg: base.kg ? d.cost / base.kg : null,
+            enCurs: Number(c) === anyActual
+        };
     });
 
-    html += '</tbody></table></div>';
+    // Una fila per indicador; max de referència per a les barres
+    const files = [
+        { titol: 'Hores facturades', clau: 'hores',    format: x => formatNumeroInforme(x) + ' h',          delta: false },
+        { titol: 'Cost (€, sense IVA)', clau: 'cost',  format: x => x.toLocaleString('ca-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €', delta: false, subnota: true },
+        { titol: '€/hora',           clau: 'euroHora', format: x => x.toFixed(2) + ' €/h',                  delta: true },
+        { titol: '€/ha',             clau: 'euroHa',   format: x => formatNumeroInforme(x) + ' €/ha',       delta: true },
+        { titol: '€/kg collit',      clau: 'euroKg',   format: x => x.toFixed(3) + ' €/kg',                 delta: true }
+    ];
 
-    if (campanyes.length === 0) {
-        html += '<p style="color:#999;">Cap campanya seleccionada.</p>';
-    }
-    html += '</div>';
-    return html;
+    const capcalera = campanyes.map(c => `<th>📅 <strong>${c}</strong></th>`).join('');
+    const cos = files.map(fila => {
+        let max = 1;
+        campanyes.forEach(c => { const x = v[c]?.[fila.clau]; if (x != null) max = Math.max(max, Math.abs(x)); });
+
+        const cel·les = campanyes.map((c, i) => {
+            const x = v[c]?.[fila.clau];
+            if (x === null || x === undefined) return cel·laValor('—', 0, max, true);
+            const prev = i > 0 ? v[campanyes[i - 1]]?.[fila.clau] : null;
+            const delta = (fila.delta && i > 0) ? deltaInforme(x, prev) : null;
+            let sub = '';
+            if (fila.subnota) {
+                sub = `${v[c].mesos} mes${v[c].mesos === 1 ? '' : 'os'} facturat${v[c].mesos === 1 ? '' : 's'}` +
+                      (v[c].regul ? ` · inclou ${v[c].regul > 0 ? '+' : ''}${v[c].regul.toLocaleString('ca-ES', { minimumFractionDigits: 2 })} € de regularitzacions` : '') +
+                      (v[c].enCurs ? ' · ⚠️ campanya en curs (provisional)' : '');
+            }
+            return cel·laValorDelta(fila.format(x), Math.abs(x), max, delta, sub);
+        }).join('');
+        return `<tr><td>${fila.titol}</td>${cel·les}</tr>`;
+    }).join('');
+
+    const notes = [NOTA_TEMPORERS, ...avisos].map(t => `<p class="informe-comp-nota">${t}</p>`).join('');
+
+    return `
+        <div class="informe-comp-seccio">
+            <h3>👥 Mà d'obra temporers <span class="informe-comp-nota">(▲▼ vs campanya anterior; verd = més baix)</span></h3>
+            ${notes}
+            <table class="informe-comp-taula">
+                <thead><tr><th>Indicador</th>${capcalera}</tr></thead>
+                <tbody>${cos}</tbody>
+            </table>
+        </div>`;
 }
-console.log('✅ Informes comparativa v1 (blocs seleccionables + totals i variacions aigua) carregat');
