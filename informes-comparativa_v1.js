@@ -81,11 +81,17 @@ const BLOCS_INFORME_COMPARATIVA = {
         necessita: ['aigua', 'collita'],
         render: renderBlocAiguaCost
     },
-    temporers: {
-        label: '👥 Mà d\'obra temporers (hores, €, €/h, €/ha, €/kg)',
+        temporers: {
+        label: '👥 Temporers — exercici econòmic (any natural)',
         grup: '👥 Mà d\'obra',
         necessita: ['temporers', 'collita', 'superficie'],
         render: renderBlocTemporers
+    },
+    temporersAgricola: {
+        label: '👥 Temporers — campanya agrícola (oct–set)',
+        grup: '👥 Mà d\'obra',
+        necessita: ['temporers', 'collita', 'superficie'],
+        render: renderBlocTemporersAgricola
     }
 };
 
