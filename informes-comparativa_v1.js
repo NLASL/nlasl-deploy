@@ -1231,13 +1231,24 @@ function formatNumeroInforme(n) {
 }
 
 // ------------------------------------------------------------
-// DATASET + BLOC: MÀ D'OBRA TEMPORERS (factures_temporers)
-// Cost facturat per Segre Fruits (TISA). Campanya = ANY CALENDARI del mes de servei
-// (la BD ja el calcula). Cost SENSE IVA: l'IVA és un concepte que desvirtua la
-// comparació entre anys (el tipus pot canviar), per això no s'hi suma mai.
+// DATASET + BLOCS: MÀ D'OBRA TEMPORERS (factures_temporers)
+// Cost facturat per Segre Fruits (TISA), SENSE IVA (l'IVA desvirtua la comparació entre anys).
+// Dues maneres de comptar el mateix cost (mateixes factures):
+//   - EXERCICI ECONÒMIC: any natural del mes de servei (gener–desembre)
+//   - CAMPANYA AGRÍCOLA: octubre (n-1) – setembre (n), igual que la collita
 // ------------------------------------------------------------
 
-const NOTA_TEMPORERS = 'Cost facturat per Segre Fruits (TISA), sense IVA. Campanya = any calendari del mes de servei. €/ha i €/kg només sobre les finques amb collita de fruita.';
+const NOTA_TEMPORERS = 'Cost facturat per Segre Fruits (TISA), sense IVA. No inclou la mà d\'obra pròpia.';
+
+// Campanya d'un mes de servei (text 'YYYY-MM-DD'; sense passar per Date per evitar desfasaments horaris)
+function campanyaExerciciDeMes(dataStr) {
+    return parseInt(String(dataStr).slice(0, 4), 10);
+}
+function campanyaAgricolaDeMes(dataStr) {
+    const any = parseInt(String(dataStr).slice(0, 4), 10);
+    const mes = parseInt(String(dataStr).slice(5, 7), 10);
+    return mes >= 10 ? any + 1 : any;
+}
 
 async function obtenirFacturesTemporersInforme() {
     // Paginat amb .range() (PostgREST limita a 1000 files)
@@ -1260,19 +1271,20 @@ async function obtenirFacturesTemporersInforme() {
 }
 
 // -> { [campanya]: { mesos, hores, cost, regul, euroHora } }
+// campanyaDeMes decideix el criteri (exercici o agrícola).
 // Cost de campanya = (import_net - regularització) a la campanya del mes de servei
 //                  + regularització a la campanya del mes que regularitza.
-function agregarTemporersPerCampanya(factures) {
+function agregarTemporersPerCampanya(factures, campanyaDeMes = campanyaExerciciDeMes) {
     const res = {};
     const obtenir = c => (res[c] = res[c] || { mesos: 0, hores: 0, cost: 0, regul: 0, euroHora: null });
     (factures || []).forEach(f => {
         const reg = Number(f.regularitzacio_import) || 0;
-        const d = obtenir(f.campanya);
+        const d = obtenir(campanyaDeMes(f.mes_servei));
         d.mesos += 1;
         d.hores += Number(f.hores_facturades) || 0;
         d.cost += (Number(f.import_net) || 0) - reg;
         if (reg !== 0 && f.regularitzacio_mes) {
-            const dReg = obtenir(parseInt(String(f.regularitzacio_mes).slice(0, 4), 10));
+            const dReg = obtenir(campanyaDeMes(f.regularitzacio_mes));
             dReg.cost += reg;
             dReg.regul += reg;
         }
@@ -1296,14 +1308,34 @@ function baseFruitaTemporers(ctx, c) {
 }
 
 function renderBlocTemporers(ctx) {
-    assegurarEstilsDeltaInforme();
-    const { campanyes, temporers = {}, filtres = {} } = ctx;
-    const anyActual = new Date().getFullYear();
+    return renderTaulaTemporers(ctx, ctx.temporers || {}, {
+        titol: '👥 Mà d\'obra temporers — exercici econòmic <span class="informe-comp-nota">(any natural, gener–desembre)</span>',
+        notes: ['Exercici = any natural del mes de servei: no coincideix amb la campanya de collita (oct–set), així que €/ha i €/kg d\'aquesta taula són orientatius. Per comparar amb la collita, usa la taula de campanya agrícola.'],
+        enCurs: c => Number(c) === new Date().getFullYear(),
+        rangMesos: null
+    });
+}
 
-    if (!campanyes.some(c => temporers[c])) {
+function renderBlocTemporersAgricola(ctx) {
+    const ara = new Date();
+    const campanyaActual = ara.getMonth() + 1 >= 10 ? ara.getFullYear() + 1 : ara.getFullYear();
+    return renderTaulaTemporers(ctx, ctx.temporersAgricola || {}, {
+        titol: '👥 Mà d\'obra temporers — campanya agrícola <span class="informe-comp-nota">(octubre n-1 – setembre n, com la collita)</span>',
+        notes: ['Campanya agrícola: de l\'octubre de l\'any anterior al setembre de l\'any indicat. Coincideix amb la collita, per això €/ha i €/kg són directament comparables.'],
+        enCurs: c => Number(c) === campanyaActual,
+        rangMesos: c => 'oct ' + (c - 1) + ' – set ' + c
+    });
+}
+
+// Taula comuna als dos criteris. cfg: { titol, notes[], enCurs(c), rangMesos(c)|null }
+function renderTaulaTemporers(ctx, dades, cfg) {
+    assegurarEstilsDeltaInforme();
+    const { campanyes, filtres = {} } = ctx;
+
+    if (!campanyes.some(c => dades[c])) {
         return `
             <div class="informe-comp-seccio">
-                <h3>👥 Mà d'obra temporers</h3>
+                <h3>${cfg.titol}</h3>
                 <p class="informe-comp-avis">No hi ha factures de temporers per a les campanyes seleccionades.</p>
             </div>`;
     }
@@ -1318,24 +1350,23 @@ function renderBlocTemporers(ctx) {
     // Valors per campanya
     const v = {};
     campanyes.forEach(c => {
-        const d = temporers[c];
+        const d = dades[c];
         if (!d) { v[c] = null; return; }
         const base = hiHaFiltre ? { kg: null, ha: null } : baseFruitaTemporers(ctx, c);
         v[c] = {
             mesos: d.mesos, hores: d.hores, cost: d.cost, regul: d.regul, euroHora: d.euroHora,
             euroHa: base.ha ? d.cost / base.ha : null,
             euroKg: base.kg ? d.cost / base.kg : null,
-            enCurs: Number(c) === anyActual
+            enCurs: cfg.enCurs(c)
         };
     });
 
-    // Una fila per indicador; max de referència per a les barres
     const files = [
-        { titol: 'Hores facturades', clau: 'hores',    format: x => formatNumeroInforme(x) + ' h',          delta: false },
-        { titol: 'Cost (€, sense IVA)', clau: 'cost',  format: x => x.toLocaleString('ca-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €', delta: false, subnota: true },
-        { titol: '€/hora',           clau: 'euroHora', format: x => x.toFixed(2) + ' €/h',                  delta: true },
-        { titol: '€/ha',             clau: 'euroHa',   format: x => formatNumeroInforme(x) + ' €/ha',       delta: true },
-        { titol: '€/kg collit',      clau: 'euroKg',   format: x => x.toFixed(3) + ' €/kg',                 delta: true }
+        { titol: 'Hores facturades',    clau: 'hores',    format: x => formatNumeroInforme(x) + ' h',    delta: false },
+        { titol: 'Cost (€, sense IVA)', clau: 'cost',     format: x => x.toLocaleString('ca-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €', delta: false, subnota: true },
+        { titol: '€/hora',              clau: 'euroHora', format: x => x.toFixed(2) + ' €/h',            delta: true },
+        { titol: '€/ha',                clau: 'euroHa',   format: x => formatNumeroInforme(x) + ' €/ha', delta: true },
+        { titol: '€/kg collit',         clau: 'euroKg',   format: x => x.toFixed(3) + ' €/kg',           delta: true }
     ];
 
     const capcalera = campanyes.map(c => `<th>📅 <strong>${c}</strong></th>`).join('');
@@ -1350,26 +1381,30 @@ function renderBlocTemporers(ctx) {
             const delta = (fila.delta && i > 0) ? deltaInforme(x, prev) : null;
             let sub = '';
             if (fila.subnota) {
-		const m = v[c].mesos;
-		const linies = [m + ' mes' + (m === 1 ? '' : 'os') + ' facturat' + (m === 1 ? '' : 's')];
-			if (v[c].regul) {
-			linies.push('inclou ' + (v[c].regul > 0 ? '+' : '') +
-			v[c].regul.toLocaleString('ca-ES', { minimumFractionDigits: 2 }) + ' € de regularitzacions');
-			}
-			if (v[c].enCurs) linies.push('⚠️ campanya en curs (provisional)');
-			else if (m < 12) linies.push('⚠️ només ' + m + ' de 12 mesos: €/ha i €/kg no comparables');
-			sub = linies.join('<br>');
-	}
+                const m = v[c].mesos;
+                const linies = [];
+                if (cfg.rangMesos) linies.push(cfg.rangMesos(c));
+                // En una campanya tancada amb menys de 12 mesos, només ho indiquem (pot ser que la resta fos feina pròpia)
+                linies.push(!v[c].enCurs && m < 12
+                    ? m + ' de 12 mesos facturats'
+                    : m + ' mes' + (m === 1 ? '' : 'os') + ' facturat' + (m === 1 ? '' : 's'));
+                if (v[c].regul) {
+                    linies.push('inclou ' + (v[c].regul > 0 ? '+' : '') +
+                        v[c].regul.toLocaleString('ca-ES', { minimumFractionDigits: 2 }) + ' € de regularitzacions');
+                }
+                if (v[c].enCurs) linies.push('⚠️ campanya en curs (provisional)');
+                sub = linies.join('<br>');
+            }
             return cel·laValorDelta(fila.format(x), Math.abs(x), max, delta, sub);
         }).join('');
         return `<tr><td>${fila.titol}</td>${cel·les}</tr>`;
     }).join('');
 
-    const notes = [NOTA_TEMPORERS, ...avisos].map(t => `<p class="informe-comp-nota">${t}</p>`).join('');
+    const notes = [NOTA_TEMPORERS, ...(cfg.notes || []), ...avisos].map(t => `<p class="informe-comp-nota">${t}</p>`).join('');
 
     return `
         <div class="informe-comp-seccio">
-            <h3>👥 Mà d'obra temporers <span class="informe-comp-nota">(▲▼ vs campanya anterior; verd = més baix)</span></h3>
+            <h3>${cfg.titol} <span class="informe-comp-nota">(▲▼ vs campanya anterior; verd = més baix)</span></h3>
             ${notes}
             <table class="informe-comp-taula">
                 <thead><tr><th>Indicador</th>${capcalera}</tr></thead>
