@@ -1350,10 +1350,16 @@ function renderBlocTemporers(ctx) {
             const delta = (fila.delta && i > 0) ? deltaInforme(x, prev) : null;
             let sub = '';
             if (fila.subnota) {
-                sub = `${v[c].mesos} mes${v[c].mesos === 1 ? '' : 'os'} facturat${v[c].mesos === 1 ? '' : 's'}` +
-                      (v[c].regul ? ` · inclou ${v[c].regul > 0 ? '+' : ''}${v[c].regul.toLocaleString('ca-ES', { minimumFractionDigits: 2 })} € de regularitzacions` : '') +
-                      (v[c].enCurs ? ' · ⚠️ campanya en curs (provisional)' : '');
-            }
+		const m = v[c].mesos;
+		const linies = [m + ' mes' + (m === 1 ? '' : 'os') + ' facturat' + (m === 1 ? '' : 's')];
+			if (v[c].regul) {
+			linies.push('inclou ' + (v[c].regul > 0 ? '+' : '') +
+			v[c].regul.toLocaleString('ca-ES', { minimumFractionDigits: 2 }) + ' € de regularitzacions');
+			}
+			if (v[c].enCurs) linies.push('⚠️ campanya en curs (provisional)');
+			else if (m < 12) linies.push('⚠️ només ' + m + ' de 12 mesos: €/ha i €/kg no comparables');
+			sub = linies.join('<br>');
+	}
             return cel·laValorDelta(fila.format(x), Math.abs(x), max, delta, sub);
         }).join('');
         return `<tr><td>${fila.titol}</td>${cel·les}</tr>`;
