@@ -373,8 +373,8 @@ async function generarInformeComparatiu() {
             resumAigua[c] = finca ? Object.fromEntries(Object.entries(finques).filter(([nom]) => nom === finca)) : finques;
         });
 
-        const temporers = datasetsNecessaris.has('temporers') ? agregarTemporersPerCampanya(filesTemporers) : {};
-        const ctx = { campanyes, resum, superficiePerFinca, resumAigua, totalFinquesASG, simulatsAigua, temporers, filtres: { fruita, varietat, finca } };
+        const temporersAgricola = datasetsNecessaris.has('temporers') ? agregarTemporersPerCampanya(filesTemporers, campanyaAgricolaDeMes) : {};
+        const ctx = { campanyes, resum, superficiePerFinca, resumAigua, totalFinquesASG, simulatsAigua, temporers, temporersAgricola, filtres: { fruita, varietat, finca } };
         renderitzarResultatsComparativa(ctx, blocsSeleccionats);
 
     } catch (error) {
