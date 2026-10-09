@@ -76,7 +76,7 @@ const BLOCS_INFORME_COMPARATIVA = {
         render: renderBlocAiguaConsum
     },
     aiguaCost: {
-        label: '💶 Cost aigua (€ i €/kg collit)',
+        label: '💶 Cost aigua (€ sense IVA i €/kg collit)',
         grup: '💧 Aigua (Segarra-Garrigues)',
         necessita: ['aigua', 'collita'],
         render: renderBlocAiguaCost
@@ -558,14 +558,14 @@ async function obtenirSimulatsAiguaInforme() {
     try {
         const { data, error } = await supabaseClient
             .from('factures_aigua_asg')
-            .select('campanya, estat, import_total')
+            .select('campanya, estat, import_total, iva')
             .range(0, 999);
         if (error) throw error;
         const res = {};
         (data || []).forEach(f => {
             const c = Number(f.campanya);
             if (!res[c]) res[c] = { total: 0, simulat: 0 };
-            const imp = Number(f.import_total) || 0;
+            const imp = (Number(f.import_total) || 0) - (Number(f.iva) || 0);   // sense IVA
             res[c].total += imp;
             if (f.estat === 'simulada') res[c].simulat += imp;
         });
@@ -951,7 +951,7 @@ function renderBlocCalibre(ctx) {
 // BLOCS — AIGUA
 // ------------------------------------------------------------
 
-const NOTA_AIGUA_ASG = 'Només inclou l\'aigua regada pel canal ASG (Segarra-Garrigues). No inclou Urgell ni cap finca fora d\'aquest canal.';
+const NOTA_AIGUA_ASG = 'Només inclou l\'aigua regada pel canal ASG (Segarra-Garrigues). No inclou Urgell ni cap finca fora d\'aquest canal. Costos sense IVA.';
 
 // Estils de les variacions (Δ%). S'injecten un sol cop des d'aquí
 // per no haver de tocar styles.css.
@@ -1154,7 +1154,7 @@ function renderBlocAiguaCost(ctx) {
     const totals = calcularTotalsAigua(ctx);
 
     const taulaCost = renderTaulaAigua(ctx, totals, finques, {
-        titol: '💶 Cost aigua total (€)',
+        titol: '💶 Cost aigua total (€, sense IVA)',
         nota: NOTA_AIGUA_ASG,
         valorFinca: (f, c) => resumAigua[c]?.[f]?.costTotal ?? null,
         claTotal: 'cost',
