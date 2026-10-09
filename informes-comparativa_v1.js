@@ -1158,7 +1158,7 @@ function renderBlocAiguaCost(ctx) {
         nota: NOTA_AIGUA_ASG,
         valorFinca: (f, c) => resumAigua[c]?.[f]?.costTotal ?? null,
         claTotal: 'cost',
-        format: v => v.toLocaleString('ca-ES', { minimumFractionDigits: 2 }) + ' €',
+        format: v => v.toLocaleString('ca-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €',
         ambDelta: false
     });
 
