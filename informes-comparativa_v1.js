@@ -94,7 +94,7 @@ const BLOCS_INFORME_COMPARATIVA = {
         render: renderBlocTemporersAgricola
     },
     cereal: {
-        label: '🌾 Cereal — rendiment kg/ha (sobre ha sembrades)',
+        label: '🌾 Cereal i pèsol — rendiment kg/ha (sobre ha sembrades)',
         grup: '🌾 Cereal',
         necessita: ['cereal'],
         render: renderBlocCereal
@@ -1442,7 +1442,7 @@ function renderTaulaTemporers(ctx, dades, cfg) {
 //   ⚠️ collit sense sembra — hi ha kg però cap ha sembrada (probable nom de finca/cultiu diferent)
 // ------------------------------------------------------------
 
-// Cultius de la DUN que NO són cereal (en forma normalitzada, sense accents)
+// Cultius que es mostren però NO entren al TOTAL CEREAL (forma normalitzada, sense accents)
 const CULTIUS_NO_CEREAL_INFORME = ['PESOL'];
 
 // Normalitza un nom per comparar-lo: majúscules, sense accents, guionets i espais unificats
@@ -1493,16 +1493,13 @@ function agregarCerealPerCampanya(dades) {
         if (!d.parells[clau]) d.parells[clau] = { finca: finca || 'Sense finca', cultiu: nomCultiuBonicCereal(cultiu), kg: 0, ha: 0 };
         return d.parells[clau];
     };
-    const esCereal = cultiu => !CULTIUS_NO_CEREAL_INFORME.includes(normNomCerealInforme(cultiu));
 
     (dades.sembrat || []).forEach(r => {
-        if (!esCereal(r.cultiu)) return;
         const c = Number(r.campanya);
         obtenir(c).teSembrat = true;
         parell(c, r.finca, r.cultiu).ha += Number(r.superficie_ha) || 0;
     });
     (dades.collita || []).forEach(r => {
-        if (!esCereal(r.cultiu)) return;
         const c = Number(r.campanya);
         obtenir(c).teCollita = true;
         parell(c, r.finca, r.cultiu).kg += Number(r.pes_net) || 0;
@@ -1543,11 +1540,13 @@ function calcularCerealInforme(ctx) {
             x.kg += p.kg; x.ha += p.ha;
         });
         // Total cereal: els cultius amb ha entren al kg/ha; els que tenen kg sense ha es compten a part
-        const total = { kg: 0, ha: 0, kgSenseHa: 0 };
-        Object.values(perCultiu).forEach(x => {
-            if (x.ha > 0) { total.kg += x.kg; total.ha += x.ha; } else total.kgSenseHa += x.kg;
+        const total = { kg: 0, ha: 0, kgSenseHa: 0 };       // només cereal
+        const totalTots = { kg: 0, ha: 0, kgSenseHa: 0 };   // cereal + pèsol
+        Object.entries(perCultiu).forEach(([k, x]) => {
+            const dests = CULTIUS_NO_CEREAL_INFORME.includes(k) ? [totalTots] : [total, totalTots];
+            dests.forEach(t => { if (x.ha > 0) { t.kg += x.kg; t.ha += x.ha; } else t.kgSenseHa += x.kg; });
         });
-        calcul[c] = { d, perCultiu, total };
+        calcul[c] = { d, perCultiu, total, totalTots };
     });
     return { campanyes, cultius, calcul };
 }
@@ -1568,7 +1567,7 @@ function renderBlocCereal(ctx) {
 
     const rendDe = x => (x && x.ha > 0 && x.kg > 0) ? x.kg / x.ha : null;
     let maxRend = 1;
-    campanyes.forEach(c => Object.values(calcul[c].perCultiu).concat([calcul[c].total]).forEach(x => {
+    campanyes.forEach(c => Object.values(calcul[c].perCultiu).concat([calcul[c].total, calcul[c].totalTots]).forEach(x => {
         const r = rendDe(x); if (r !== null) maxRend = Math.max(maxRend, r);
     }));
 
@@ -1595,18 +1594,22 @@ function renderBlocCereal(ctx) {
         return `<tr><td>🌾 ${cultius[k]}</td>${cel·les}</tr>`;
     }).join('');
 
-    const celTotal = campanyes.map((c, i) => {
-        const t = calcul[c].total;
+    const hiHaPesol = Object.keys(cultius).some(k => CULTIUS_NO_CEREAL_INFORME.includes(k));
+    const celTotalDe = clau => campanyes.map((c, i) => {
+        const t = calcul[c][clau];
         let html = cel(c, t, false, i, null);
         if (t.kgSenseHa > 0) {
             html = html.replace('</span></div></td>', '<span class="informe-comp-subnota">⚠️ + ' + formatNumeroInforme(t.kgSenseHa) + ' kg de cultius sense sembra</span></span></div></td>');
         }
         return html;
     }).join('');
+    const celTotal = celTotalDe('total');
+    const filaTotalPesol = hiHaPesol
+        ? `<tr class="informe-comp-fila-total"><td>TOTAL AMB PÈSOL</td>${celTotalDe('totalTots')}</tr>` : '';
 
     const notes = [
         'Rendiment = kg collits del cultiu ÷ hectàrees sembrades del mateix cultiu (DUN, taula cereal_sembrat). Sense fallback: si no hi ha sembra registrada, no es calcula.',
-        'Els albarans de cereal són globals per cultiu (la finca que hi consta és només una assignació de conveniència), per això el rendiment es calcula per cultiu i no per finca. No inclou el pèsol (no és cereal).'
+        'Els albarans de cereal són globals per cultiu (la finca que hi consta és només una assignació de conveniència), per això el rendiment es calcula per cultiu i no per finca. El pèsol es mostra com a cultiu, però no entra al TOTAL CEREAL (té la seva fila de total a part).'
     ];
     if (filtres.fruita || filtres.varietat || filtres.finca) {
         notes.push('Els filtres de fruita, varietat i finca no s\'apliquen al cereal.');
@@ -1618,7 +1621,7 @@ function renderBlocCereal(ctx) {
             ${notes.map(t => `<p class="informe-comp-nota">${t}</p>`).join('')}
             <table class="informe-comp-taula">
                 <thead><tr><th>Cultiu</th>${capcalera}</tr></thead>
-                <tbody>${filesCultiu}<tr class="informe-comp-fila-total"><td>TOTAL CEREAL</td>${celTotal}</tr></tbody>
+                <tbody>${filesCultiu}<tr class="informe-comp-fila-total"><td>TOTAL CEREAL</td>${celTotal}</tr>${filaTotalPesol}</tbody>
             </table>
         </div>`;
 }
