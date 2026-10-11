@@ -98,6 +98,12 @@ const BLOCS_INFORME_COMPARATIVA = {
         grup: '🌾 Cultius extensius',
         necessita: ['cereal'],
         render: renderBlocCereal
+    },
+    gasoil: {
+        label: '⛽ Gasoil — despesa de l\'exercici (litres, €, €/L, L/ha, €/ha, €/kg)',
+        grup: '⛽ Gasoil',
+        necessita: ['gasoil', 'collita', 'superficie'],
+        render: renderBlocGasoil
     }
 };
 
@@ -346,7 +352,7 @@ async function generarInformeComparatiu() {
     );
 
     try {
-        const [dadesCollita, superficiePerFinca, filesAigua, simulatsAigua, filesTemporers, dadesCereal] = await Promise.all([
+        const [dadesCollita, superficiePerFinca, filesAigua, simulatsAigua, filesTemporers, dadesCereal, filesGasoil] = await Promise.all([
             datasetsNecessaris.has('collita')
                 ? obtenirDadesComparativaCollita(campanyes, { fruita, varietat, finca })
                 : Promise.resolve([]),
@@ -364,10 +370,13 @@ async function generarInformeComparatiu() {
                 : Promise.resolve([]),
             datasetsNecessaris.has('cereal')
                 ? obtenirDadesCerealInforme()
-                : Promise.resolve({ collita: [], sembrat: [] })
+                : Promise.resolve({ collita: [], sembrat: [] }),
+            datasetsNecessaris.has('gasoil')
+                ? obtenirGasoilInforme()
+                : Promise.resolve([])
         ]);
 
-        if (datasetsNecessaris.has('collita') && dadesCollita.length === 0 && !datasetsNecessaris.has('aigua') && !datasetsNecessaris.has('temporers') && !datasetsNecessaris.has('cereal')) {
+        if (datasetsNecessaris.has('collita') && dadesCollita.length === 0 && !datasetsNecessaris.has('aigua') && !datasetsNecessaris.has('temporers') && !datasetsNecessaris.has('cereal') && !datasetsNecessaris.has('gasoil')) {
             divResultats.innerHTML = '<p class="informe-comp-avis">No hi ha dades de collita per aquesta selecció.</p>';
             return;
         }
@@ -385,7 +394,8 @@ async function generarInformeComparatiu() {
                 const temporers = datasetsNecessaris.has('temporers') ? agregarTemporersPerCampanya(filesTemporers) : {};
         const temporersAgricola = datasetsNecessaris.has('temporers') ? agregarTemporersPerCampanya(filesTemporers, campanyaAgricolaDeMes) : {};
         const cereal = datasetsNecessaris.has('cereal') ? agregarCerealPerCampanya(dadesCereal) : {};
-        const ctx = { campanyes, resum, superficiePerFinca, resumAigua, totalFinquesASG, simulatsAigua, temporers, temporersAgricola, cereal, filtres: { fruita, varietat, finca } };
+        const gasoil = datasetsNecessaris.has('gasoil') ? agregarGasoilPerExercici(filesGasoil) : {};
+        const ctx = { campanyes, resum, superficiePerFinca, resumAigua, totalFinquesASG, simulatsAigua, temporers, temporersAgricola, cereal, gasoil, filtres: { fruita, varietat, finca } };
         renderitzarResultatsComparativa(ctx, blocsSeleccionats);
 
     } catch (error) {
@@ -1635,4 +1645,127 @@ function htmlDeltaRendimentCereal(delta) {
     const fletxa = delta > 0 ? '▲' : '▼';
     const text = Math.abs(delta).toLocaleString('ca-ES', { maximumFractionDigits: 1 });
     return `<small class="informe-comp-delta informe-comp-delta-${classe}">${fletxa} ${text}%</small>`;
+}
+
+// ------------------------------------------------------------
+// DATASET + BLOC: GASOIL (taula gasoil)
+// Només la DESPESA REALITZADA a l'exercici (any natural de la data de la factura), sense IVA.
+// No hi ha control de consum real (diversos tractors i motobombes, dipòsits): no s'intenta.
+// Només activitat F (fruita); PS (prestació de serveis) queda fora, igual que el cereal.
+// €/ha i €/kg: sobre les finques de fruita amb collita de la mateixa campanya (any), com a temporers.
+// ------------------------------------------------------------
+
+async function obtenirGasoilInforme() {
+    const MIDA_PAGINA = 1000;
+    let totes = [], offset = 0;
+    while (true) {
+        const { data, error } = await supabaseClient
+            .from('gasoil')
+            .select('data, litres, import_net, tipus_activitat')
+            .order('data')
+            .range(offset, offset + MIDA_PAGINA - 1);
+        if (error) throw error;
+        totes = totes.concat(data || []);
+        if (!data || data.length < MIDA_PAGINA) break;
+        offset += MIDA_PAGINA;
+    }
+    return totes;
+}
+
+// -> { [any]: { registres, litres, cost, litresPS, costPS, euroLitre } }
+function agregarGasoilPerExercici(files) {
+    const res = {};
+    (files || []).forEach(f => {
+        const any = parseInt(String(f.data).slice(0, 4), 10);
+        if (!any) return;
+        const d = res[any] = res[any] || { registres: 0, litres: 0, cost: 0, litresPS: 0, costPS: 0, euroLitre: null };
+        const litres = Number(f.litres) || 0;
+        const cost = Number(f.import_net) || 0;
+        if ((f.tipus_activitat || 'F') === 'PS') {
+            d.litresPS += litres; d.costPS += cost;
+        } else {
+            d.registres += 1; d.litres += litres; d.cost += cost;
+        }
+    });
+    Object.values(res).forEach(d => { d.euroLitre = d.litres > 0 ? d.cost / d.litres : null; });
+    return res;
+}
+
+function renderBlocGasoil(ctx) {
+    assegurarEstilsDeltaInforme();
+    const { campanyes, gasoil = {}, filtres = {} } = ctx;
+    const titol = '⛽ Gasoil — despesa de l\'exercici <span class="informe-comp-nota">(any natural de la factura, sense IVA, només fruita)</span>';
+
+    if (!campanyes.some(c => gasoil[c])) {
+        return `<div class="informe-comp-seccio"><h3>${titol}</h3>
+            <p class="informe-comp-avis">No hi ha registres de gasoil per als exercicis seleccionats.</p></div>`;
+    }
+
+    const hiHaFiltre = !!(filtres.fruita || filtres.varietat || filtres.finca);
+    const anyActual = new Date().getFullYear();
+
+    const v = {};
+    campanyes.forEach(c => {
+        const d = gasoil[c];
+        if (!d || d.registres === 0) { v[c] = null; return; }
+        const base = hiHaFiltre ? { kg: null, ha: null } : baseFruitaTemporers(ctx, c);
+        v[c] = {
+            registres: d.registres, litres: d.litres, cost: d.cost, euroLitre: d.euroLitre,
+            litresHa: base.ha ? d.litres / base.ha : null,
+            euroHa: base.ha ? d.cost / base.ha : null,
+            litresTona: base.kg ? d.litres / (base.kg / 1000) : null,
+            euroKg: base.kg ? d.cost / base.kg : null,
+            enCurs: Number(c) === anyActual
+        };
+    });
+
+    const files = [
+        { titol: 'Litres comprats',      clau: 'litres',     format: x => formatNumeroInforme(x) + ' L', delta: false },
+        { titol: 'Despesa (€, sense IVA)', clau: 'cost',     format: x => x.toLocaleString('ca-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €', delta: false, subnota: true },
+        { titol: 'Preu mitjà (€/L)',     clau: 'euroLitre',  format: x => x.toFixed(3) + ' €/L', delta: true },
+        { titol: 'Litres per ha',        clau: 'litresHa',   format: x => formatNumeroInforme(x) + ' L/ha', delta: true },
+        { titol: '€/ha',                 clau: 'euroHa',     format: x => formatNumeroInforme(x) + ' €/ha', delta: true },
+        { titol: 'Litres per tona collida', clau: 'litresTona', format: x => x.toFixed(1) + ' L/t', delta: true },
+        { titol: '€/kg collit',          clau: 'euroKg',     format: x => x.toFixed(3) + ' €/kg', delta: true }
+    ];
+
+    const capcalera = campanyes.map(c => `<th>📅 <strong>${c}</strong></th>`).join('');
+    const cos = files.map(fila => {
+        let max = 1;
+        campanyes.forEach(c => { const x = v[c]?.[fila.clau]; if (x != null) max = Math.max(max, Math.abs(x)); });
+        const cel·les = campanyes.map((c, i) => {
+            const x = v[c]?.[fila.clau];
+            if (x === null || x === undefined) return cel·laValor('—', 0, max, true);
+            const prev = i > 0 ? v[campanyes[i - 1]]?.[fila.clau] : null;
+            const delta = (fila.delta && i > 0) ? deltaInforme(x, prev) : null;
+            let sub = '';
+            if (fila.subnota) {
+                const n = v[c].registres;
+                const linies = [n + ' registre' + (n === 1 ? '' : 's')];
+                if (v[c].enCurs) linies.push('⚠️ exercici en curs (provisional)');
+                sub = linies.join('<br>');
+            }
+            return cel·laValorDelta(fila.format(x), Math.abs(x), max, delta, sub);
+        }).join('');
+        return `<tr><td>${fila.titol}</td>${cel·les}</tr>`;
+    }).join('');
+
+    const notes = [
+        'Despesa realitzada (factures de l\'exercici), no consum real: no es controla el gasoil gastat ni els dipòsits. Un exercici amb més compra a final d\'any pot semblar més car.',
+        'Només activitat F (fruita). No inclou PS (prestació de serveis) ni el cereal.',
+        'Exercici = any natural; €/ha i €/kg es calculen sobre la fruita de la campanya del mateix any, així que són orientatius.'
+    ];
+    if (hiHaFiltre) notes.push('Amb un filtre de fruita, varietat o finca no es calculen els indicadors per ha ni per kg: el gasoil és de tota l\'explotació.');
+    const psTotal = campanyes.reduce((t, c) => t + (gasoil[c]?.litresPS || 0), 0);
+    if (psTotal > 0) notes.push('Litres PS exclosos de la taula: ' + campanyes.filter(c => gasoil[c]?.litresPS > 0).map(c => c + ': ' + formatNumeroInforme(gasoil[c].litresPS) + ' L').join(' · ') + '.');
+
+    return `
+        <div class="informe-comp-seccio">
+            <h3>${titol} <span class="informe-comp-nota">(▲▼ vs exercici anterior; verd = més baix)</span></h3>
+            ${notes.map(t => `<p class="informe-comp-nota">${t}</p>`).join('')}
+            <table class="informe-comp-taula">
+                <thead><tr><th>Indicador</th>${capcalera}</tr></thead>
+                <tbody>${cos}</tbody>
+            </table>
+        </div>`;
 }
