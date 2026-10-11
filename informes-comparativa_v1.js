@@ -104,6 +104,12 @@ const BLOCS_INFORME_COMPARATIVA = {
         grup: '⛽ Gasoil',
         necessita: ['gasoil', 'collita', 'superficie'],
         render: renderBlocGasoil
+    },
+    productes: {
+        label: '🧪 Productes — consum (FIFO) i estoc final valorat',
+        grup: '🧪 Productes (fitosanitaris i fertilitzants)',
+        necessita: ['productes'],
+        render: renderBlocProductes
     }
 };
 
@@ -352,7 +358,7 @@ async function generarInformeComparatiu() {
     );
 
     try {
-        const [dadesCollita, superficiePerFinca, filesAigua, simulatsAigua, filesTemporers, dadesCereal, filesGasoil] = await Promise.all([
+        const [dadesCollita, superficiePerFinca, filesAigua, simulatsAigua, filesTemporers, dadesCereal, filesGasoil, productesFifo] = await Promise.all([
             datasetsNecessaris.has('collita')
                 ? obtenirDadesComparativaCollita(campanyes, { fruita, varietat, finca })
                 : Promise.resolve([]),
@@ -373,10 +379,13 @@ async function generarInformeComparatiu() {
                 : Promise.resolve({ collita: [], sembrat: [] }),
             datasetsNecessaris.has('gasoil')
                 ? obtenirGasoilInforme()
-                : Promise.resolve([])
+                : Promise.resolve([]),
+            datasetsNecessaris.has('productes')
+                ? obtenirProductesFifoInforme(campanyes)
+                : Promise.resolve({})
         ]);
 
-        if (datasetsNecessaris.has('collita') && dadesCollita.length === 0 && !datasetsNecessaris.has('aigua') && !datasetsNecessaris.has('temporers') && !datasetsNecessaris.has('cereal') && !datasetsNecessaris.has('gasoil')) {
+        if (datasetsNecessaris.has('collita') && dadesCollita.length === 0 && !datasetsNecessaris.has('aigua') && !datasetsNecessaris.has('temporers') && !datasetsNecessaris.has('cereal') && !datasetsNecessaris.has('gasoil') && !datasetsNecessaris.has('productes')) {
             divResultats.innerHTML = '<p class="informe-comp-avis">No hi ha dades de collita per aquesta selecció.</p>';
             return;
         }
@@ -395,7 +404,7 @@ async function generarInformeComparatiu() {
         const temporersAgricola = datasetsNecessaris.has('temporers') ? agregarTemporersPerCampanya(filesTemporers, campanyaAgricolaDeMes) : {};
         const cereal = datasetsNecessaris.has('cereal') ? agregarCerealPerCampanya(dadesCereal) : {};
         const gasoil = datasetsNecessaris.has('gasoil') ? agregarGasoilPerExercici(filesGasoil) : {};
-        const ctx = { campanyes, resum, superficiePerFinca, resumAigua, totalFinquesASG, simulatsAigua, temporers, temporersAgricola, cereal, gasoil, filtres: { fruita, varietat, finca } };
+        const ctx = { campanyes, resum, superficiePerFinca, resumAigua, totalFinquesASG, simulatsAigua, temporers, temporersAgricola, cereal, gasoil, productes: productesFifo, filtres: { fruita, varietat, finca } };
         renderitzarResultatsComparativa(ctx, blocsSeleccionats);
 
     } catch (error) {
@@ -1768,4 +1777,118 @@ function renderBlocGasoil(ctx) {
                 <tbody>${cos}</tbody>
             </table>
         </div>`;
+}
+
+// ------------------------------------------------------------
+// BLOC: PRODUCTES (fitosanitaris i fertilitzants) — consum FIFO i estoc final valorat
+// Dades de la RPC get_cost_productes_fifo(p_exercici), exercici = any natural, SENSE IVA.
+// Capes: inventari valorat de tancament (estoc_inicial_valorat) + compres de l'exercici (data d'albarà).
+// Consum: FIFO continu. Estoc final: les capes que queden (últimes compres).
+// El valor en € sempre quadra; la incoherència de dades surt a la columna d'avisos.
+// ------------------------------------------------------------
+
+async function obtenirProductesFifoInforme(campanyes) {
+    const res = {};
+    await Promise.all((campanyes || []).map(async c => {
+        try {
+            const { data, error } = await supabaseClient.rpc('get_cost_productes_fifo', { p_exercici: Number(c) });
+            if (error) throw error;
+            res[c] = { files: data || [], error: null };
+        } catch (error) {
+            console.warn('Productes FIFO ' + c + ':', error);
+            res[c] = { files: [], error: error.message || String(error) };
+        }
+    }));
+    return res;
+}
+
+function renderBlocProductes(ctx) {
+    assegurarEstilsDeltaInforme();
+    const { campanyes, productes = {} } = ctx;
+    const euro = x => Number(x || 0).toLocaleString('ca-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+    const qtat = x => Number(x || 0).toLocaleString('ca-ES', { maximumFractionDigits: 2 });
+    const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const titol = '🧪 Productes — consum (FIFO) i estoc final valorat';
+    const anyActual = new Date().getFullYear();
+
+    const seccions = campanyes.map(c => {
+        const dades = productes[c];
+        if (!dades || dades.error) {
+            return `<div class="informe-comp-seccio"><h3>${titol} — ${c}</h3>
+                <p class="informe-comp-avis">${dades && dades.error
+                    ? 'No s\'han pogut carregar les dades (' + esc(dades.error) + '). Comprova que la funció get_cost_productes_fifo existeix i té permisos.'
+                    : 'Sense dades.'}</p></div>`;
+        }
+        const files = dades.files;
+        if (files.length === 0) {
+            return `<div class="informe-comp-seccio"><h3>${titol} — ${c}</h3>
+                <p class="informe-comp-avis">Sense moviments, compres ni inventari valorat per a l'exercici ${c}.</p></div>`;
+        }
+
+        const suma = (arr, k) => arr.reduce((t, f) => t + (Number(f[k]) || 0), 0);
+        const celda = (valor, q, unitat) =>
+            `<td style="text-align:right;">${euro(valor)}<span class="informe-comp-subnota">${qtat(q)} ${esc(unitat)}</span></td>`;
+        const unitatDe = f => (f.unitats || '').split(',')[0].trim();
+
+        const filesHtml = tipus => {
+            const grup = files.filter(f => f.tipus_producte === tipus)
+                .sort((x, y) => (Number(y.consum_valor) || 0) - (Number(x.consum_valor) || 0));
+            if (grup.length === 0) return '';
+            const cos = grup.map(f => {
+                const avis = f.avisos ? `<span style="color:#e65100;font-size:0.85em;">⚠️ ${esc(f.avisos)}</span>` : '';
+                return `<tr${f.avisos ? ' style="background:#fff8e1;"' : ''}>
+                    <td>${esc(f.producte)}</td>
+                    ${celda(f.inicial_valor, f.inicial_qty, unitatDe(f))}
+                    ${celda(f.compres_valor, f.compres_qty, unitatDe(f))}
+                    ${celda(f.consum_valor, f.consum_qty, unitatDe(f))}
+                    ${celda(f.final_valor, f.final_qty, unitatDe(f))}
+                    <td>${avis}</td></tr>`;
+            }).join('');
+            const total = `<tr class="informe-comp-fila-total"><td>Subtotal ${tipus === 'fitosanitari' ? 'fitosanitaris' : 'fertilitzants'}</td>
+                <td style="text-align:right;">${euro(suma(grup, 'inicial_valor'))}</td>
+                <td style="text-align:right;">${euro(suma(grup, 'compres_valor'))}</td>
+                <td style="text-align:right;">${euro(suma(grup, 'consum_valor'))}</td>
+                <td style="text-align:right;">${euro(suma(grup, 'final_valor'))}</td><td></td></tr>`;
+            return `<tbody>${cos}${total}</tbody>`;
+        };
+
+        const nAvisos = files.filter(f => f.avisos).length;
+        const senseCapa = files.filter(f => Number(f.consum_sense_capa_qty) > 0.001).length;
+        const targeta = (etiqueta, text) =>
+            `<div style="background:#f5f5f5;padding:10px 14px;border-radius:8px;"><div style="font-size:0.8em;color:#666;">${etiqueta}</div><strong>${text}</strong></div>`;
+
+        const notes = [
+            'Criteri: consum FIFO (es gasta primer el més antic); estoc final = capes que queden (últimes compres). Sense IVA.',
+            'Capes: inventari valorat del 31/12 anterior + compres de l\'exercici amb la data d\'albarà (si no n\'hi ha, la de factura).',
+            'El valor en € sempre quadra (inicial + compres = consum + final). Les incoherències de dades són a la columna d\'avisos: no s\'han corregit ni amagat.'
+        ];
+        if (Number(c) === anyActual) notes.push('⚠️ Exercici en curs: provisional.');
+
+        return `
+        <div class="informe-comp-seccio">
+            <h3>${titol} — exercici ${c}</h3>
+            ${notes.map(t => `<p class="informe-comp-nota">${t}</p>`).join('')}
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin:10px 0;">
+                ${targeta('Estoc inicial valorat', euro(suma(files, 'inicial_valor')))}
+                ${targeta('Compres', euro(suma(files, 'compres_valor')))}
+                ${targeta('Consum (FIFO)', euro(suma(files, 'consum_valor')))}
+                ${targeta('Estoc final valorat', euro(suma(files, 'final_valor')))}
+                ${targeta('Productes amb avisos', nAvisos + ' de ' + files.length + (senseCapa ? ' · ' + senseCapa + ' amb consum sense estoc' : ''))}
+            </div>
+            <div style="overflow-x:auto;">
+            <table class="informe-comp-taula">
+                <thead><tr><th>Producte</th><th>Estoc inicial</th><th>Compres</th><th>Consum (FIFO)</th><th>Estoc final</th><th>Avisos</th></tr></thead>
+                ${filesHtml('fitosanitari')}
+                ${filesHtml('fertilitzant')}
+                <tbody><tr class="informe-comp-fila-total"><td>TOTAL PRODUCTES</td>
+                    <td style="text-align:right;">${euro(suma(files, 'inicial_valor'))}</td>
+                    <td style="text-align:right;">${euro(suma(files, 'compres_valor'))}</td>
+                    <td style="text-align:right;">${euro(suma(files, 'consum_valor'))}</td>
+                    <td style="text-align:right;">${euro(suma(files, 'final_valor'))}</td><td></td></tr></tbody>
+            </table>
+            </div>
+        </div>`;
+    });
+
+    return seccions.join('');
 }
