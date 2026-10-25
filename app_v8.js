@@ -191,7 +191,10 @@ function canviarVista(vista) {
 			break;
 		case 'gasoil':
 			carregarVistaGasoil();
-			break;	
+			break;
+		case 'reparacions':
+			carregarVistaReparacions();
+			break;		
 		case 'compres':
 			carregarVistaCompres();
 			break;	
