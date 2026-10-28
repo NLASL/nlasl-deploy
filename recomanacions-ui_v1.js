@@ -521,6 +521,14 @@ async function obrirModalRecomanacio() {
 // GUARDAR
 // ============================================================
 
+// Campanya agrícola (oct–set) a partir d'una data 'YYYY-MM-DD'.
+// 10/06/2026 -> 2026 · 15/10/2026 -> 2027
+function campanyaDeDataRT(dataStr) {
+    const any = parseInt(String(dataStr).slice(0, 4), 10);
+    const mes = parseInt(String(dataStr).slice(5, 7), 10);
+    return mes >= 10 ? any + 1 : any;
+}
+
 async function guardarRecomanacioRT(event) {
     event.preventDefault();
 
@@ -534,7 +542,14 @@ async function guardarRecomanacioRT(event) {
     const moment = document.getElementById('rt-moment').value.trim();
     const origen = document.getElementById('rt-origen').value.trim();
     const observacions = document.getElementById('rt-observacions').value.trim();
-    const campanya = getCampanyaDefecte().toString();
+    // La campanya depèn de la DATA de la RT (inici del període, o data de recomanació si no n'hi ha),
+    // no de la data d'avui.
+    const dataRefCampanya = periodeInici || dataRec;
+    if (!dataRefCampanya) {
+        mostrarNotificacio('Cal indicar la data de la recomanació o el període', 'error');
+        return;
+    }
+    const campanya = campanyaDeDataRT(dataRefCampanya).toString();
 
     const fincesSeleccionades = getFincesRTSeleccionades();
     if (!fincesSeleccionades.length) {
@@ -568,7 +583,8 @@ async function guardarRecomanacioRT(event) {
                     metode_aplicacio: metode,
                     moment_aplicacio: moment,
                     origen_recomanacio: origen,
-                    observacions: observacions || null
+                    observacions: observacions || null,
+                    campanya
                 })
                 .eq('id', editId);
             if (error) throw error;

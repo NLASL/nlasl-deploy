@@ -110,6 +110,12 @@ const BLOCS_INFORME_COMPARATIVA = {
         grup: '🧪 Productes (fitosanitaris i fertilitzants)',
         necessita: ['productes'],
         render: renderBlocProductes
+    },
+    reparacions: {
+        label: '🔧 Reparacions i manteniment — cost per tipus de línia, naturalesa i element',
+        grup: '🔧 Reparacions',
+        necessita: ['reparacions'],
+        render: renderBlocReparacions
     }
 };
 
@@ -358,7 +364,7 @@ async function generarInformeComparatiu() {
     );
 
     try {
-        const [dadesCollita, superficiePerFinca, filesAigua, simulatsAigua, filesTemporers, dadesCereal, filesGasoil, productesFifo] = await Promise.all([
+        const [dadesCollita, superficiePerFinca, filesAigua, simulatsAigua, filesTemporers, dadesCereal, filesGasoil, productesFifo, filesReparacions] = await Promise.all([
             datasetsNecessaris.has('collita')
                 ? obtenirDadesComparativaCollita(campanyes, { fruita, varietat, finca })
                 : Promise.resolve([]),
@@ -382,10 +388,13 @@ async function generarInformeComparatiu() {
                 : Promise.resolve([]),
             datasetsNecessaris.has('productes')
                 ? obtenirProductesFifoInforme(campanyes)
-                : Promise.resolve({})
+                : Promise.resolve({}),
+            datasetsNecessaris.has('reparacions')
+                ? obtenirReparacionsInforme()
+                : Promise.resolve([])
         ]);
 
-        if (datasetsNecessaris.has('collita') && dadesCollita.length === 0 && !datasetsNecessaris.has('aigua') && !datasetsNecessaris.has('temporers') && !datasetsNecessaris.has('cereal') && !datasetsNecessaris.has('gasoil') && !datasetsNecessaris.has('productes')) {
+        if (datasetsNecessaris.has('collita') && dadesCollita.length === 0 && !datasetsNecessaris.has('aigua') && !datasetsNecessaris.has('temporers') && !datasetsNecessaris.has('cereal') && !datasetsNecessaris.has('gasoil') && !datasetsNecessaris.has('productes') && !datasetsNecessaris.has('reparacions')) {
             divResultats.innerHTML = '<p class="informe-comp-avis">No hi ha dades de collita per aquesta selecció.</p>';
             return;
         }
@@ -404,7 +413,8 @@ async function generarInformeComparatiu() {
         const temporersAgricola = datasetsNecessaris.has('temporers') ? agregarTemporersPerCampanya(filesTemporers, campanyaAgricolaDeMes) : {};
         const cereal = datasetsNecessaris.has('cereal') ? agregarCerealPerCampanya(dadesCereal) : {};
         const gasoil = datasetsNecessaris.has('gasoil') ? agregarGasoilPerExercici(filesGasoil) : {};
-        const ctx = { campanyes, resum, superficiePerFinca, resumAigua, totalFinquesASG, simulatsAigua, temporers, temporersAgricola, cereal, gasoil, productes: productesFifo, filtres: { fruita, varietat, finca } };
+        const reparacions = datasetsNecessaris.has('reparacions') ? agregarReparacionsPerExercici(filesReparacions) : {};
+        const ctx = { campanyes, resum, superficiePerFinca, resumAigua, totalFinquesASG, simulatsAigua, temporers, temporersAgricola, cereal, gasoil, productes: productesFifo, reparacions, filtres: { fruita, varietat, finca } };
         renderitzarResultatsComparativa(ctx, blocsSeleccionats);
 
     } catch (error) {
@@ -1891,4 +1901,255 @@ function renderBlocProductes(ctx) {
     });
 
     return seccions.join('');
+}
+
+// ------------------------------------------------------------
+// BLOC: REPARACIONS I MANTENIMENT (vista_reparacions_cost)
+// Factures de taller carregades al mòdul Reparacions. SENSE IVA.
+// Exercici = any natural de la DATA DEL TREBALL (albarà / ordre de reparació);
+// si el treball no en té, la de la factura (ho resol la vista).
+// El cost és de tota l'explotació: no es filtra per fruita, varietat ni finca.
+// ------------------------------------------------------------
+
+const NOM_SENSE_IDENTIFICAR_REP = 'VARIS — SENSE IDENTIFICAR';
+// Al detall per element només es mostren els que superen aquest cost (€, sense IVA)
+// sumat en els exercicis seleccionats; la resta s'agrupa en una sola fila.
+const LLINDAR_ELEMENT_REPARACIONS = 500;
+const ETIQUETES_TIPUS_LINIA_REP = {
+    ma_obra: 'Mà d\'obra', recanvi: 'Recanvi', consumible: 'Consumible',
+    servei: 'Servei', residus: 'Residus', altres: 'Altres'
+};
+const ETIQUETES_NATURALESA_REP = { reparacio: 'Reparació', manteniment: 'Manteniment', sense: 'Sense indicar' };
+const ETIQUETES_TIPUS_ELEMENT_REP = {
+    tractor: '🚜 Tractors', vehicle: '🚗 Vehicles', remolc: '🚛 Remolcs', maquinaria: '⚙️ Maquinària',
+    edifici: '🏢 Edificis', infraestructura_reg: '💧 Infraestructura de reg', altra: '📦 Altres'
+};
+
+async function obtenirReparacionsInforme() {
+    const MIDA_PAGINA = 1000;
+    let totes = [], offset = 0;
+    while (true) {
+        const { data, error } = await supabaseClient
+            .from('vista_reparacions_cost')
+            .select('linia_id, exercici, factura_id, treball_id, immobilitzat_id, immobilitzat_tipus, immobilitzat_descripcio, immobilitzat_matricula, naturalesa, tipus_linia, net')
+            .order('linia_id')
+            .range(offset, offset + MIDA_PAGINA - 1);
+        if (error) throw error;
+        totes = totes.concat(data || []);
+        if (!data || data.length < MIDA_PAGINA) break;
+        offset += MIDA_PAGINA;
+    }
+    return totes;
+}
+
+// -> { [exercici]: { total, factures, treballs, perTipusLinia, perNaturalesa, perTipusElement, perElement, senseIdentificar } }
+function agregarReparacionsPerExercici(files) {
+    const res = {};
+    (files || []).forEach(f => {
+        const any = Number(f.exercici);
+        if (!any) return;
+        const d = res[any] = res[any] || {
+            total: 0, factures: new Set(), treballs: new Set(),
+            perTipusLinia: {}, perNaturalesa: {}, perTipusElement: {}, perElement: {}, senseIdentificar: 0
+        };
+        const net = Number(f.net) || 0;
+        const nat = f.naturalesa || 'sense';
+        const tipusEl = f.immobilitzat_tipus || 'altra';
+        const sumar = (o, k) => { o[k] = (o[k] || 0) + net; };
+
+        d.total += net;
+        d.factures.add(f.factura_id);
+        d.treballs.add(f.treball_id);
+        sumar(d.perTipusLinia, f.tipus_linia);
+        sumar(d.perNaturalesa, nat);
+        sumar(d.perTipusElement, tipusEl);
+
+        const id = f.immobilitzat_id;
+        if (!d.perElement[id]) {
+            d.perElement[id] = {
+                id,
+                nom: (f.immobilitzat_descripcio || '—') + (f.immobilitzat_matricula ? ' · ' + f.immobilitzat_matricula : ''),
+                tipus: tipusEl, total: 0, perNaturalesa: {},
+                senseIdentificar: f.immobilitzat_descripcio === NOM_SENSE_IDENTIFICAR_REP
+            };
+        }
+        const e = d.perElement[id];
+        e.total += net;
+        sumar(e.perNaturalesa, nat);
+        if (e.senseIdentificar) d.senseIdentificar += net;
+    });
+    return res;
+}
+
+// Fila de la taula: valors = { [exercici]: nombre | null }
+function filaCostReparacions(campanyes, etiqueta, valors, opcions = {}) {
+    const { delta = true, subnotes = {} } = opcions;
+    const eur = x => x.toLocaleString('ca-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+    let max = 1;
+    campanyes.forEach(c => { const x = valors[c]; if (x != null) max = Math.max(max, Math.abs(x)); });
+    const cel·les = campanyes.map((c, i) => {
+        const x = valors[c];
+        if (x === null || x === undefined || x === 0) return cel·laValor('—', 0, max, true);
+        const prev = i > 0 ? valors[campanyes[i - 1]] : null;
+        const d = (delta && i > 0) ? deltaInforme(x, prev) : null;
+        return cel·laValorDelta(eur(x), Math.abs(x), max, d, subnotes[c] || '');
+    }).join('');
+    return `<tr><td>${etiqueta}</td>${cel·les}</tr>`;
+}
+
+function renderBlocReparacions(ctx) {
+    assegurarEstilsDeltaInforme();
+    const { campanyes, reparacions = {}, filtres = {} } = ctx;
+    const titol = '🔧 Reparacions i manteniment — cost de l\'exercici <span class="informe-comp-nota">(any natural del treball, sense IVA)</span>';
+
+    if (!campanyes.some(c => reparacions[c])) {
+        return `<div class="informe-comp-seccio"><h3>${titol}</h3>
+            <p class="informe-comp-avis">No hi ha factures de reparacions per als exercicis seleccionats.</p></div>`;
+    }
+
+    const anyActual = new Date().getFullYear();
+    const hiHaFiltre = !!(filtres.fruita || filtres.varietat || filtres.finca);
+    const capcalera = campanyes.map(c => `<th>📅 <strong>${c}</strong></th>`).join('');
+    const colspan = campanyes.length + 1;
+    const dadesDe = c => reparacions[c] || null;
+    const valorsDe = fn => Object.fromEntries(campanyes.map(c => [c, dadesDe(c) ? fn(dadesDe(c)) : null]));
+    const eur = x => x.toLocaleString('ca-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+    const capGrup = text => `<tr class="informe-comp-fila-grup"><td colspan="${colspan}">${text}</td></tr>`;
+
+    // ---------- Taula A: resum per tipus de línia i naturalesa ----------
+    const subnotesTotal = {};
+    campanyes.forEach(c => {
+        const d = dadesDe(c);
+        if (!d) return;
+        const linies = [d.factures.size + ' factura' + (d.factures.size === 1 ? '' : 's') + ' · ' + d.treballs.size + ' treball' + (d.treballs.size === 1 ? '' : 's')];
+        if (Number(c) === anyActual) linies.push('⚠️ exercici en curs (provisional)');
+        subnotesTotal[c] = linies.join('<br>');
+    });
+    const subnotesSense = {};
+    campanyes.forEach(c => {
+        const d = dadesDe(c);
+        if (d && d.senseIdentificar > 0 && d.total > 0) subnotesSense[c] = (d.senseIdentificar / d.total * 100).toFixed(1) + ' % del cost total';
+    });
+
+    let filesA = filaCostReparacions(campanyes, '<strong>Cost total</strong>', valorsDe(d => d.total), { subnotes: subnotesTotal });
+
+    filesA += capGrup('Per tipus de línia');
+    Object.keys(ETIQUETES_TIPUS_LINIA_REP).forEach(k => {
+        const valors = valorsDe(d => d.perTipusLinia[k] || 0);
+        if (campanyes.every(c => !valors[c])) return;
+        filesA += filaCostReparacions(campanyes, ETIQUETES_TIPUS_LINIA_REP[k], valors);
+    });
+
+    filesA += capGrup('Per naturalesa del treball');
+    Object.keys(ETIQUETES_NATURALESA_REP).forEach(k => {
+        const valors = valorsDe(d => d.perNaturalesa[k] || 0);
+        if (campanyes.every(c => !valors[c])) return;
+        filesA += filaCostReparacions(campanyes, ETIQUETES_NATURALESA_REP[k], valors);
+    });
+
+    filesA += capGrup('Qualitat de la classificació');
+    filesA += filaCostReparacions(campanyes, '⚠️ Sense identificar', valorsDe(d => d.senseIdentificar), { subnotes: subnotesSense });
+
+    const notes = [
+        'Cost per data del treball (albarà o ordre de reparació; la de factura si no en té): una factura de gener amb feines de desembre compta a l\'exercici anterior.',
+        'El cost depèn de les factures carregades: comprova que n\'hi ha totes abans de comparar exercicis.'
+    ];
+    if (hiHaFiltre) notes.push('Aquest bloc no s\'filtra per fruita, varietat ni finca: es mostra el cost de tota l\'explotació (inclou maquinària de cereal, reg i edificis).');
+    const totalSense = campanyes.reduce((t, c) => t + (dadesDe(c)?.senseIdentificar || 0), 0);
+    if (totalSense > 0) notes.push('Cost «sense identificar»: ' + campanyes.filter(c => dadesDe(c)?.senseIdentificar > 0).map(c => c + ': ' + eur(dadesDe(c).senseIdentificar)).join(' · ') + '. Es pot reassignar editant la factura al mòdul Reparacions.');
+
+    const seccioA = `
+        <div class="informe-comp-seccio">
+            <h3>${titol} <span class="informe-comp-nota">(▲▼ vs exercici anterior; verd = més baix)</span></h3>
+            ${notes.map(t => `<p class="informe-comp-nota">${t}</p>`).join('')}
+            <table class="informe-comp-taula">
+                <thead><tr><th>Concepte</th>${capcalera}</tr></thead>
+                <tbody>${filesA}</tbody>
+            </table>
+        </div>`;
+
+    // ---------- Taula B: per tipus d'element ----------
+    const totalPerTipus = {};
+    campanyes.forEach(c => Object.entries(dadesDe(c)?.perTipusElement || {}).forEach(([k, v]) => { totalPerTipus[k] = (totalPerTipus[k] || 0) + v; }));
+    const filesB = Object.keys(totalPerTipus).sort((x, y) => totalPerTipus[y] - totalPerTipus[x]).map(k =>
+        filaCostReparacions(campanyes, ETIQUETES_TIPUS_ELEMENT_REP[k] || k, valorsDe(d => d.perTipusElement[k] || 0))
+    ).join('');
+
+    const seccioB = `
+        <div class="informe-comp-seccio">
+            <h3>🔧 Reparacions — per tipus d'element <span class="informe-comp-nota">(▲▼ vs exercici anterior)</span></h3>
+            <table class="informe-comp-taula">
+                <thead><tr><th>Tipus d'element</th>${capcalera}</tr></thead>
+                <tbody>${filesB}</tbody>
+            </table>
+        </div>`;
+
+    // ---------- Taula C: detall per element ----------
+    const elements = {};
+    campanyes.forEach(c => Object.values(dadesDe(c)?.perElement || {}).forEach(e => {
+        if (!elements[e.id]) elements[e.id] = { id: e.id, nom: e.nom, tipus: e.tipus, senseIdentificar: e.senseIdentificar, total: 0 };
+        elements[e.id].total += e.total;
+    }));
+    const ordenats = Object.values(elements).sort((x, y) => {
+        if (x.senseIdentificar !== y.senseIdentificar) return x.senseIdentificar ? 1 : -1;   // «sense identificar» al final
+        return y.total - x.total;
+    });
+    const llindar = LLINDAR_ELEMENT_REPARACIONS;
+    const filaElement = el => {
+        const valors = {}, subnotes = {};
+        campanyes.forEach(c => {
+            const e = dadesDe(c)?.perElement?.[el.id];
+            valors[c] = dadesDe(c) ? (e ? e.total : 0) : null;
+            if (e) {
+                const parts = Object.keys(ETIQUETES_NATURALESA_REP)
+                    .filter(k => e.perNaturalesa[k])
+                    .map(k => ETIQUETES_NATURALESA_REP[k] + ' ' + eur(e.perNaturalesa[k]));
+                if (parts.length > 1 || (parts.length === 1 && !e.perNaturalesa.reparacio)) subnotes[c] = parts.join('<br>');
+            }
+        });
+        const etiqueta = (el.senseIdentificar ? '⚠️ ' : '') + repEscInforme(el.nom) +
+            `<span class="informe-comp-subnota">${ETIQUETES_TIPUS_ELEMENT_REP[el.tipus] || el.tipus}</span>`;
+        return filaCostReparacions(campanyes, etiqueta, valors, { delta: false, subnotes });
+    };
+
+    // «Sense identificar» es mostra sempre (és un indicador de qualitat de la classificació).
+    const grans = ordenats.filter(el => !el.senseIdentificar && el.total > llindar);
+    const petits = ordenats.filter(el => !el.senseIdentificar && el.total <= llindar);
+    const senseIdent = ordenats.filter(el => el.senseIdentificar);
+
+    let filesC = grans.map(filaElement).join('');
+    if (petits.length > 0) {
+        const valorsResta = {}, subnotesResta = {};
+        campanyes.forEach(c => {
+            const d = dadesDe(c);
+            if (!d) { valorsResta[c] = null; return; }
+            let suma = 0, n = 0;
+            petits.forEach(el => {
+                const e = d.perElement[el.id];
+                if (e) { suma += e.total; n += 1; }
+            });
+            valorsResta[c] = suma;
+            if (n > 0) subnotesResta[c] = n + ' element' + (n === 1 ? '' : 's');
+        });
+        filesC += filaCostReparacions(campanyes,
+            'Resta d\'elements <span class="informe-comp-subnota">' + petits.length + ' amb ≤ ' + formatNumeroInforme(llindar) + ' € en total</span>',
+            valorsResta, { delta: false, subnotes: subnotesResta });
+    }
+    filesC += senseIdent.map(filaElement).join('');
+
+    const seccioC = `
+        <div class="informe-comp-seccio">
+            <h3>🔧 Reparacions — detall per element <span class="informe-comp-nota">(només elements amb més de ${formatNumeroInforme(llindar)} € en el conjunt dels exercicis seleccionats; la resta, agrupada; «sense identificar» sempre al final)</span></h3>
+            <table class="informe-comp-taula">
+                <thead><tr><th>Element</th>${capcalera}</tr></thead>
+                <tbody>${filesC}</tbody>
+            </table>
+        </div>`;
+
+    return seccioA + seccioB + seccioC;
+}
+
+function repEscInforme(v) {
+    return String(v === null || v === undefined ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
