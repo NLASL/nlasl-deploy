@@ -454,9 +454,11 @@ async function guardarRegManual(event) {
         creat_per:      currentUser ? currentUser.id : null
     };
     try {
-        const { error } = await supabaseClient.from('reg').insert([dades]);
+        // Si ja hi havia un registre d'aquesta explotació aquell dia, es substitueix
+        const { error } = await supabaseClient.from('reg')
+            .upsert([dades], { onConflict: 'num_explotacio,data' });
         if (error) throw error;
-        mostrarNotificacio('✅ Registre afegit correctament', 'success');
+        mostrarNotificacio('✅ Registre desat correctament (si ja existia aquell dia, s\'ha substituït)', 'success');
         tancarModal('modal-reg-manual');
         await carregarTaulaReg();
     } catch (error) {
@@ -522,21 +524,24 @@ async function importarExcelReg(event) {
                 return;
             }
 
-            // Esborrar registres existents del mateix rang
-            const numExplotacio = registres[0].num_explotacio;
-            const dataMin = registres.reduce(function(min, r) { return r.data < min ? r.data : min; }, registres[0].data);
-            const dataMax = registres.reduce(function(max, r) { return r.data > max ? r.data : max; }, registres[0].data);
+            // Un mateix dia i explotació només pot tenir un registre (índex únic a la BD):
+            // si el fitxer en repeteix, es conserva l'últim.
+            const perClau = {};
+            registres.forEach(function(r) { perClau[r.num_explotacio + '|' + r.data] = r; });
+            const unics = Object.values(perClau);
+            const repetides = registres.length - unics.length;
 
-            await supabaseClient.from('reg')
-                .delete()
-                .eq('num_explotacio', numExplotacio)
-                .gte('data', dataMin)
-                .lte('data', dataMax);
+            // UPSERT per (num_explotacio, data): tornar a importar el mateix fitxer
+            // sobreescriu els dies existents i no duplica res (ni amb diverses explotacions al fitxer).
+            const MIDA_BLOC = 500;
+            for (let i = 0; i < unics.length; i += MIDA_BLOC) {
+                const { error } = await supabaseClient.from('reg')
+                    .upsert(unics.slice(i, i + MIDA_BLOC), { onConflict: 'num_explotacio,data' });
+                if (error) throw error;
+            }
 
-            const { error } = await supabaseClient.from('reg').insert(registres);
-            if (error) throw error;
-
-            mostrarNotificacio('✅ Importats ' + registres.length + ' registres correctament', 'success');
+            mostrarNotificacio('✅ Importats ' + unics.length + ' registres correctament' +
+                (repetides > 0 ? ' (' + repetides + ' files repetides al fitxer: s\'ha conservat l\'última)' : ''), 'success');
             event.target.value = '';
             await carregarTaulaReg();
 
