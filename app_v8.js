@@ -298,6 +298,32 @@ async function carregarDashboard() {
     });
 }
 
+    // Alerta de la sincronització amb GACO
+    if (role === 'admin' || role === 'editor') {
+        try {
+            const { data: gs } = await supabaseClient.rpc('gaco_sync_estat');
+            const e = gs && gs[0];
+            const hores = e ? (Date.now() - new Date(e.executat_at).getTime()) / 3600000 : null;
+            if (!e || hores > 36) {
+                alertesArray.push({
+                    color: '#f44336', icon: '🔌',
+                    text: 'La sincronització amb GACO no s\'ha executat ' + (e ? 'fa ' + Math.round(hores) + ' h' : 'mai'),
+                    accio: 'void(0)'
+                });
+            } else if (e.problemes > 0) {
+                const moduls = Object.entries(e.resum || {})
+                    .filter(function(kv) { return kv[0] !== 'total' && kv[1] > 0; })
+                    .map(function(kv) { return kv[0] + ' ' + kv[1]; }).join(', ');
+                alertesArray.push({
+                    color: '#ff9800', icon: '🔗',
+                    text: 'GACO: ' + e.problemes + ' diferència' + (e.problemes > 1 ? 's' : '') + ' per revisar (' + moduls + ')',
+                    accio: 'void(0)'
+                });
+            }
+        } catch (err) {
+            console.warn('No s\'ha pogut llegir l\'estat de la sincronització amb GACO:', err);
+        }
+    }
     // Resum Fruita/Cereal (Kg per campanya), ja filtrat per finca si cal
     const resumCollita = (typeof obtenirResumCollitaDashboard === 'function')
         ? await obtenirResumCollitaDashboard(fincaSeleccionada)
