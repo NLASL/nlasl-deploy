@@ -157,6 +157,15 @@
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.0.0/fuse.min.js"></script>
 
 	<!-- Client Supabase -->
+	<!-- Xarxa de seguretat: helper de dates locals disponible encara que supabase-client.v5.js sigui una versió antiga -->
+	<script>
+	if (typeof window.dataLocalISO !== 'function') {
+	    window.dataLocalISO = function (d) {
+	        d = d || new Date();
+	        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+	    };
+	}
+	</script>
 	<script src="/supabase-client.v5.js"></script>
 
 	<!-- Mòduls (independents entre ells) -->
