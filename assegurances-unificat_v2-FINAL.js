@@ -12,12 +12,8 @@ let polissesCache = [];
 let parcellesCache = [];
 let sinistresCache = [];
 let campanyaSeleccionadaAsegurances = 2027;
-const campanyaActual = new Date().getFullYear();
 const anyInici = 2023;
-const campanyesDisponibles = Array.from(
-    { length: campanyaActual - anyInici + 1 },
-    (_, i) => campanyaActual - i
-);
+let campanyesDisponibles = [];
 
 let immobilizatCache = [];
 let assegurancesAltresCache = [];
@@ -249,6 +245,8 @@ async function mostrarVistaAgroseguro() {
     try {
         const container = document.getElementById('agroseguro-view');
         if (!container) return;
+
+        await carregarCampanyesDisponibles();   // ← NOVA LÍNIA
         
         let html = `
             <div class="assegurances-header">
@@ -609,7 +607,17 @@ function renderizarTarjetaPolissa(polissa, tipus) {
 }
 
 function obtenirCampanyaActual() {
-    return new Date().getFullYear();
+    const avui = new Date();
+    // Campanya 1-oct → 30-set: d'octubre a desembre ja és la campanya de l'any següent
+    return avui.getMonth() >= 9 ? avui.getFullYear() + 1 : avui.getFullYear();
+}
+
+async function carregarCampanyesDisponibles() {
+    const { data } = await supabaseClient.from('agroseguro_polisses').select('campanya');
+    const existents = (data || []).map(r => r.campanya);
+    const max = Math.max(obtenirCampanyaActual(), ...existents);
+    const min = Math.min(anyInici, ...existents);
+    campanyesDisponibles = Array.from({ length: max - min + 1 }, (_, i) => max - i);
 }
 
 // ============================================================

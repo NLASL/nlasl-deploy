@@ -26,7 +26,7 @@ function obrirModalNovaPolissa() {
                         <legend>📋 Dades Pòlissa</legend>
                         <div class="form-group">
                             <label>Campanya:</label>
-                            <input type="number" name="campanya" value="${new Date().getFullYear()}" required>
+                            <input type="number" name="campanya" value="${obtenirCampanyaActual()}" required>
                         </div>
                         <div class="form-group">
                             <label>Número Pòlissa:</label>
@@ -2197,8 +2197,8 @@ async function carregarCollitaReal(polissa, parcelles) {
             return { totalKg, numAlbarans: (data || []).length, campanya: polissa.campanya, font: 'cereal', finques };
         } else {
             // Fruita: filtrem per any de la data (collita_entrada no té camp "campanya")
-            const dataInici = `${polissa.campanya}-10-01`;
-            const dataFi = `${polissa.campanya}-09-30`;
+            const dataInici = `${polissa.campanya - 1}-10-01`;
+			const dataFi = `${polissa.campanya}-09-30`;
             const { data, error } = await supabaseClient
                 .from('collita_entrada')
                 .select('pes_net, finca')
