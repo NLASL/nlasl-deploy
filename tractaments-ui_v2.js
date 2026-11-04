@@ -986,52 +986,7 @@ function veureFitxaFitosanitari(producteId) {
     document.body.insertAdjacentHTML('beforeend', html);
 }
 
-function veureFitxaFertilitzant(producteId) {
-    const producte = (fertilitzants || []).find(function(f) { return f.id === producteId; });
-    if (!producte) {
-        mostrarNotificacio('Producte no trobat', 'error');
-        return;
-    }
-
-    const anterior = document.getElementById('modal-fitxa-fitosanitari');
-    if (anterior) anterior.remove();
-
-    const camps = [
-        { label: '🏷️ Nom', valor: producte.nom },
-        { label: '📋 Tipus', valor: producte.tipus },
-        { label: '🧪 N-P-K', valor: [producte.n, producte.p, producte.k].map(function(v) { return v != null ? v : '—'; }).join(' - ') },
-        { label: '🔎 Altres', valor: producte.altres },
-        { label: '📦 Unitat estoc', valor: producte.unitat_stock },
-        { label: '📝 Observacions', valor: producte.observacions },
-    ];
-
-    let htmlCamps = '';
-    camps.forEach(function(c) {
-        if (!c.valor) return;
-        htmlCamps += '<div style="display:flex; gap:12px; padding:8px 0; border-bottom:1px solid #f0f0f0;">' +
-            '<span style="min-width:160px; color:#666; font-size:14px;">' + c.label + '</span>' +
-            '<span style="font-size:14px;">' + c.valor + '</span>' +
-            '</div>';
-    });
-
-    const html = `
-    <div id="modal-fitxa-fitosanitari" class="modal" style="display:block; z-index:10000;">
-        <div class="modal-content" style="max-width:520px;">
-            <span class="close" onclick="document.getElementById('modal-fitxa-fitosanitari').remove()">&times;</span>
-            <h2>🌱 Fitxa: ${producte.nom}</h2>
-            <div style="margin:16px 0;">
-                ${htmlCamps || '<p style="color:#999;">Sense dades addicionals</p>'}
-            </div>
-            <div class="form-actions">
-                <button class="btn btn-secondary" onclick="document.getElementById('modal-fitxa-fitosanitari').remove()">
-                    ← Tornar
-                </button>
-            </div>
-        </div>
-    </div>`;
-
-    document.body.insertAdjacentHTML('beforeend', html);
-}
+// veureFitxaFertilitzant: viu a fertilitzants-ui_v1.js (versió única, amb NPK i preu)
 
 function veureFitxaProductePerSelect(btn) {
     const linia = btn.closest('.linia-producte');

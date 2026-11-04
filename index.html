@@ -216,9 +216,18 @@
 
 <!-- Fix tancarModal — SEMPRE AL FINAL -->
 <script>
+    // Modals estàtics (creats una vegada dins la vista): s'amaguen, no s'esborren,
+    // perquè obrirModalX() els torna a necessitar. La resta (dinàmics, p.ex. detalls)
+    // s'esborren del DOM: així no queden IDs duplicats ni continguts antics.
+    const MODALS_PERSISTENTS = [
+        'modal-parcella', 'modal-fitosanitari', 'modal-treballador', 'modal-alerta',
+        'modal-incidencia', 'modal-absencia', 'modal-fitxatge-treballador', 'modal-control-horari'
+    ];
     function tancarModal(modalId) {
         const modal = document.getElementById(modalId);
-        if (modal) modal.remove();
+        if (!modal) return;
+        if (MODALS_PERSISTENTS.indexOf(modalId) !== -1) modal.style.display = 'none';
+        else modal.remove();
     }
 </script>
 

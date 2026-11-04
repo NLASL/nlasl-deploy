@@ -95,16 +95,6 @@ function formatData(data) {
     return d.toLocaleDateString('ca-ES');
 }
 
-function obtenirCampanya(data) {
-    // Data format: "YYYY-MM-DD"
-    const [any, mes, dia] = data.split('-');
-    const anyActual = parseInt(any);
-    
-    // Si la data es 2026 o posterior → campanya 2026
-    // Si la data es 2025 o anterior → campanya 2025
-    return anyActual >= 2026 ? '2026' : '2025';
-}
-
 function mostrarNotificacio(missatge, tipus) {
     tipus = tipus || 'info';
     const container = document.getElementById('notificacions');
@@ -191,10 +181,7 @@ function canviarVista(vista) {
 			break;
 		case 'gasoil':
 			carregarVistaGasoil();
-			break;
-		case 'reparacions':
-			carregarVistaReparacions();
-			break;		
+			break;	
 		case 'compres':
 			carregarVistaCompres();
 			break;	
@@ -288,15 +275,23 @@ async function carregarDashboard() {
         return;
     }
     
-     let parcellesFiltrades = parcelles.filter(function(p) {
-    return p.campanya === 2026;  // ← FILTRO CAMPANYA
-});
+    // Campanya de parcel·les (any natural): l'actual si existeix; si no, la més recent disponible
+    const anyNaturalActual = new Date().getFullYear();
+    const campanyesParcelles = parcelles.map(function(p) { return p.campanya; }).filter(Boolean);
+    const campanyaDashboard = campanyesParcelles.includes(anyNaturalActual)
+        ? anyNaturalActual
+        : (campanyesParcelles.length ? Math.max.apply(null, campanyesParcelles) : anyNaturalActual);
+
+    let parcellesFiltrades = parcelles.filter(function(p) {
+        return p.campanya === campanyaDashboard;
+    });
 
 	if (fincaSeleccionada) {
 		parcellesFiltrades = parcellesFiltrades.filter(function(p) {
         return p.finca === fincaSeleccionada;
     });
 }
+
     // Resum Fruita/Cereal (Kg per campanya), ja filtrat per finca si cal
     const resumCollita = (typeof obtenirResumCollitaDashboard === 'function')
         ? await obtenirResumCollitaDashboard(fincaSeleccionada)
@@ -317,14 +312,8 @@ parcellesFiltrades.forEach(function(p) {
     cultius[cultiu].superficie += parseFloat(p.superficie) || 0;
 });
 
-	// También filtrar les altres taules per campanya 2026
-		tractaments = tractaments.filter(function(t) {
-    return t.campanya === '2026' || t.campanya === 2026;
-});
-
-		fertilitzacions = fertilitzacions.filter(function(f) {
-    return f.campanya === '2026' || f.campanya === 2026;
-});
+    // NOTA: no es filtren les globals `tractaments`/`fertilitzacions` per campanya:
+    // l'agenda les llegeix i necessita totes les campanyes (si no, perd la 2027).
     
     
     let html = '<div class="dashboard">';
@@ -361,33 +350,6 @@ parcellesFiltrades.forEach(function(p) {
         }
         if (entradesObertes.length > 0) {
             alertesArray.push({ color: '#2196f3', icon: '⏰', text: entradesObertes.length + ' treballador' + (entradesObertes.length > 1 ? 's' : '') + ' amb entrada oberta sense sortida', accio: 'canviarVista(\'control-horari\')' });
-        }
-    }
-
-    // Alerta de la sincronització amb GACO
-    if (role === 'admin' || role === 'editor') {
-        try {
-            const { data: gs } = await supabaseClient.rpc('gaco_sync_estat');
-            const e = gs && gs[0];
-            const hores = e ? (Date.now() - new Date(e.executat_at).getTime()) / 3600000 : null;
-            if (!e || hores > 36) {
-                alertesArray.push({
-                    color: '#f44336', icon: '🔌',
-                    text: 'La sincronització amb GACO no s\'ha executat ' + (e ? 'fa ' + Math.round(hores) + ' h' : 'mai'),
-                    accio: 'void(0)'
-                });
-            } else if (e.problemes > 0) {
-                const moduls = Object.entries(e.resum || {})
-                    .filter(function(kv) { return kv[0] !== 'total' && kv[1] > 0; })
-                    .map(function(kv) { return kv[0] + ' ' + kv[1]; }).join(', ');
-                alertesArray.push({
-                    color: '#ff9800', icon: '🔗',
-                    text: 'GACO: ' + e.problemes + ' diferència' + (e.problemes > 1 ? 's' : '') + ' per revisar (' + moduls + ')',
-                    accio: 'void(0)'
-                });
-            }
-        } catch (err) {
-            console.warn('No s\'ha pogut llegir l\'estat de la sincronització amb GACO:', err);
         }
     }
 
@@ -1208,12 +1170,8 @@ async function carregarTaulaFertilitzants() {
     if (!tbody) return;
     
     try {
-        const { data } = await supabaseClient
-			.from('fertilitzacions')
-			.select('*')
-			.eq('estat', 'actiu')
-			.order('data', { ascending: false });
-		fertilitzacions = data || [];	
+        // Recarregar el catàleg (abans consultava `fertilitzacions` i pintava un catàleg antic)
+        fertilitzants = await getFertilitzants();
         fertilitzants.sort(function(a, b) { return (a.nom || '').localeCompare(b.nom || ''); });
         
         if (fertilitzants.length === 0) {
