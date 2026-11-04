@@ -2197,8 +2197,8 @@ async function carregarCollitaReal(polissa, parcelles) {
             return { totalKg, numAlbarans: (data || []).length, campanya: polissa.campanya, font: 'cereal', finques };
         } else {
             // Fruita: filtrem per any de la data (collita_entrada no té camp "campanya")
-            const dataInici = `${polissa.campanya}-01-01`;
-            const dataFi = `${polissa.campanya}-12-31`;
+            const dataInici = `${polissa.campanya}-10-01`;
+            const dataFi = `${polissa.campanya}-09-30`;
             const { data, error } = await supabaseClient
                 .from('collita_entrada')
                 .select('pes_net, finca')
