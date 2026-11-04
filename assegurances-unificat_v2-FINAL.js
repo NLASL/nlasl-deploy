@@ -23,7 +23,7 @@ let immobilizatCache = [];
 let assegurancesAltresCache = [];
 let assegurancesCivilCache = [];
 let exerciciSeleccionat = new Date().getFullYear();
-const exercicisDisponibles = [2026, 2025, 2024, 2023];
+const exercicisDisponibles = [2027, 2026, 2025, 2024, 2023];
 
 // ============================================================
 // FUNCIONS CRUD — AGROSEGURO POLISSES
