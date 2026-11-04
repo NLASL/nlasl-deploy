@@ -11,7 +11,7 @@
 let polissesCache = [];
 let parcellesCache = [];
 let sinistresCache = [];
-let campanyaSeleccionadaAsegurances = 2027;
+let campanyaSeleccionadaAsegurances = obtenirCampanyaActual();
 const anyInici = 2023;
 let campanyesDisponibles = [];
 
@@ -19,7 +19,10 @@ let immobilizatCache = [];
 let assegurancesAltresCache = [];
 let assegurancesCivilCache = [];
 let exerciciSeleccionat = new Date().getFullYear();
-const exercicisDisponibles = [2027, 2026, 2025, 2024, 2023];
+const exercicisDisponibles = Array.from(
+    { length: new Date().getFullYear() + 1 - 2023 + 1 },
+    (_, i) => new Date().getFullYear() + 1 - i
+);
 
 // ============================================================
 // FUNCIONS CRUD — AGROSEGURO POLISSES
