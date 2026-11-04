@@ -9,6 +9,15 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 let supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ============================================================
+// DATES LOCALS — NO usar toISOString() per obtenir «avui»: retorna UTC i
+// entre les 00:00 i les 02:00 (estiu) dona AHIR. Format: YYYY-MM-DD
+// ============================================================
+function dataLocalISO(d) {
+    d = d || new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// ============================================================
 // PARCELLES
 // ============================================================
 
@@ -539,12 +548,12 @@ function subscribeToChanges(table, callback) {
 }
 
 async function getAlertes() {
-    const avui = new Date().toISOString().split('T')[0];
+    const avui = dataLocalISO();
     const { data, error } = await supabaseClient
         .from('alertes')
         .select('*')
         .eq('activa', true)
-        .lte('data_inici', new Date(new Date().setDate(new Date().getDate() + 60)).toISOString().split('T')[0])
+        .lte('data_inici', dataLocalISO(new Date(new Date().setDate(new Date().getDate() + 60))))
         .order('data_inici');
     if (error) throw error;
     return data || [];
