@@ -159,7 +159,7 @@ async function getPlujaAemet(lat, lon, dataInici, dataFi) {
 // ============================================================
 
 async function getPlujaOpenMeteoArchive(lat, lon, dataInici, dataFi) {
-    const avui = new Date().toISOString().split('T')[0];
+    const avui = dataLocalISO();
     // L'API d'arxiu no accepta dates futures — tallar a avui
     const dataFiReal = dataFi > avui ? avui : dataFi;
     if (dataInici > dataFiReal) return 0;
@@ -236,8 +236,9 @@ async function processarMeteoIntegrat(m, dInici, dFi, zona) {
         }
     }
 
-    const dataIniStr = dInici.toISOString().split('T')[0];
-    const dataFiStr  = dFi.toISOString().split('T')[0];
+    // Dates LOCALS (toISOString() les desplaçava un dia enrere a Espanya)
+    const dataIniStr = dataLocalISO(dInici);
+    const dataFiStr  = dataLocalISO(dFi);
 
     const plujaPassat = await getPlujaReal(zona, dataIniStr, dataFiStr);
     const plujaFutur  = 0; // opcional: previsió futura si algun dia la vols integrar
@@ -334,8 +335,10 @@ async function mostrarRecomanacionsReg() {
     if (anterior) { anterior.remove(); return; }
 
     const avui = new Date();
-    const dataFi    = avui.toISOString().split('T')[0];
-    const dataInici = new Date(avui - 7 * 86400000).toISOString().split('T')[0];
+    const dataFi    = dataLocalISO(avui);
+    const fa7dies   = new Date(avui);
+    fa7dies.setDate(fa7dies.getDate() - 7);
+    const dataInici = dataLocalISO(fa7dies);
 
     const div = document.createElement('div');
     div.innerHTML = `

@@ -433,7 +433,7 @@ function obrirModalRegManual() {
                 }).join('');
             })() +
             '</select></div>' +
-            '<div class="form-group"><label>Data *</label><input type="date" id="reg-manual-data" required value="' + new Date().toISOString().split('T')[0] + '"></div>' +
+            '<div class="form-group"><label>Data *</label><input type="date" id="reg-manual-data" required value="' + dataLocalISO() + '"></div>' +
             '<div class="form-group"><label>Consum (m³) *</label><input type="number" id="reg-manual-consum" required min="0" step="0.01"></div>' +
             '<div class="form-actions">' +
             '<button type="button" class="btn btn-secondary" onclick="tancarModal(\'modal-reg-manual\')">Cancel·lar</button>' +

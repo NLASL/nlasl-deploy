@@ -336,7 +336,7 @@ parcellesFiltrades.forEach(function(p) {
  // BLOC ALERTES
     const absenciesPendents = absencies.filter(function(a) { return a.estat === 'pendent'; });
     const incidenciesPendents = incidencies.filter(function(i) { return i.estat === 'pendent'; });
-    const avui = new Date().toISOString().split('T')[0];
+    const avui = dataLocalISO();
     const entradesObertes = controlHorari.filter(function(r) { return r.data === avui && r.hora_entrada && !r.hora_sortida; });
     const role = currentUserProfile ? currentUserProfile.role : 'visor';
     const alertesArray = [];
@@ -1897,7 +1897,7 @@ async function obrirModalControlHorari() {
     document.getElementById('form-control-horari').reset();
     document.getElementById('control-horari-id').value = '';
     
-    const avui = new Date().toISOString().split('T')[0];
+    const avui = dataLocalISO();
     document.getElementById('control-horari-data').value = avui;
     
     const selectTreballador = document.getElementById('control-horari-treballador');
@@ -2757,7 +2757,7 @@ async function carregarVistaTreballadorSimple() {
         return;
     }
     
-    const avui = new Date().toISOString().split('T')[0];
+    const avui = dataLocalISO();
     const diesSetmana = ['Diumenge', 'Dilluns', 'Dimarts', 'Dimecres', 'Dijous', 'Divendres', 'Dissabte'];
     const mesos = ['Gener', 'Febrer', 'Març', 'Abril', 'Maig', 'Juny', 'Juliol', 'Agost', 'Setembre', 'Octubre', 'Novembre', 'Desembre'];
     const data = new Date();
@@ -2992,7 +2992,7 @@ async function fitxarEntradaTreballador(treballadorId) {
 }
 
 async function fitxarSortidaTreballador(treballadorId) {
-    const avui = new Date().toISOString().split('T')[0];
+    const avui = dataLocalISO();
     const registreObert = controlHorari.find(function(r) {
         return r.treballador_id === treballadorId && 
                r.data === avui && 
@@ -3511,7 +3511,7 @@ function obrirModalCompra() {
     document.getElementById('modal-compra-titol').textContent = 'Nova Factura';
     document.getElementById('form-compra-capçalera').reset();
     document.getElementById('compra-id').value = '';
-    document.getElementById('compra-data').value = new Date().toISOString().split('T')[0];
+    document.getElementById('compra-data').value = dataLocalISO();
     document.getElementById('compres-linies-container').innerHTML = '';
     document.getElementById('compra-resum-net').textContent = '0,00 €';
     document.getElementById('compra-resum-iva').textContent = '0,00 €';
@@ -4006,7 +4006,7 @@ function obrirModalGasoil() {
     document.getElementById('modal-gasoil-titol').textContent = 'Nou Registre Gasoil';
     document.getElementById('form-gasoil').reset();
     document.getElementById('gasoil-id').value = '';
-    document.getElementById('gasoil-data').value = new Date().toISOString().split('T')[0];
+    document.getElementById('gasoil-data').value = dataLocalISO();
     document.getElementById('gasoil-iva').value = 21;
     document.getElementById('gasoil-tipus-activitat').value = 'F';
     document.getElementById('gasoil-import-net-calc').textContent = '0,00 €';
@@ -4095,7 +4095,7 @@ async function guardarFitxatgeTreballador(event) {
     const registreId = document.getElementById('fitxatge-registre-id').value;
     const tipus = document.getElementById('fitxatge-tipus').value;
     const horaActual = new Date().toTimeString().slice(0,5);
-    const dataAvui = new Date().toISOString().split('T')[0];
+    const dataAvui = dataLocalISO();
     
     try {
         if (tipus === 'entrada') {

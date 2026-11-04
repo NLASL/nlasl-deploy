@@ -415,7 +415,7 @@ async function obrirModalTractament() {
     form.dataset.editMode = 'false';
     form.dataset.editGrup = '';
 
-    const avui = new Date().toISOString().split('T')[0];
+    const avui = dataLocalISO();
     document.getElementById('tractament-data').value = avui;
 
     // Reset tipus reg a regadiu i construir selector (res marcat per defecte)

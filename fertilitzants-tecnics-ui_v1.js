@@ -1011,7 +1011,7 @@ function mapExcelRowToMapa(r) {
     fe_total: n(65), fe_soluble: n(66), b_total: n(67), b_soluble: n(68),
     cu_total: n(69), cu_soluble: n(70), mn_total: n(71), mn_soluble: n(72),
     zn_total: n(73), zn_soluble: n(74), mo_total: n(77), mo_soluble: n(78),
-    data_importacio: new Date().toISOString().split('T')[0],
+    data_importacio: dataLocalISO(),
   };
 }
 

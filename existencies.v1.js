@@ -268,7 +268,7 @@ async function obrirModalInventariInicial() {
             '</select></div>' +
             '<div class="form-group"><label>Producte *</label>' +
             '<select id="inv-producte" required><option value="">Seleccionar tipus primer...</option></select></div>' +
-            '<div class="form-group"><label>Data *</label><input type="date" id="inv-data" required value="' + new Date().toISOString().split('T')[0] + '"></div>' +
+            '<div class="form-group"><label>Data *</label><input type="date" id="inv-data" required value="' + dataLocalISO() + '"></div>' +
             '<div class="form-group"><label>Quantitat *</label>' +
             '<div style="display:flex;gap:10px;">' +
             '<input type="number" id="inv-quantitat" required min="0" step="0.001" style="flex:2;">' +
@@ -347,7 +347,7 @@ async function obrirModalAjust() {
             '</select></div>' +
             '<div class="form-group"><label>Producte *</label>' +
             '<select id="ajust-producte" required><option value="">Seleccionar tipus primer...</option></select></div>' +
-            '<div class="form-group"><label>Data *</label><input type="date" id="ajust-data" required value="' + new Date().toISOString().split('T')[0] + '"></div>' +
+            '<div class="form-group"><label>Data *</label><input type="date" id="ajust-data" required value="' + dataLocalISO() + '"></div>' +
             '<div class="form-group"><label>Tipus Ajust *</label>' +
             '<select id="ajust-tipus-mov" required>' +
             '<option value="ajust">🔧 Ajust inventari</option>' +
@@ -482,7 +482,7 @@ function exportarExistenciesExcel() {
  
     XLSX.utils.book_append_sheet(wb, ws, 'Inventari');
  
-    const avui = new Date().toISOString().split('T')[0];
+    const avui = dataLocalISO();
     const tipusText = estat === 'amb_estoc' ? 'positiu' :
                       estat === 'negatiu' ? 'negatiu' :
                       estat === 'sense_estoc' ? 'zero' : 'tots';
@@ -633,7 +633,7 @@ async function confirmarAjustosInventari() {
     try {
         mostrarNotificacio('⏳ Aplicant ajustos...', 'info');
  
-        const avui = new Date().toISOString().split('T')[0];
+        const avui = dataLocalISO();
         let ajustsFets = 0;
         let errors = 0;
  
