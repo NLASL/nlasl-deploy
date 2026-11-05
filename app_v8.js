@@ -240,8 +240,20 @@ case 'absencies':
 case 'alertes':
     carregarVistaAlertes();
     break;
-default:
-    container.innerHTML = '<p>Vista no trobada</p>';
+default: {
+    // Fallback genèric: una vista 'preus-collita' → carregarVistaPreusCollita(),
+    // 'reparacions' → carregarVistaReparacions() / mostrarVistaReparacions(), etc.
+    // Així els mòduls que viuen en fitxers propis no depenen d'un case aquí.
+    const base = vista.split('-').map(function(p) { return p.charAt(0).toUpperCase() + p.slice(1); }).join('');
+    const candidates = ['carregarVista' + base, 'mostrarVista' + base];
+    const fnNom = candidates.find(function(n) { return typeof window[n] === 'function'; });
+    if (fnNom) {
+        window[fnNom]();
+    } else {
+        console.warn('Vista no trobada:', vista, '(provat:', candidates.join(', '), ')');
+        container.innerHTML = '<p>Vista no trobada</p>';
+    }
+}
 }
 }
 
