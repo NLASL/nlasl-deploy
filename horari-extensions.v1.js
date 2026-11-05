@@ -18,7 +18,7 @@
 // ============================================================
 
 async function fitxatgeAutomaticLogin(treballador) {
-    const avui = new Date().toISOString().split('T')[0];
+    const avui = dataLocalISO();
 
     // Recarregar control_horari per tenir les dades fresques
     controlHorari = await getControlHorari({ treballadorId: treballador.id });
@@ -68,7 +68,7 @@ async function fitxatgeAutomaticLogin(treballador) {
 
 function obrirModalSortidaAnticipada(treballadorId) {
     const registreObert = controlHorari.find(function(r) {
-        const avui = new Date().toISOString().split('T')[0];
+        const avui = dataLocalISO();
         return r.treballador_id === treballadorId &&
                r.data === avui &&
                r.hora_entrada &&
@@ -151,13 +151,11 @@ async function guardarSortidaAnticipada(event) {
 
     try {
         // Calcular hores i cost
-        const entrada  = new Date('2000-01-01 ' + registre.hora_entrada);
-        let sortida    = new Date('2000-01-01 ' + horaSortida);
-        if (sortida < entrada) sortida = new Date('2000-01-02 ' + horaSortida);
-        const hores    = (sortida - entrada) / 3600000;
+        // Hores amb càlcul propi (compatible amb Safari/iPhone)
+        const hores    = horesEntreHM(registre.hora_entrada, horaSortida);
 
         const treballador = treballadors.find(function(t) { return t.id === treballadorId; });
-        const cost = treballador && treballador.preu_hora ? hores * treballador.preu_hora : null;
+        const cost = (treballador && treballador.preu_hora && hores !== null) ? hores * treballador.preu_hora : null;
 
         // Actualitzar el registre de control_horari
         await updateControlHorari(registreId, {
@@ -189,7 +187,7 @@ async function guardarSortidaAnticipada(event) {
         // Refrescar vista
         controlHorari = await getControlHorari();
         const registreRestant = controlHorari.find(function(r) {
-            const avui = new Date().toISOString().split('T')[0];
+            const avui = dataLocalISO();
             return r.treballador_id === treballadorId && r.data === avui && !r.hora_sortida;
         });
         await actualitzarZonaFitxatge(treballadorId, registreRestant);
@@ -412,8 +410,8 @@ async function carregarVistaControlHorariTreballador() {
     const avui = new Date();
     const fa30 = new Date();
     fa30.setDate(avui.getDate() - 30);
-    document.getElementById('filtro-data-inici-treb').value = fa30.toISOString().split('T')[0];
-    document.getElementById('filtro-data-fi-treb').value = avui.toISOString().split('T')[0];
+    document.getElementById('filtro-data-inici-treb').value = dataLocalISO(fa30);
+    document.getElementById('filtro-data-fi-treb').value = dataLocalISO(avui);
 
     await carregarRegistresTreballadorHorari();
 }
@@ -518,7 +516,7 @@ async function afegirFitxatgeDashboard() {
         : null;
     if (!treballador) return;
 
-    const avui = new Date().toISOString().split('T')[0];
+    const avui = dataLocalISO();
     const registreObert = controlHorari ? controlHorari.find(function(r) {
         return r.treballador_id === treballador.id &&
                r.data === avui &&

@@ -165,6 +165,13 @@
 	        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 	    };
 	}
+	if (typeof window.horesEntreHM !== 'function') {
+	    window.horesEntreHM = function (hE, hS) {
+	        function minuts(h) { var m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(String(h || '').trim()); return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) + (m[3] ? parseInt(m[3], 10) / 60 : 0) : null; }
+	        var e = minuts(hE), s = minuts(hS); if (e === null || s === null) return null;
+	        var d = s - e; if (d < 0) d += 1440; return d / 60;
+	    };
+	}
 	</script>
 	<script src="/supabase-client.v5.js"></script>
 

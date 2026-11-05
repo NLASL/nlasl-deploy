@@ -2117,18 +2117,11 @@ async function guardarControlHorari(event) {
     if (horaSortida) {
         const treballador = treballadors.find(function(t) { return t.id === treballadorId; });
         if (treballador && treballador.preu_hora) {
-            const entrada = new Date('2000-01-01 ' + horaEntrada);
-            let sortida = new Date('2000-01-01 ' + horaSortida);
-            
-            // Si sortida < entrada, ha creuat mitjanit → afegir 1 dia
-            if (sortida < entrada) {
-                sortida = new Date('2000-01-02 ' + horaSortida);
-            }
-            
-            const hores = (sortida - entrada) / 3600000;
+            // Hores amb càlcul propi (compatible amb Safari/iPhone)
+            const hores = horesEntreHM(horaEntrada, horaSortida);
             
             // Usar num_persones del formulari (permet editar en temporers)
-            cost = hores * treballador.preu_hora * numPersones;
+            cost = hores === null ? null : hores * treballador.preu_hora * numPersones;
         }
     }
     
@@ -4139,16 +4132,9 @@ async function guardarFitxatgeTreballador(event) {
             
             if (registre) {
                 const treballador = treballadors.find(function(t) { return t.id === treballadorId; });
-                const entrada = new Date('2000-01-01 ' + registre.hora_entrada);
-                let sortida = new Date('2000-01-01 ' + horaActual);
-                
-                if (sortida < entrada) {
-                    sortida = new Date('2000-01-02 ' + horaActual);
-                }
-                
-                const hores = (sortida - entrada) / 3600000;
+                const hores = horesEntreHM(registre.hora_entrada, horaActual);
                 const numPersones = registre.num_persones || 1;
-                const cost = treballador && treballador.preu_hora ? (hores * treballador.preu_hora * numPersones) : null;
+                const cost = (treballador && treballador.preu_hora && hores !== null) ? (hores * treballador.preu_hora * numPersones) : null;
                 
                 await updateControlHorari(registreId, {
                     hora_sortida: horaActual,

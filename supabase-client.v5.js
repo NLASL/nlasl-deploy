@@ -17,6 +17,22 @@ function dataLocalISO(d) {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
+// Hores entre dues hores «HH:MM» (o «HH:MM:SS»). Si la sortida és anterior a l'entrada
+// s'entén que s'ha creuat la mitjanit. Retorna null si alguna hora no és vàlida.
+// (new Date('2000-01-01 08:30') dona «Invalid Date» a Safari/iPhone: no es pot usar.)
+function horesEntreHM(hEntrada, hSortida) {
+    function minuts(h) {
+        const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(String(h || '').trim());
+        if (!m) return null;
+        return parseInt(m[1], 10) * 60 + parseInt(m[2], 10) + (m[3] ? parseInt(m[3], 10) / 60 : 0);
+    }
+    const e = minuts(hEntrada), s = minuts(hSortida);
+    if (e === null || s === null) return null;
+    let dif = s - e;
+    if (dif < 0) dif += 24 * 60;
+    return dif / 60;
+}
+
 // ============================================================
 // PARCELLES
 // ============================================================
