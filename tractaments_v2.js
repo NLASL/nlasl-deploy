@@ -64,6 +64,28 @@ async function deleteProductesGrup(grupTractament) {
     if (error) throw error;
 }
 
+// Valor d'estat d'un registre anul·lat (ha de coincidir amb la restricció CHECK de la BD)
+const ESTAT_ANULAT = 'anulat';
+
+// Anul·la (esborrat lògic) un grup de tractaments: només cal permís UPDATE (admin i editor).
+// A diferència del DELETE, si la RLS no deixa fer-ho NO falla en silenci: llença error.
+// permetBuit: true quan es fa servir per desfer un grup que potser no ha arribat a crear-se.
+async function anularGrupTractamentComplet(grupTractament, permetBuit) {
+    const d = new Date();
+    const avui = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const { data, error } = await supabaseClient
+        .from('tractaments')
+        .update({ estat: ESTAT_ANULAT, data_anulacio: avui })
+        .eq('grup_tractament', grupTractament)
+        .eq('estat', 'actiu')
+        .select('id');
+    if (error) throw error;
+    if (!permetBuit && (!data || !data.length)) {
+        throw new Error('No s\'ha pogut anul·lar el tractament antic (permisos o grup inexistent)');
+    }
+    await eliminarEstocGrup('tractament', grupTractament);
+}
+
 async function eliminarGrupTractamentComplet(grupTractament) {
     // Ordre: estoc → línies → capçaleres. Si falla, llença l'error (no s'empassa).
     await eliminarEstocGrup('tractament', grupTractament);
@@ -152,9 +174,10 @@ async function guardarTractament(event) {
         // 2) Estoc: un moviment per línia de producte
         await sincronitzarEstocGrup('tractament', grupNou);
 
-        // 3) Només ara, eliminar l'antic (si és edició)
+        // 3) Només ara, anul·lar l'antic (si és edició). Anul·lar (no esborrar) funciona per a editors
+        //    i deixa traça; tots els informes ja filtren per estat = 'actiu'.
         if (editMode && editGrup) {
-            await eliminarGrupTractamentComplet(editGrup);
+            await anularGrupTractamentComplet(editGrup);
         }
 
         mostrarNotificacio(editMode ? 'Tractament actualitzat' : 'Tractament registrat', 'success');
@@ -165,7 +188,7 @@ async function guardarTractament(event) {
     } catch (error) {
         console.error('Error guardarTractament:', error);
         // Desfer el grup nou; l'original (si n'hi ha) queda intacte
-        try { await eliminarGrupTractamentComplet(grupNou); } catch (e2) { console.error('Rollback:', e2); }
+        try { await anularGrupTractamentComplet(grupNou, true); } catch (e2) { console.error('Rollback:', e2); }
         mostrarNotificacio('Error en guardar: ' + error.message, 'error');
     } finally {
         form.dataset.guardant = '0';
