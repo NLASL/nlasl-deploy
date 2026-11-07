@@ -410,7 +410,20 @@ async function eliminarRegMes(numExplotacio, mes) {
 // MODAL REG MANUAL (igual que la versió anterior)
 // ============================================================
 
-function obrirModalRegManual() {
+async function obrirModalRegManual() {
+    // Explotacions: les actives de reg_configuracio (abans només sortien les que tenien
+    // el nº d'explotació informat a Parcel·les, i en faltaven)
+    let explotacionsReg = (window._regConfiguracio || []).filter(function(e) { return e.actiu !== false; });
+    if (!explotacionsReg.length) {
+        const rc = await supabaseClient.from('reg_configuracio')
+            .select('num_explotacio, nom_finca').eq('actiu', true).order('num_explotacio');
+        explotacionsReg = rc.data || [];
+    }
+    const opcionsExplotacions = explotacionsReg
+        .slice().sort(function(a, b) { return String(a.num_explotacio).localeCompare(String(b.num_explotacio)); })
+        .map(function(e) { return '<option value="' + e.num_explotacio + '">' + e.num_explotacio + ' — ' + (e.nom_finca || '') + '</option>'; })
+        .join('');
+
     let modal = document.getElementById('modal-reg-manual');
     if (!modal) {
         const div = document.createElement('div');
@@ -423,15 +436,7 @@ function obrirModalRegManual() {
             '<div class="form-group"><label>Explotació *</label>' +
             '<select id="reg-manual-explotacio" required>' +
             '<option value="">Seleccionar...</option>' +
-            (function() {
-                const vistes = {};
-                parcelles.filter(function(p) { return p.num_explotacio; }).forEach(function(p) {
-                    if (!vistes[p.num_explotacio]) vistes[p.num_explotacio] = p.finca || p.num_explotacio;
-                });
-                return Object.keys(vistes).sort().map(function(e) {
-                    return '<option value="' + e + '">' + e + ' — ' + vistes[e] + '</option>';
-                }).join('');
-            })() +
+            opcionsExplotacions +
             '</select></div>' +
             '<div class="form-group"><label>Data *</label><input type="date" id="reg-manual-data" required value="' + dataLocalISO() + '"></div>' +
             '<div class="form-group"><label>Consum (m³) *</label><input type="number" id="reg-manual-consum" required min="0" step="0.01"></div>' +
@@ -531,16 +536,52 @@ async function importarExcelReg(event) {
             const unics = Object.values(perClau);
             const repetides = registres.length - unics.length;
 
+            // Avís: dies que ja existeixen amb un valor DIFERENT (p. ex. registres manuals)
+            const expsFitxer = Array.from(new Set(unics.map(function(r) { return r.num_explotacio; })));
+            const datesFitxer = unics.map(function(r) { return r.data; }).sort();
+            const existents = {};
+            for (let desde = 0; ; desde += 1000) {
+                const rx = await supabaseClient.from('reg')
+                    .select('num_explotacio, data, consum_m3')
+                    .in('num_explotacio', expsFitxer)
+                    .gte('data', datesFitxer[0]).lte('data', datesFitxer[datesFitxer.length - 1])
+                    .order('data').range(desde, desde + 999);
+                if (rx.error) throw rx.error;
+                (rx.data || []).forEach(function(x) { existents[x.num_explotacio + '|' + x.data] = parseFloat(x.consum_m3) || 0; });
+                if (!rx.data || rx.data.length < 1000) break;
+            }
+            const diferents = unics.filter(function(r) {
+                const ex = existents[r.num_explotacio + '|' + r.data];
+                return ex !== undefined && Math.abs(ex - r.consum_m3) > 0.005;
+            });
+            let aImportar = unics;
+            if (diferents.length > 0) {
+                const exemples = diferents.slice(0, 5).map(function(r) {
+                    return r.num_explotacio + ' ' + r.data + ': ' + existents[r.num_explotacio + '|' + r.data] + ' → ' + r.consum_m3 + ' m³';
+                }).join('\n');
+                const sobreescriure = confirm(diferents.length + ' dies ja tenen un consum DIFERENT a l\'app (p. ex. registres manuals):\n\n' +
+                    exemples + (diferents.length > 5 ? '\n…' : '') +
+                    '\n\nAcceptar = sobreescriure amb els valors de l\'Excel.\nCancel·lar = importar només els dies que encara no existeixen.');
+                if (!sobreescriure) {
+                    aImportar = unics.filter(function(r) { return existents[r.num_explotacio + '|' + r.data] === undefined; });
+                }
+            }
+            if (aImportar.length === 0) {
+                mostrarNotificacio('No hi ha dies nous per importar', 'info');
+                event.target.value = '';
+                return;
+            }
+
             // UPSERT per (num_explotacio, data): tornar a importar el mateix fitxer
             // sobreescriu els dies existents i no duplica res (ni amb diverses explotacions al fitxer).
             const MIDA_BLOC = 500;
-            for (let i = 0; i < unics.length; i += MIDA_BLOC) {
+            for (let i = 0; i < aImportar.length; i += MIDA_BLOC) {
                 const { error } = await supabaseClient.from('reg')
-                    .upsert(unics.slice(i, i + MIDA_BLOC), { onConflict: 'num_explotacio,data' });
+                    .upsert(aImportar.slice(i, i + MIDA_BLOC), { onConflict: 'num_explotacio,data' });
                 if (error) throw error;
             }
 
-            mostrarNotificacio('✅ Importats ' + unics.length + ' registres correctament' +
+            mostrarNotificacio('✅ Importats ' + aImportar.length + ' registres correctament' +
                 (repetides > 0 ? ' (' + repetides + ' files repetides al fitxer: s\'ha conservat l\'última)' : ''), 'success');
             event.target.value = '';
             await carregarTaulaReg();

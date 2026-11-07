@@ -54,7 +54,7 @@ function alertaVenciment(dataStr, etiqueta) {
 function getTipusIconImm(tipus) {
     const icons = {
         'edifici': '🏢', 'infraestructura_reg': '💧', 'tractor': '🚜',
-        'vehicle': '🚗', 'remolc': '🚛', 'maquinaria': '⚙️', 'altra': '📦'
+        'vehicle': '🚗', 'remolc': '🚛', 'maquinaria': '⚙️', 'eines': '🛠️', 'altra': '📦'
     };
     return icons[tipus] || '📦';
 }
@@ -313,6 +313,7 @@ function obrirModalNouImmobilitzat() {
                                     <option value="vehicle">🚗 Vehicle</option>
                                     <option value="remolc">🚛 Remolc</option>
                                     <option value="maquinaria">⚙️ Maquinària</option>
+                                    <option value="eines">🛠️ Eines i utensilis</option>
                                     <option value="edifici">🏢 Edifici</option>
                                     <option value="infraestructura_reg">💧 Infraestructura Reg</option>
                                     <option value="altra">📦 Altra</option>
@@ -534,10 +535,10 @@ async function obrirModalEditarImmobilitzat(id) {
         modal.id = 'modal-editar-immobilitzat';
         modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:flex-start;justify-content:center;padding-top:30px;overflow-y:auto;';
 
-        const tipusOptions = ['tractor','vehicle','remolc','maquinaria','edifici','infraestructura_reg','altra'];
+        const tipusOptions = ['tractor','vehicle','remolc','maquinaria','eines','edifici','infraestructura_reg','altra'];
         const tipusLabels  = {
             'tractor':'🚜 Tractor','vehicle':'🚗 Vehicle','remolc':'🚛 Remolc',
-            'maquinaria':'⚙️ Maquinària','edifici':'🏢 Edifici',
+            'maquinaria':'⚙️ Maquinària','eines':'🛠️ Eines i utensilis','edifici':'🏢 Edifici',
             'infraestructura_reg':'💧 Infraestructura Reg','altra':'📦 Altra'
         };
 
@@ -848,6 +849,7 @@ async function mostrarVistaImmobilitzat() {
             { val: 'vehicle',             label: `🚗 Vehicles (${comptadors['vehicle'] || 0})` },
             { val: 'remolc',              label: `🚛 Remolcs (${comptadors['remolc'] || 0})` },
             { val: 'maquinaria',          label: `⚙️ Maquinària (${comptadors['maquinaria'] || 0})` },
+            { val: 'eines',               label: `🛠️ Eines i utensilis (${comptadors['eines'] || 0})` },
             { val: 'edifici',             label: `🏢 Edificis (${comptadors['edifici'] || 0})` },
             { val: 'infraestructura_reg', label: `💧 Reg (${comptadors['infraestructura_reg'] || 0})` },
             { val: 'altra',               label: `📦 Altra (${comptadors['altra'] || 0})` },
