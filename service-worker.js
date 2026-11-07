@@ -4,7 +4,7 @@
 // ============================================================
 
 // VERSIÓ - Incrementar aquest número per forçar actualització
-const VERSION = 'v133';
+const VERSION = 'v134';
 const CACHE_NAME = 'quadern-camp-nlasl-' + VERSION;
 
 // Fitxers a cachear
@@ -13,7 +13,7 @@ const ASSETS_TO_CACHE = [
     '/index.html',
     '/supabase-client.v5.js',
     '/auth.v3.js',
-    '/app.v8.js',
+    '/app_v8.js',
     '/styles.css',
     '/manifest.json',
     '/logo-nlasl.png'
@@ -26,7 +26,13 @@ self.addEventListener('install', function(event) {
     event.waitUntil(
         caches.open(CACHE_NAME).then(function(cache) {
             console.log('Service Worker: Cacheant fitxers');
-            return cache.addAll(ASSETS_TO_CACHE);
+            // Precàrrega TOLERANT: un fitxer que falti (404) ja no trenca la instal·lació.
+            // (cache.addAll és tot o res: un sol 404 feia fallar tot el Service Worker.)
+            return Promise.all(ASSETS_TO_CACHE.map(function(fitxer) {
+                return cache.add(fitxer).catch(function(err) {
+                    console.warn('Service Worker: no s\'ha pogut cachear', fitxer, err && err.message);
+                });
+            }));
         }).then(function() {
             // Forçar activació immediata
             return self.skipWaiting();
@@ -62,6 +68,11 @@ self.addEventListener('fetch', function(event) {
     
     // No cachear crides a Supabase
     if (url.hostname.includes('supabase.co')) {
+        return;
+    }
+
+    // Només es gestionen peticions GET (cache.put llença error amb POST/PUT/DELETE)
+    if (event.request.method !== 'GET') {
         return;
     }
     
