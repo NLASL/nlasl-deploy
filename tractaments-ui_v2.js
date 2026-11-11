@@ -576,7 +576,7 @@ async function editarTractamentGrupV2(grupTractament) {
 }
 
 // ============================================================
-// DAN i llibre fitosanitari actualitzats per nova arquitectura
+// Registre de tractaments fitosanitaris (abans «DAN») per any natural, nova arquitectura
 // ============================================================
 
 async function generarDAN() {
@@ -723,10 +723,10 @@ async function exportarDANCSV() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'DAN_tractaments_' + any + '.csv';
+    a.download = 'tractaments_fitosanitaris_' + any + '.csv';
     a.click();
     URL.revokeObjectURL(url);
-    mostrarNotificacio('✅ DAN exportada correctament', 'success');
+    mostrarNotificacio('✅ Registre de tractaments exportat correctament', 'success');
 }
 
 // ============================================================
