@@ -924,8 +924,8 @@ function esParcellaApta(p) {
     const c = p.cultiu.trim().toUpperCase();
     const cultiusAptes = [
         'PRÉSSEC', 'PRESSEC', 'PRÉSSEC PLA', 'PRESSEC PLA',
-        'NECTARINA', 'ALBERCOC', 'PESOL', 'PÈSOL',
-        'BLAT', 'BLAT TOU', 'ORDI', 'CIVADA', 'TRITICALE'
+        'NECTARINA', 'ALBERCOC', 'PESOL', 'PÈSOL', 'PESOLS', 'PÈSOLS',
+        'BLAT', 'BLAT TOU', 'BLAT DE MORO', 'ORDI', 'CIVADA', 'TRITICALE'
     ];
     return cultiusAptes.includes(c);
 }

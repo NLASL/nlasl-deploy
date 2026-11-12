@@ -306,7 +306,7 @@ async function obrirModalFertilitzacio() {
     form.dataset.editMode = 'false';
     form.dataset.editGrup = '';
 
-    var avui = dataLocalISO();
+    var avui = new Date().toISOString().split('T')[0];
     document.getElementById('fertilitzacio-data').value = avui;
 
     _tipusRegFertActual = 'regadiu';
@@ -338,24 +338,6 @@ function resetFormulariFertilitzacions() {
 // ============================================================
 // GUARDAR
 // ============================================================
-
-// Valor d'estat d'un registre anul·lat (ha de coincidir amb la restricció CHECK de la BD)
-var ESTAT_ANULAT_FERT = 'anulat';
-
-// Anul·la (esborrat lògic) un grup de fertilitzacions: només cal permís UPDATE (admin i editor).
-// Si la RLS no deixa fer-ho, llença error en lloc de fallar en silenci.
-async function anularGrupFertilitzacioComplet(grupFertilitzacio, permetBuit) {
-    const r = await supabaseClient.from('fertilitzacions')
-        .update({ estat: ESTAT_ANULAT_FERT, data_anulacio: dataLocalISO() })
-        .eq('grup_fertilitzacio', grupFertilitzacio)
-        .eq('estat', 'actiu')
-        .select('id');
-    if (r.error) throw r.error;
-    if (!permetBuit && (!r.data || !r.data.length)) {
-        throw new Error('No s\'ha pogut anul·lar la fertilització antiga (permisos o grup inexistent)');
-    }
-    await eliminarEstocGrup('fertilitzacio', grupFertilitzacio);
-}
 
 async function eliminarGrupFertilitzacioComplet(grupFertilitzacio) {
     await eliminarEstocGrup('fertilitzacio', grupFertilitzacio);
@@ -427,8 +409,13 @@ async function guardarFertilitzacio(event) {
             var p = parcellesAFertilitzar[pi];
             var superficieParcel = parseFloat(p.superficie) || 0;
             var npk = calcularNPKGrup(liniesProducte, superficieParcel);
+            // QIE: es fixa la DGC (Ordre de la DUN) i el conreu vigent en la data d'aplicació
+            var conreu = conreuParcellaPerData(p, data);
 
             var res = await supabaseClient.from('fertilitzacions').insert([{
+                dun_ordre:           p.dun_ordre || null,
+                cultiu_aplicat:      conreu.cultiu,
+                varietat_aplicada:   conreu.varietat,
                 data:                data,
                 metode:              metode || null,
                 operador:            operador || null,
@@ -468,7 +455,7 @@ async function guardarFertilitzacio(event) {
 
         // 3) Només ara, eliminar l'antic (si és edició)
         if (editMode && editGrup) {
-            await anularGrupFertilitzacioComplet(editGrup);
+            await eliminarGrupFertilitzacioComplet(editGrup);
         }
 
         mostrarNotificacio(editMode ? 'Fertilització actualitzada' : 'Fertilització registrada', 'success');
@@ -478,7 +465,7 @@ async function guardarFertilitzacio(event) {
 
     } catch (error) {
         console.error('Error guardarFertilitzacio:', error);
-        try { await anularGrupFertilitzacioComplet(grupNou, true); } catch (e2) { console.error('Rollback:', e2); }
+        try { await eliminarGrupFertilitzacioComplet(grupNou); } catch (e2) { console.error('Rollback:', e2); }
         mostrarNotificacio('Error en guardar: ' + error.message, 'error');
     } finally {
         form.dataset.guardant = '0';

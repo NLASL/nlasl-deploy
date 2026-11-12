@@ -4,6 +4,23 @@
 //               tractaments_productes (N productes per grup)
 // ============================================================
 
+// ------------------------------------------------------------
+// QIE — Conreu vigent d'una parcel·la en una data
+// Una parcel·la pot tenir dues collites el mateix any (ex. ordi i després
+// blat de moro). Si té `cultiu_2a_collita` i la data d'aplicació és igual o
+// posterior a `data_inici_2a_collita`, el conreu vigent és el de la 2a collita.
+// Retorna { cultiu, varietat }. Tolera que les columnes encara no existeixin.
+// ------------------------------------------------------------
+function conreuParcellaPerData(parcella, dataISO) {
+    if (!parcella) return { cultiu: null, varietat: null };
+    const usaSegona = !!(parcella.cultiu_2a_collita && parcella.data_inici_2a_collita
+        && dataISO && String(dataISO) >= String(parcella.data_inici_2a_collita));
+    if (usaSegona) {
+        return { cultiu: parcella.cultiu_2a_collita, varietat: parcella.varietat_2a_collita || null };
+    }
+    return { cultiu: parcella.cultiu || null, varietat: parcella.varietat || null };
+}
+
 async function createTractament(dades) {
     const { data, error } = await supabaseClient
         .from('tractaments')
@@ -62,28 +79,6 @@ async function deleteProductesGrup(grupTractament) {
         .delete()
         .eq('grup_tractament', grupTractament);
     if (error) throw error;
-}
-
-// Valor d'estat d'un registre anul·lat (ha de coincidir amb la restricció CHECK de la BD)
-const ESTAT_ANULAT = 'anulat';
-
-// Anul·la (esborrat lògic) un grup de tractaments: només cal permís UPDATE (admin i editor).
-// A diferència del DELETE, si la RLS no deixa fer-ho NO falla en silenci: llença error.
-// permetBuit: true quan es fa servir per desfer un grup que potser no ha arribat a crear-se.
-async function anularGrupTractamentComplet(grupTractament, permetBuit) {
-    const d = new Date();
-    const avui = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-    const { data, error } = await supabaseClient
-        .from('tractaments')
-        .update({ estat: ESTAT_ANULAT, data_anulacio: avui })
-        .eq('grup_tractament', grupTractament)
-        .eq('estat', 'actiu')
-        .select('id');
-    if (error) throw error;
-    if (!permetBuit && (!data || !data.length)) {
-        throw new Error('No s\'ha pogut anul·lar el tractament antic (permisos o grup inexistent)');
-    }
-    await eliminarEstocGrup('tractament', grupTractament);
 }
 
 async function eliminarGrupTractamentComplet(grupTractament) {
@@ -155,7 +150,12 @@ async function guardarTractament(event) {
 
         // 1) Crear el grup NOU (l'antic no es toca fins que tot ha anat bé)
         for (const p of parcellesATractar) {
+            // QIE: es fixa la DGC (Ordre de la DUN) i el conreu vigent en la data d'aplicació
+            const conreu = conreuParcellaPerData(p, data);
             await createTractament({
+                dun_ordre: p.dun_ordre || null,
+                cultiu_aplicat: conreu.cultiu,
+                varietat_aplicada: conreu.varietat,
                 data,
                 operador,
                 maquinaria,
@@ -174,10 +174,9 @@ async function guardarTractament(event) {
         // 2) Estoc: un moviment per línia de producte
         await sincronitzarEstocGrup('tractament', grupNou);
 
-        // 3) Només ara, anul·lar l'antic (si és edició). Anul·lar (no esborrar) funciona per a editors
-        //    i deixa traça; tots els informes ja filtren per estat = 'actiu'.
+        // 3) Només ara, eliminar l'antic (si és edició)
         if (editMode && editGrup) {
-            await anularGrupTractamentComplet(editGrup);
+            await eliminarGrupTractamentComplet(editGrup);
         }
 
         mostrarNotificacio(editMode ? 'Tractament actualitzat' : 'Tractament registrat', 'success');
@@ -188,7 +187,7 @@ async function guardarTractament(event) {
     } catch (error) {
         console.error('Error guardarTractament:', error);
         // Desfer el grup nou; l'original (si n'hi ha) queda intacte
-        try { await anularGrupTractamentComplet(grupNou, true); } catch (e2) { console.error('Rollback:', e2); }
+        try { await eliminarGrupTractamentComplet(grupNou); } catch (e2) { console.error('Rollback:', e2); }
         mostrarNotificacio('Error en guardar: ' + error.message, 'error');
     } finally {
         form.dataset.guardant = '0';
