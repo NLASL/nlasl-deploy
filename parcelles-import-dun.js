@@ -166,7 +166,16 @@ async function processarExcelDUN() {
         if (resExist.error) throw resExist.error;
 
         const linies = processarFilesDUN(files, resMapatge.data || []);
+        // Campanya anterior (només per comparar; no es modifica mai)
+        const resAnt = await supabaseClient
+            .from('parcelles')
+            .select('id, sigpac, subrecinte, cultiu, varietat, superficie, actiu')
+            .eq('campanya', campanya - 1);
+        if (resAnt.error) throw resAnt.error;
+
         const resultat = classificarLiniesDUN(linies, resExist.data || [], campanya);
+        resultat.campanyaAnterior = campanya - 1;
+        resultat.comparacio = compararAmbCampanyaAnterior(resultat.registres, resAnt.data || []);
 
         mostrarPreviewDUN(resultat, campanya);
 
@@ -316,12 +325,168 @@ function classificarLiniesDUN(linies, existents, campanya) {
 }
 
 // ------------------------------------------------------------
+// COMPARACIÓ AMB LA CAMPANYA ANTERIOR
+// Per cada línia nova diu si el recinte ja existia, si el conreu ha canviat
+// o si és igual, i quins recintes de la campanya anterior ja no hi són.
+// Només llegeix: no modifica res a la BD.
+// ------------------------------------------------------------
+
+// Clau per comparar conreus: sense accents ni variants de nom entre importacions
+// (PRÉSSEC / PRÉSSEC PLA, FORESTALS / PROD. FORESTALS, ALBERCOQUER / ALBERCOC...)
+function dunClauCultiu(cultiu) {
+    let c = String(cultiu || '').trim().toUpperCase();
+    c = DUN_CULTIU_MAP[c] || c;
+    c = c.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    c = c.replace(/^PROD\.\s*/, '').replace(/\s+PLA$/, '');
+    return c.trim();
+}
+
+function dunClauVarietat(varietat) {
+    return String(varietat || '').trim().toUpperCase();
+}
+
+function compararAmbCampanyaAnterior(registres, anteriors) {
+    // Només es poden comparar files de la campanya anterior amb SIGPAC en format
+    // «25010:0:0:502:141:1» (les campanyes antigues podien usar un altre format).
+    const base = anteriors.filter(function(a) {
+        return a.actiu !== false && String(a.sigpac || '').indexOf(':') !== -1;
+    });
+    const resultat = {
+        disponible: base.length > 0,
+        totalAnterior: anteriors.length,
+        ignorades: anteriors.length - base.length,
+        desapareixen: [],
+        haAnterior: base.reduce(function(s, a) { return s + (parseFloat(a.superficie) || 0); }, 0),
+        haNova: registres.reduce(function(s, r) { return s + r.superficie; }, 0)
+    };
+    if (!resultat.disponible) {
+        registres.forEach(function(r) { r._ant = null; });
+        return resultat;
+    }
+
+    const prevPerSigpac = new Map();
+    base.forEach(function(a) {
+        if (!prevPerSigpac.has(a.sigpac)) prevPerSigpac.set(a.sigpac, []);
+        prevPerSigpac.get(a.sigpac).push(a);
+    });
+    prevPerSigpac.forEach(function(arr) {
+        arr.sort(function(x, y) { return String(x.subrecinte || '').localeCompare(String(y.subrecinte || '')); });
+    });
+
+    const liniesPerSigpac = new Map();
+    registres.forEach(function(r) {
+        if (!liniesPerSigpac.has(r.sigpac)) liniesPerSigpac.set(r.sigpac, []);
+        liniesPerSigpac.get(r.sigpac).push(r);
+    });
+
+    const usades = new Set();
+
+    function parella(r, a, estat) {
+        usades.add(a.id);
+        const notes = [];
+        if (!dunIgualText(dunClauCultiu(a.cultiu), dunClauCultiu(r.cultiu))) {
+            notes.push('Cultiu: ' + (a.cultiu || '—') + ' → ' + (r.cultiu || '—'));
+        }
+        if (dunClauVarietat(a.varietat) !== dunClauVarietat(r.varietat)) {
+            notes.push('Varietat: ' + (a.varietat || '—') + ' → ' + (r.varietat || '—'));
+        }
+        const dSup = r.superficie - (parseFloat(a.superficie) || 0);
+        const supCanvi = Math.abs(dSup) > 0.0001;
+        r._ant = {
+            estat: estat,
+            notes: notes,
+            supCanvi: supCanvi,
+            supText: supCanvi ? 'Sup.: ' + (parseFloat(a.superficie) || 0) + ' → ' + r.superficie : ''
+        };
+    }
+
+    liniesPerSigpac.forEach(function(linies, sigpac) {
+        const prev = prevPerSigpac.get(sigpac) || [];
+        let pendents = linies.slice().sort(function(a, b) { return a.ordre - b.ordre; });
+
+        function lliures() { return prev.filter(function(a) { return !usades.has(a.id); }); }
+
+        // Passada 1: mateix conreu i mateixa varietat → igual
+        pendents = pendents.filter(function(r) {
+            const a = lliures().find(function(x) {
+                return dunClauCultiu(x.cultiu) === dunClauCultiu(r.cultiu)
+                    && dunClauVarietat(x.varietat) === dunClauVarietat(r.varietat);
+            });
+            if (!a) return true;
+            parella(r, a, 'igual');
+            return false;
+        });
+        // Passada 2: mateix conreu, varietat diferent → canvi
+        pendents = pendents.filter(function(r) {
+            const a = lliures().find(function(x) { return dunClauCultiu(x.cultiu) === dunClauCultiu(r.cultiu); });
+            if (!a) return true;
+            parella(r, a, 'canvi');
+            return false;
+        });
+        // Passada 3: queden files antigues al mateix recinte → canvi de conreu
+        pendents = pendents.filter(function(r) {
+            const a = lliures()[0];
+            if (!a) return true;
+            parella(r, a, 'canvi');
+            return false;
+        });
+        // Les que queden no tenien equivalent: recinte (o part de recinte) nou
+        pendents.forEach(function(r) {
+            r._ant = { estat: 'nou', notes: [], supCanvi: false, supText: '' };
+        });
+    });
+
+    resultat.desapareixen = base.filter(function(a) { return !usades.has(a.id); });
+    return resultat;
+}
+
+// ------------------------------------------------------------
 // PREVISUALITZACIÓ
 // ------------------------------------------------------------
+
+function dunCelaAnterior(r) {
+    if (!r._ant) return '<span style="color:#999;">—</span>';
+    const a = r._ant;
+    let html;
+    if (a.estat === 'nou') {
+        html = '🆕 Recinte nou';
+    } else if (a.estat === 'canvi') {
+        html = '🔄 ' + a.notes.map(dunEscapeHtml).join('<br>');
+    } else {
+        html = '<span style="color:#2e7d32;">✔️ igual</span>';
+    }
+    if (a.supCanvi) html += '<br>📏 ' + dunEscapeHtml(a.supText);
+    return html;
+}
+
+function filtrarPreviewDUN() {
+    const mode = (document.getElementById('dun-filtre') || {}).value || 'tots';
+    let visibles = 0;
+    let total = 0;
+    document.querySelectorAll('#import-preview tr[data-ant]').forEach(function(tr) {
+        total++;
+        const ant = tr.dataset.ant;
+        const sup = tr.dataset.sup === '1';
+        const finca = tr.dataset.finca === '1';
+        let visible = true;
+        if (mode === 'novetats')    visible = ant === 'nou' || ant === 'canvi' || sup;
+        if (mode === 'nou')         visible = ant === 'nou';
+        if (mode === 'canvi')       visible = ant === 'canvi';
+        if (mode === 'sup')         visible = sup;
+        if (mode === 'igual')       visible = ant === 'igual' && !sup;
+        if (mode === 'sense_finca') visible = !finca;
+        tr.style.display = visible ? '' : 'none';
+        if (visible) visibles++;
+    });
+    const el = document.getElementById('dun-filtre-recompte');
+    if (el) el.textContent = 'Mostrant ' + visibles + ' de ' + total + ' línies';
+}
 
 function mostrarPreviewDUN(resultat, campanya) {
     const preview = document.getElementById('import-preview');
     const regs = resultat.registres;
+    const comp = resultat.comparacio;
+    const campAnt = resultat.campanyaAnterior;
 
     const nous       = regs.filter(function(r) { return r._estat === 'nou'; }).length;
     const actualitza = regs.filter(function(r) { return r._estat === 'actualitza'; }).length;
@@ -332,9 +497,11 @@ function mostrarPreviewDUN(resultat, campanya) {
     let html = '<div style="background:#f8f9fa; border-radius:8px; padding:20px;">';
     html += '<h3 style="margin-top:0;">2. Previsualització — Campanya ' + campanya + '</h3>';
 
+    // Estat respecte a la BD de la mateixa campanya
+    html += '<div style="font-size:12px; color:#666; margin-bottom:4px;">Respecte a la base de dades (campanya ' + campanya + ')</div>';
     html += '<div style="display:flex; gap:12px; margin-bottom:15px; flex-wrap:wrap;">';
     html += '<div style="background:#e3f2fd; padding:10px 16px; border-radius:6px;"><strong>' + regs.length + '</strong> línies · ' + totalHa.toFixed(2) + ' Ha</div>';
-    html += '<div style="background:#d4edda; padding:10px 16px; border-radius:6px;">🆕 <strong>' + nous + '</strong> noves</div>';
+    html += '<div style="background:#d4edda; padding:10px 16px; border-radius:6px;">🆕 <strong>' + nous + '</strong> a crear</div>';
     html += '<div style="background:#fff3cd; padding:10px 16px; border-radius:6px;">✏️ <strong>' + actualitza + '</strong> amb canvis</div>';
     html += '<div style="background:#f1f1f1; padding:10px 16px; border-radius:6px;">✔️ <strong>' + iguals + '</strong> sense canvis</div>';
     if (senseFinca > 0) {
@@ -342,14 +509,59 @@ function mostrarPreviewDUN(resultat, campanya) {
     }
     html += '</div>';
 
+    // Novetats respecte a la campanya anterior
+    html += '<div style="font-size:12px; color:#666; margin-bottom:4px;">Novetats respecte a la campanya ' + campAnt + '</div>';
+    if (comp.disponible) {
+        let aNou = 0, aCanvi = 0, aIgual = 0, aSup = 0;
+        regs.forEach(function(r) {
+            if (!r._ant) return;
+            if (r._ant.estat === 'nou') aNou++;
+            else if (r._ant.estat === 'canvi') aCanvi++;
+            else aIgual++;
+            if (r._ant.supCanvi) aSup++;
+        });
+        html += '<div style="display:flex; gap:12px; margin-bottom:10px; flex-wrap:wrap;">';
+        html += '<div style="background:#d4edda; padding:10px 16px; border-radius:6px;">🆕 <strong>' + aNou + '</strong> recintes nous</div>';
+        html += '<div style="background:#fff3cd; padding:10px 16px; border-radius:6px;">🔄 <strong>' + aCanvi + '</strong> canvis de conreu</div>';
+        html += '<div style="background:#f1f1f1; padding:10px 16px; border-radius:6px;">✔️ <strong>' + aIgual + '</strong> iguals</div>';
+        html += '<div style="background:#ffe0e0; padding:10px 16px; border-radius:6px;">➖ <strong>' + comp.desapareixen.length + '</strong> desapareixen</div>';
+        html += '<div style="background:#ede7f6; padding:10px 16px; border-radius:6px;">📏 <strong>' + aSup + '</strong> amb canvi de superfície</div>';
+        html += '<div style="background:#e3f2fd; padding:10px 16px; border-radius:6px;">' + comp.haAnterior.toFixed(2) + ' Ha → <strong>' + comp.haNova.toFixed(2) + ' Ha</strong></div>';
+        html += '</div>';
+        if (comp.ignorades > 0) {
+            html += '<div style="font-size:12px; color:#8a6d3b; margin-bottom:10px;">⚠️ ' + comp.ignorades + ' files de la campanya ' + campAnt + ' tenen el SIGPAC en un altre format i no s\'han pogut comparar.</div>';
+        }
+    } else {
+        html += '<div style="background:#fff3cd; padding:10px 16px; border-radius:6px; margin-bottom:10px; font-size:13px;">No hi ha dades comparables de la campanya ' + campAnt + ' (o tenen el SIGPAC en un altre format).</div>';
+    }
+
+    // Filtre
+    html += '<div style="display:flex; gap:12px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">';
+    html += '<label style="font-size:13px;"><strong>Mostrar:</strong> <select id="dun-filtre" onchange="filtrarPreviewDUN()" style="padding:6px 10px; border:1px solid #ddd; border-radius:4px;">';
+    html += '<option value="tots">Totes les línies</option>';
+    if (comp.disponible) {
+        html += '<option value="novetats">Només novetats (nous, canvis de conreu o de superfície)</option>';
+        html += '<option value="nou">🆕 Recintes nous</option>';
+        html += '<option value="canvi">🔄 Canvi de conreu</option>';
+        html += '<option value="sup">📏 Canvi de superfície</option>';
+        html += '<option value="igual">✔️ Iguals</option>';
+    }
+    html += '<option value="sense_finca">⚠️ Sense finca</option>';
+    html += '</select></label>';
+    html += '<span id="dun-filtre-recompte" style="font-size:12px; color:#666;"></span>';
+    html += '</div>';
+
+    // Taula
     html += '<div class="table-container"><table class="data-table" style="font-size:13px;">';
-    html += '<thead><tr><th></th><th>Ordre</th><th>SIGPAC</th><th>Sub</th><th>Finca (NLASL)</th><th>Cultiu</th><th>Varietat</th><th>Ha</th><th>Reg</th><th>Canvis / avisos</th></tr></thead><tbody>';
+    html += '<thead><tr><th></th><th>Ordre</th><th>SIGPAC</th><th>Sub</th><th>Finca (NLASL)</th><th>Cultiu</th><th>Varietat</th><th>Ha</th><th>Reg</th><th>vs ' + campAnt + '</th><th>Canvis vs BD</th></tr></thead><tbody>';
 
     regs.forEach(function(r) {
         const icona = { nou: '🆕', actualitza: '✏️', igual: '✔️' }[r._estat];
         const finca = r.finca || (r._existent && r._existent.finca) || null;
         const notes = r._canvis.concat(r._avisos).map(dunEscapeHtml).join('<br>');
-        html += '<tr>' +
+        const ant = r._ant ? r._ant.estat : 'sense';
+        const sup = r._ant && r._ant.supCanvi ? '1' : '0';
+        html += '<tr data-ant="' + ant + '" data-sup="' + sup + '" data-finca="' + (finca ? '1' : '0') + '">' +
             '<td>' + icona + '</td>' +
             '<td><strong>' + r.ordre + '</strong></td>' +
             '<td style="font-size:11px;">' + dunEscapeHtml(r.sigpac) + '</td>' +
@@ -359,14 +571,26 @@ function mostrarPreviewDUN(resultat, campanya) {
             '<td style="font-size:11px;">' + dunEscapeHtml(r.varietat || '-') + '</td>' +
             '<td>' + r.superficie + '</td>' +
             '<td>' + (r.regadiu ? '💧' : '') + '</td>' +
+            '<td style="font-size:11px;">' + dunCelaAnterior(r) + '</td>' +
             '<td style="font-size:11px; color:#8a6d3b;">' + notes + '</td>' +
             '</tr>';
     });
     html += '</tbody></table></div>';
 
+    // Recintes de la campanya anterior que no surten al fitxer nou
+    if (comp.disponible && comp.desapareixen.length) {
+        html += '<div style="background:#ffe0e0; border-radius:6px; padding:12px; margin-top:15px; font-size:13px;">';
+        html += '<strong>➖ ' + comp.desapareixen.length + ' línies de la campanya ' + campAnt + ' no surten al fitxer nou:</strong><br>';
+        html += comp.desapareixen.map(function(a) {
+            return dunEscapeHtml(a.sigpac) + (a.subrecinte ? ' (' + dunEscapeHtml(a.subrecinte) + ')' : '') + ' — ' + dunEscapeHtml(a.cultiu || '-') + ' ' + (parseFloat(a.superficie) || 0) + ' Ha';
+        }).join('<br>');
+        html += '</div>';
+    }
+
+    // Parcel·les de la mateixa campanya a la BD que no apareixen al fitxer
     if (resultat.senseFitxer.length) {
         html += '<div style="background:#fff3cd; border-radius:6px; padding:12px; margin-top:15px; font-size:13px;">';
-        html += '<strong>⚠️ ' + resultat.senseFitxer.length + ' parcel·les de la campanya ' + campanya + ' no apareixen al fitxer.</strong> ';
+        html += '<strong>⚠️ ' + resultat.senseFitxer.length + ' parcel·les de la campanya ' + campanya + ' (ja a la BD) no apareixen al fitxer.</strong> ';
         html += 'No s\'esborren ni es desactiven; revisa-les a mà:<br>';
         html += resultat.senseFitxer.map(function(e) {
             return dunEscapeHtml(e.sigpac) + (e.subrecinte ? ' (' + dunEscapeHtml(e.subrecinte) + ')' : '') + ' — ' + dunEscapeHtml(e.cultiu || '-') + ' ' + (parseFloat(e.superficie) || 0) + ' Ha';
@@ -382,6 +606,7 @@ function mostrarPreviewDUN(resultat, campanya) {
 
     preview.innerHTML = html;
     window._dunResultatPendent = resultat;
+    filtrarPreviewDUN();
 }
 
 // ------------------------------------------------------------
