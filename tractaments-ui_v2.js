@@ -123,7 +123,7 @@ async function carregarTaulaTractaments() {
             html += '<td>';
             html += '<button class="btn btn-sm btn-primary" onclick="veureTractamentGrupV2(\'' + g.grup_tractament + '\')">👁️</button>';
             if (podeEditar) html += ' <button class="btn btn-sm btn-secondary" onclick="editarTractamentGrupV2(\'' + g.grup_tractament + '\')">✏️</button>';
-            if (podeEliminar) html += ' <button class="btn btn-sm btn-danger" onclick="eliminarTractamentGrup(\'' + g.grup_tractament + '\')">🗑️</button>';
+            if (podeEditar) html += ' <button class="btn btn-sm btn-danger" title="Anul·lar" onclick="eliminarTractamentGrup(\'' + g.grup_tractament + '\')">🚫</button>';
             html += '</td>';
             html += '</tr>';
         });
@@ -588,6 +588,7 @@ async function generarDAN() {
         const { data, error } = await supabaseClient
             .from('tractaments_complet')
             .select('*')
+            .eq('estat', 'actiu')
             .gte('data', any + '-01-01')
             .lte('data', any + '-12-31')
             .order('data');
@@ -640,8 +641,8 @@ async function generarDAN() {
             html += '<td>' + (p ? p.finca || '-' : '-') + '</td>';
             html += '<td>' + (p ? p.nom || '-' : '-') + '</td>';
             html += '<td>' + (p ? p.sigpac || '-' : '-') + '</td>';
-            html += '<td>' + (p ? p.cultiu || '-' : '-') + '</td>';
-            html += '<td>' + (p ? p.varietat || '-' : '-') + '</td>';
+            html += '<td>' + (t.cultiu_aplicat || (p ? p.cultiu || '-' : '-')) + '</td>';
+            html += '<td>' + (t.cultiu_aplicat ? (t.varietat_aplicada || '-') : (p ? p.varietat || '-' : '-')) + '</td>';
             html += '<td>' + sup.toFixed(2) + '</td>';
             html += '<td>' + (prod ? prod.nom || '-' : '<span style="color:#999;">Pendent</span>') + '</td>';
             html += '<td style="' + registreStyle + '">' + (prod ? prod.registre || '⚠️ Pendent' : '-') + '</td>';
@@ -680,6 +681,7 @@ async function exportarDANCSV() {
     const { data, error } = await supabaseClient
         .from('tractaments_complet')
         .select('*')
+        .eq('estat', 'actiu')
         .gte('data', any + '-01-01')
         .lte('data', any + '-12-31')
         .order('data');
@@ -702,8 +704,8 @@ async function exportarDANCSV() {
                 p ? (p.finca || '') : '',
                 p ? (p.nom || '') : '',
                 p ? (p.sigpac || '') : '',
-                p ? (p.cultiu || '') : '',
-                p ? (p.varietat || '') : '',
+                t.cultiu_aplicat || (p ? (p.cultiu || '') : ''),
+                t.cultiu_aplicat ? (t.varietat_aplicada || '') : (p ? (p.varietat || '') : ''),
                 sup.toFixed(2),
                 prod ? (prod.nom || '') : '',
                 prod ? (prod.registre || 'PENDENT') : '',

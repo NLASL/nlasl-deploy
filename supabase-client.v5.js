@@ -172,6 +172,7 @@ async function getTractaments() {
     const { data, error } = await supabaseClient
         .from('tractaments')
         .select('*')
+        .eq('estat', 'actiu')
         .order('data', { ascending: false });
     if (error) throw error;
     return data || [];
@@ -205,6 +206,7 @@ async function getFertilitzacions() {
     const { data, error } = await supabaseClient
         .from('fertilitzacions')
         .select('*')
+        .eq('estat', 'actiu')
         .order('data', { ascending: false });
     if (error) throw error;
     return data || [];

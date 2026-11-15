@@ -89,6 +89,31 @@ async function eliminarGrupTractamentComplet(grupTractament) {
     if (error) throw error;
 }
 
+// ------------------------------------------------------------
+// ANUL·LACIÓ — el registre legal no s'esborra: passa a estat 'anulat'
+// (mateix valor que ja fan servir els registres antics).
+// Les línies de producte es conserven. L'estoc és derivat i es retira.
+// Llença error si no s'ha anul·lat cap fila (sense permís o ja anul·lat).
+// ------------------------------------------------------------
+async function anularGrupTractamentComplet(grupTractament, motiu) {
+    await eliminarEstocGrup('tractament', grupTractament);
+    const r = await supabaseClient.from('tractaments')
+        .update({
+            estat: 'anulat',
+            data_anulacio: new Date().toISOString(),
+            anulat_per: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
+            motiu_anulacio: motiu || null
+        })
+        .eq('grup_tractament', grupTractament)
+        .eq('estat', 'actiu')
+        .select('id');
+    if (r.error || !(r.data && r.data.length)) {
+        // Si no s'ha pogut anul·lar, es restitueix l'estoc retirat
+        try { await sincronitzarEstocGrup('tractament', grupTractament); } catch (e) { console.error('Restitució estoc:', e); }
+        throw r.error || new Error('No s\'ha pogut anul·lar el tractament (sense permís o ja anul·lat)');
+    }
+}
+
 async function guardarTractament(event) {
     event.preventDefault();
 
@@ -131,10 +156,13 @@ async function guardarTractament(event) {
     try {
         // Edició: avisar si el grup original tenia parcel·les que el selector ja no mostra
         // (si continuem, es perdrien en silenci)
+        let filesAntigues = [];
         if (editMode && editGrup) {
             const ra = await supabaseClient.from('tractaments')
-                .select('parcella_id, superficie_tractada').eq('grup_tractament', editGrup);
+                .select('parcella_id, superficie_tractada, data, dun_ordre, cultiu_aplicat, varietat_aplicada')
+                .eq('grup_tractament', editGrup);
             if (ra.error) throw ra.error;
+            filesAntigues = ra.data || [];
             const ids = new Set(parcellesATractar.map(function(p) { return p.id; }));
             const perdudes = (ra.data || []).filter(function(o) { return !ids.has(o.parcella_id); });
             if (perdudes.length) {
@@ -152,10 +180,14 @@ async function guardarTractament(event) {
         for (const p of parcellesATractar) {
             // QIE: es fixa la DGC (Ordre de la DUN) i el conreu vigent en la data d'aplicació
             const conreu = conreuParcellaPerData(p, data);
+            // En edició, si la data no canvia, es conserva la DGC i el conreu del registre original
+            const antiga = filesAntigues.find(function(o) { return o.parcella_id === p.id && o.data === data; });
+            const teSnapshot = !!(antiga && antiga.cultiu_aplicat);
             await createTractament({
-                dun_ordre: p.dun_ordre || null,
-                cultiu_aplicat: conreu.cultiu,
-                varietat_aplicada: conreu.varietat,
+                dun_ordre: teSnapshot && antiga.dun_ordre ? antiga.dun_ordre : (p.dun_ordre || null),
+                cultiu_aplicat: teSnapshot ? antiga.cultiu_aplicat : conreu.cultiu,
+                varietat_aplicada: teSnapshot ? antiga.varietat_aplicada : conreu.varietat,
+                grup_anterior: (editMode && editGrup) ? editGrup : null,
                 data,
                 operador,
                 maquinaria,
@@ -174,9 +206,9 @@ async function guardarTractament(event) {
         // 2) Estoc: un moviment per línia de producte
         await sincronitzarEstocGrup('tractament', grupNou);
 
-        // 3) Només ara, eliminar l'antic (si és edició)
+        // 3) Només ara, anul·lar l'antic (si és edició): queda a l'historial
         if (editMode && editGrup) {
-            await eliminarGrupTractamentComplet(editGrup);
+            await anularGrupTractamentComplet(editGrup, 'Substituït per edició');
         }
 
         mostrarNotificacio(editMode ? 'Tractament actualitzat' : 'Tractament registrat', 'success');
@@ -186,8 +218,8 @@ async function guardarTractament(event) {
 
     } catch (error) {
         console.error('Error guardarTractament:', error);
-        // Desfer el grup nou; l'original (si n'hi ha) queda intacte
-        try { await eliminarGrupTractamentComplet(grupNou); } catch (e2) { console.error('Rollback:', e2); }
+        // Desfer el grup nou (s'anul·la, no s'esborra); l'original (si n'hi ha) queda intacte
+        try { await anularGrupTractamentComplet(grupNou, 'Desament fallit (desfet automàticament)'); } catch (e2) { console.error('Rollback:', e2); }
         mostrarNotificacio('Error en guardar: ' + error.message, 'error');
     } finally {
         form.dataset.guardant = '0';
@@ -219,15 +251,22 @@ function recollirLiniesProducte() {
     return linies;
 }
 
+// El nom es manté per compatibilitat amb els botons existents, però ja no esborra:
+// anul·la el tractament i en guarda el motiu.
 async function eliminarTractamentGrup(grupTractament) {
-    if (!confirm('Segur que vols eliminar aquest tractament?')) return;
+    if (!confirm('Segur que vols anul·lar aquest tractament?\n\nQuedarà a l\'historial com a anul·lat i deixarà de comptar a l\'estoc i als informes.')) return;
+    const motiu = prompt('Motiu de l\'anul·lació (obligatori):');
+    if (!motiu || !motiu.trim()) {
+        mostrarNotificacio('Cal indicar un motiu per anul·lar', 'warning');
+        return;
+    }
     try {
-        await eliminarGrupTractamentComplet(grupTractament);
-        mostrarNotificacio('Tractament eliminat', 'success');
+        await anularGrupTractamentComplet(grupTractament, motiu.trim());
+        mostrarNotificacio('Tractament anul·lat', 'success');
         await carregarTaulaTractaments();
     } catch (error) {
         console.error(error);
-        mostrarNotificacio('Error eliminant tractament: ' + error.message, 'error');
+        mostrarNotificacio('Error anul·lant tractament: ' + error.message, 'error');
     }
 }
 

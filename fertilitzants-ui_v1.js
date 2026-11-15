@@ -193,7 +193,7 @@ async function carregarTaulaFertilitzacions() {
             html += '<td>';
             html += '<button class="btn btn-sm btn-primary" onclick="veureFertilitzacioGrupV2(\'' + g.grup_fertilitzacio + '\')">👁️</button>';
             if (podeEditar) html += ' <button class="btn btn-sm btn-secondary" onclick="editarFertilitzacioGrupV2(\'' + g.grup_fertilitzacio + '\')">✏️</button>';
-            if (podeEliminar) html += ' <button class="btn btn-sm btn-danger" onclick="eliminarFertilitzacioGrup(\'' + g.grup_fertilitzacio + '\')">🗑️</button>';
+            if (podeEditar) html += ' <button class="btn btn-sm btn-danger" title="Anul·lar" onclick="eliminarFertilitzacioGrup(\'' + g.grup_fertilitzacio + '\')">🚫</button>';
             html += '</td>';
             html += '</tr>';
         });
@@ -347,6 +347,30 @@ async function eliminarGrupFertilitzacioComplet(grupFertilitzacio) {
     if (r2.error) throw r2.error;
 }
 
+// ------------------------------------------------------------
+// ANUL·LACIÓ — el registre no s'esborra: passa a estat 'anulat'.
+// Les línies de producte es conserven. L'estoc és derivat i es retira.
+// Llença error si no s'ha anul·lat cap fila (sense permís o ja anul·lat).
+// ------------------------------------------------------------
+async function anularGrupFertilitzacioComplet(grupFertilitzacio, motiu) {
+    await eliminarEstocGrup('fertilitzacio', grupFertilitzacio);
+    var r = await supabaseClient.from('fertilitzacions')
+        .update({
+            estat: 'anulat',
+            data_anulacio: new Date().toISOString(),
+            anulat_per: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
+            motiu_anulacio: motiu || null
+        })
+        .eq('grup_fertilitzacio', grupFertilitzacio)
+        .eq('estat', 'actiu')
+        .select('id');
+    if (r.error || !(r.data && r.data.length)) {
+        // Si no s'ha pogut anul·lar, es restitueix l'estoc retirat
+        try { await sincronitzarEstocGrup('fertilitzacio', grupFertilitzacio); } catch (e) { console.error('Restitució estoc:', e); }
+        throw r.error || new Error('No s\'ha pogut anul·lar la fertilització (sense permís o ja anul·lada)');
+    }
+}
+
 async function guardarFertilitzacio(event) {
     event.preventDefault();
 
@@ -387,10 +411,13 @@ async function guardarFertilitzacio(event) {
 
     try {
         // Edició: avisar si el grup original tenia parcel·les que el selector ja no mostra
+        var filesAntigues = [];
         if (editMode && editGrup) {
             var ra = await supabaseClient.from('fertilitzacions')
-                .select('parcella_id, superficie_tractada').eq('grup_fertilitzacio', editGrup);
+                .select('parcella_id, superficie_tractada, data, dun_ordre, cultiu_aplicat, varietat_aplicada')
+                .eq('grup_fertilitzacio', editGrup);
             if (ra.error) throw ra.error;
+            filesAntigues = ra.data || [];
             var ids = new Set(parcellesAFertilitzar.map(function(p) { return p.id; }));
             var perdudes = (ra.data || []).filter(function(o) { return !ids.has(o.parcella_id); });
             if (perdudes.length) {
@@ -411,11 +438,15 @@ async function guardarFertilitzacio(event) {
             var npk = calcularNPKGrup(liniesProducte, superficieParcel);
             // QIE: es fixa la DGC (Ordre de la DUN) i el conreu vigent en la data d'aplicació
             var conreu = conreuParcellaPerData(p, data);
+            // En edició, si la data no canvia, es conserva la DGC i el conreu del registre original
+            var antiga = filesAntigues.find(function(o) { return o.parcella_id === p.id && o.data === data; });
+            var teSnapshot = !!(antiga && antiga.cultiu_aplicat);
 
             var res = await supabaseClient.from('fertilitzacions').insert([{
-                dun_ordre:           p.dun_ordre || null,
-                cultiu_aplicat:      conreu.cultiu,
-                varietat_aplicada:   conreu.varietat,
+                dun_ordre:           teSnapshot && antiga.dun_ordre ? antiga.dun_ordre : (p.dun_ordre || null),
+                cultiu_aplicat:      teSnapshot ? antiga.cultiu_aplicat : conreu.cultiu,
+                varietat_aplicada:   teSnapshot ? antiga.varietat_aplicada : conreu.varietat,
+                grup_anterior:       (editMode && editGrup) ? editGrup : null,
                 data:                data,
                 metode:              metode || null,
                 operador:            operador || null,
@@ -453,9 +484,9 @@ async function guardarFertilitzacio(event) {
         // 2) Estoc: un moviment per línia de producte
         await sincronitzarEstocGrup('fertilitzacio', grupNou);
 
-        // 3) Només ara, eliminar l'antic (si és edició)
+        // 3) Només ara, anul·lar l'antic (si és edició): queda a l'historial
         if (editMode && editGrup) {
-            await eliminarGrupFertilitzacioComplet(editGrup);
+            await anularGrupFertilitzacioComplet(editGrup, 'Substituït per edició');
         }
 
         mostrarNotificacio(editMode ? 'Fertilització actualitzada' : 'Fertilització registrada', 'success');
@@ -465,7 +496,7 @@ async function guardarFertilitzacio(event) {
 
     } catch (error) {
         console.error('Error guardarFertilitzacio:', error);
-        try { await eliminarGrupFertilitzacioComplet(grupNou); } catch (e2) { console.error('Rollback:', e2); }
+        try { await anularGrupFertilitzacioComplet(grupNou, 'Desament fallit (desfet automàticament)'); } catch (e2) { console.error('Rollback:', e2); }
         mostrarNotificacio('Error en guardar: ' + error.message, 'error');
     } finally {
         form.dataset.guardant = '0';
@@ -981,15 +1012,22 @@ async function editarFertilitzacioGrupV2(grupFertilitzacio) {
 // ELIMINAR
 // ============================================================
 
+// El nom es manté per compatibilitat amb els botons existents, però ja no esborra:
+// anul·la la fertilització i en guarda el motiu.
 async function eliminarFertilitzacioGrup(grupFertilitzacio) {
-    if (!confirm('Segur que vols eliminar aquesta fertilització?')) return;
+    if (!confirm('Segur que vols anul·lar aquesta fertilització?\n\nQuedarà a l\'historial com a anul·lada i deixarà de comptar a l\'estoc i als informes.')) return;
+    var motiu = prompt('Motiu de l\'anul·lació (obligatori):');
+    if (!motiu || !motiu.trim()) {
+        mostrarNotificacio('Cal indicar un motiu per anul·lar', 'warning');
+        return;
+    }
     try {
-        await eliminarGrupFertilitzacioComplet(grupFertilitzacio);
-        mostrarNotificacio('Fertilització eliminada', 'success');
+        await anularGrupFertilitzacioComplet(grupFertilitzacio, motiu.trim());
+        mostrarNotificacio('Fertilització anul·lada', 'success');
         await carregarTaulaFertilitzacions();
     } catch (error) {
         console.error('eliminarFertilitzacioGrup:', error);
-        mostrarNotificacio('Error eliminant fertilització: ' + error.message, 'error');
+        mostrarNotificacio('Error anul·lant fertilització: ' + error.message, 'error');
     }
 }
 
