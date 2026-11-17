@@ -21,6 +21,109 @@ function conreuParcellaPerData(parcella, dataISO) {
     return { cultiu: parcella.cultiu || null, varietat: parcella.varietat || null };
 }
 
+// ============================================================
+// QIE — dades de referència i comprovació de completesa
+// Contingut mínim del registre de tractaments (Ordre APA/204/2023):
+// data, problemàtica i justificació, producte (nº registre, dosi, unitat),
+// superfície per unitat de conreu (DGC), aplicador (NIF, ROPO),
+// equip (ROMA) i assessor (NIF, ROPO).
+// ============================================================
+
+// A partir d'aquesta data el registre electrònic de fitosanitaris és obligatori
+const QIE_DATA_INICI = '2027-01-01';
+
+var qieCataleg = { carregat: false, assessors: [], aplicadors: [], equips: [] };
+
+function qieEscapeHtml(valor) {
+    return String(valor === null || valor === undefined ? '' : valor)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Nom llegible d'un equip de l'immobilitzat (les columnes porten accent: «descripció»)
+function nomEquipQIE(m) {
+    if (!m) return '';
+    const base = m['descripció'] || m.tipus || 'Equip';
+    return base + (m.marca ? ' · ' + m.marca : '') + (m.model ? ' ' + m.model : '');
+}
+
+async function carregarCatalegQIE(forcar) {
+    if (qieCataleg.carregat && !forcar) return qieCataleg;
+    const ra = await supabaseClient.from('assessors').select('*').order('nom');
+    if (ra.error) throw ra.error;
+    const rp = await supabaseClient.from('aplicadors').select('*, treballadors(nom)');
+    if (rp.error) throw rp.error;
+    const re = await supabaseClient.from('immobilitzat_material').select('*');
+    if (re.error) throw re.error;
+    qieCataleg.assessors  = ra.data || [];
+    qieCataleg.aplicadors = rp.data || [];
+    qieCataleg.equips     = (re.data || []).filter(function(m) { return !m.baixa_data; });
+    qieCataleg.carregat   = true;
+    return qieCataleg;
+}
+
+/**
+ * Mancances QIE d'un grup de tractament.
+ *  filesCap  → files de tractaments_complet del grup (una per parcel·la)
+ *  productes → JSON de productes del grup
+ * Retorna null si no aplica (abans de 2027 o sense fitosanitaris),
+ * [] si està complet, o la llista de mancances.
+ */
+function mancancesQIETractament(filesCap, productes) {
+    if (!filesCap || !filesCap.length) return null;
+    const cap = filesCap[0];
+    if (!cap.data || cap.data < QIE_DATA_INICI) return null;
+
+    const linies = (productes || []).filter(function(p) { return p && p.producte_id; });
+    if (!linies.length) return null;   // només bioestimulants/fertilitzants: no és fitosanitari
+
+    const m = [];
+    linies.forEach(function(p) {
+        if (!p.registre) m.push('Sense nº de registre MAPA: ' + (p.nom || 'producte'));
+    });
+
+    const totesAmbPlaga = linies.every(function(p) { return Array.isArray(p.plagues) && p.plagues.length > 0; });
+    if (!totesAmbPlaga) m.push('Problemàtica (plaga o malaltia)');
+    if (!cap.recomanacio_rt_id && !(cap.justificacio && String(cap.justificacio).trim())) {
+        m.push('Justificació (RT o text)');
+    }
+
+    const cat = qieCataleg;
+    if (!cap.aplicador_id) {
+        m.push('Aplicador');
+    } else {
+        const ap = cat.aplicadors.find(function(a) { return a.id === cap.aplicador_id; });
+        if (!ap || !ap.nif || !ap.ropo) m.push('NIF/ROPO de l\'aplicador');
+    }
+    if (!cap.equip_id) {
+        m.push('Equip d\'aplicació');
+    } else {
+        const eq = cat.equips.find(function(e) { return e.id === cap.equip_id; });
+        if (!eq || !eq.roma_num_inscripcio) m.push('ROMA de l\'equip');
+    }
+    if (!cap.assessor_id) {
+        m.push('Assessor');
+    } else {
+        const as = cat.assessors.find(function(a) { return a.id === cap.assessor_id; });
+        if (!as || !as.nif || !as.ropo) m.push('NIF/ROPO de l\'assessor');
+    }
+    if (filesCap.some(function(f) { return !f.dun_ordre; })) m.push('DGC (Ordre de la DUN)');
+    return m;
+}
+
+// Llegeix els camps QIE del formulari de tractament (tolera que no existeixin)
+function llegirCampsQIEForm() {
+    function v(id) { const el = document.getElementById(id); return el ? el.value : ''; }
+    return {
+        recomanacio_rt_id: v('tractament-rt') || null,
+        assessor_id:       v('tractament-assessor') || null,
+        aplicador_id:      v('tractament-aplicador') || null,
+        equip_id:          v('tractament-equip') || null,
+        justificacio:      v('tractament-justificacio').trim() || null,
+        volum_caldo_lha:   parseFloat(v('tractament-caldo')) || null
+    };
+}
+
 async function createTractament(dades) {
     const { data, error } = await supabaseClient
         .from('tractaments')
@@ -66,7 +169,8 @@ async function insertProductesGrup(grupTractament, productes) {
             dosi: parseFloat(p.dosi) || 0,
             unitat: p.unitat || 'L/Ha',
             data_limit: p.data_limit || null,
-            observacions_producte: p.observacions_producte || null
+            observacions_producte: p.observacions_producte || null,
+            plagues: (p.plagues && p.plagues.length) ? p.plagues : null
         };
     });
     const { error } = await supabaseClient.from('tractaments_productes').insert(rows);
@@ -126,6 +230,7 @@ async function guardarTractament(event) {
     const meteo = document.getElementById('tractament-meteo').value.trim();
     const observacions = document.getElementById('tractament-observacions').value.trim();
     const campanya = getCampanyaDefecte().toString();
+    const campsQIE = llegirCampsQIEForm();
 
     const liniesProducte = recollirLiniesProducte();
     if (!liniesProducte.length) {
@@ -188,6 +293,7 @@ async function guardarTractament(event) {
                 cultiu_aplicat: teSnapshot ? antiga.cultiu_aplicat : conreu.cultiu,
                 varietat_aplicada: teSnapshot ? antiga.varietat_aplicada : conreu.varietat,
                 grup_anterior: (editMode && editGrup) ? editGrup : null,
+                ...campsQIE,
                 data,
                 operador,
                 maquinaria,
@@ -239,13 +345,20 @@ function recollirLiniesProducte() {
         if (!valorSelect || !(dosi > 0)) return;
         const [tipus, id] = valorSelect.split(':');
 
+        // Plagues/malalties (només fitosanitaris): text separat per comes
+        const plaguesTxt = row.querySelector('.lp-plagues') ? row.querySelector('.lp-plagues').value : '';
+        const plagues = tipus === 'fito'
+            ? plaguesTxt.split(',').map(function(s) { return s.trim(); }).filter(Boolean)
+            : [];
+
         linies.push({
             producte_id: tipus === 'fito' ? id : null,
             fertilitzant_id: tipus === 'fert' ? id : null,
             dosi,
             unitat,
             data_limit: dataLimit || null,
-            observacions_producte: obs || null
+            observacions_producte: obs || null,
+            plagues: plagues
         });
     });
     return linies;

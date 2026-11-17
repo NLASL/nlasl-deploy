@@ -12,6 +12,9 @@ async function carregarVistaTractaments() {
     html += '<h2>🌱 Tractaments Fitosanitaris</h2>';
     html += '<div style="display:flex; gap:8px; align-items:center;">';
     html += '<button class="btn btn-secondary" onclick="canviarVista(\'recomanacionsT\')">📋 Recomanacions RT</button>';
+    if (hasPermission('update')) {
+        html += '<button class="btn btn-secondary" onclick="obrirModalDadesQIE()">⚙️ Dades QIE</button>';
+    }
     if (podeCrear) {
         html += '<button class="btn btn-primary" onclick="obrirModalTractament()">➕ Nou Tractament</button>';
     }
@@ -49,6 +52,11 @@ async function carregarTaulaTractaments() {
 
     try {
         const registres = await getTractamentsComplet(campanya);
+
+        // Catàleg QIE (només admin/editor: les dades d'aplicadors no són per a tothom)
+        if (hasPermission('update')) {
+            try { await carregarCatalegQIE(); } catch (e) { console.warn('Catàleg QIE no disponible:', e.message); }
+        }
 
         if (!registres.length) {
             tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hi ha tractaments per la campanya ' + campanya + '</td></tr>';
@@ -98,7 +106,7 @@ async function carregarTaulaTractaments() {
                 : '';
 
             html += '<tr>';
-            html += '<td><strong>' + formatData(g.data) + '</strong></td>';
+            html += '<td><strong>' + formatData(g.data) + '</strong>' + badgeQIETractament(g) + '</td>';
             html += '<td>' + nomsProductes + badgeProductes + '</td>';
             // Lògica B: una finca → nom, múltiples → "X finques"
             const fincesArr = Array.from(g.finques);
@@ -148,7 +156,7 @@ function crearModalTractamentV2() {
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
                     <div class="form-group">
                         <label>Data Tractament *</label>
-                        <input type="date" id="tractament-data" required>
+                        <input type="date" id="tractament-data" required onchange="carregarRTsPerData()">
                     </div>
                     <div class="form-group">
                         <label>Operador</label>
@@ -166,6 +174,46 @@ function crearModalTractamentV2() {
                 <div class="form-group">
                     <label>Observacions</label>
                     <textarea id="tractament-observacions" rows="2"></textarea>
+                </div>
+
+                <!-- DADES QIE -->
+                <div style="background:#f3f8ff; border:1px solid #cfe0f5; border-radius:8px; padding:12px; margin-bottom:16px;">
+                    <div style="font-weight:600; margin-bottom:8px;">📋 Dades QIE <span style="font-weight:400; font-size:12px; color:#666;">(obligatòries per als tractaments a partir de l'1/1/2027)</span></div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                        <div class="form-group">
+                            <label>Recomanació RT</label>
+                            <select id="tractament-rt" onchange="aplicarRTATractament()" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                <option value="">— Sense RT —</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Assessor</label>
+                            <select id="tractament-assessor" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                <option value="">— Seleccionar —</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Aplicador</label>
+                            <select id="tractament-aplicador" onchange="aplicadorSeleccionat()" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                <option value="">— Seleccionar —</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Equip d'aplicació</label>
+                            <select id="tractament-equip" onchange="equipSeleccionat()" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                <option value="">— Seleccionar —</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Volum de caldo (L/Ha)</label>
+                            <input type="number" id="tractament-caldo" min="0" step="50" placeholder="1000">
+                        </div>
+                        <div class="form-group">
+                            <label>Justificació (si no hi ha RT)</label>
+                            <input type="text" id="tractament-justificacio" placeholder="Ex: avís de la cooperativa, llindar assolit...">
+                        </div>
+                    </div>
+                    <div id="qie-avis-form" style="font-size:12px; color:#8a6d3b; margin-top:6px;"></div>
                 </div>
 
                 <!-- SELECCIÓ PARCEL·LES -->
@@ -252,6 +300,7 @@ function afegirLiniaProducte(dades) {
 
     const dosiVal = dades ? dades.dosi : '';
     const dataLimitVal = dades ? (dades.data_limit || '') : '';
+    const plaguesVal = (dades && Array.isArray(dades.plagues)) ? qieEscapeHtml(dades.plagues.join(', ')) : '';
 
     const div = document.createElement('div');
     div.className = 'linia-producte';
@@ -294,6 +343,11 @@ function afegirLiniaProducte(dades) {
                 <button type="button" onclick="eliminarLiniaProducte(this)"
                     style="background:#ffebee; border:1px solid #ef9a9a; color:#c62828; border-radius:4px; padding:8px; cursor:pointer; font-size:14px; margin-top:18px;">🗑️</button>
             </div>
+        </div>
+        <div class="lp-motiu" style="margin-top:8px; display:none;">
+            <label style="font-size:12px; color:#666; display:block; margin-bottom:4px;">Motiu: plaga o malaltia (separades per comes)</label>
+            <input type="text" class="lp-plagues" value="${plaguesVal}" placeholder="Ex: Monília, Pugó verd"
+                style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
         </div>`;
 
     container.appendChild(div);
@@ -325,6 +379,12 @@ function actualitzarUnitatLinia(selectProducte) {
     sel.innerHTML = u
         ? '<option value="' + u + '/Ha">' + u + '/Ha</option>'
         : '<option value="">— tria producte —</option>';
+
+    // El motiu (plaga) només aplica a fitosanitaris
+    const motiu = linia.querySelector('.lp-motiu');
+    if (motiu) motiu.style.display = (selectProducte.value || '').indexOf('fito:') === 0 ? 'block' : 'none';
+    omplirPlaguesLinia(linia);
+    actualitzarAvisosQIEForm();
 }
 
 function eliminarLiniaProducte(btn) {
@@ -421,6 +481,10 @@ async function obrirModalTractament() {
     // Reset tipus reg a regadiu i construir selector (res marcat per defecte)
     _tipusRegActual = 'regadiu';
     construirSelectorFinques(null, null);
+
+    // Camps QIE: catàleg, RT candidates per a la data i res seleccionat
+    _qieRTProductes = [];
+    await omplirSelectsQIE();
 
     // Inicialitzar línies de producte
     document.getElementById('linies-productes-container').innerHTML = '';
@@ -538,6 +602,17 @@ async function editarTractamentGrupV2(grupTractament) {
     document.getElementById('tractament-meteo').value = primer.condicions_meteo || '';
     document.getElementById('tractament-observacions').value = primer.observacions || '';
 
+    // Dades QIE: es recarrega la llista de RT per a la data del tractament i es restauren els valors
+    await carregarRTsPerData(primer.recomanacio_rt_id || '');
+    const posarValor = function(id, v) { const el = document.getElementById(id); if (el) el.value = (v === null || v === undefined) ? '' : v; };
+    posarValor('tractament-rt', primer.recomanacio_rt_id);
+    posarValor('tractament-assessor', primer.assessor_id);
+    posarValor('tractament-aplicador', primer.aplicador_id);
+    posarValor('tractament-equip', primer.equip_id);
+    posarValor('tractament-caldo', primer.volum_caldo_lha);
+    posarValor('tractament-justificacio', primer.justificacio);
+    if (primer.recomanacio_rt_id) await carregarProductesRT(primer.recomanacio_rt_id);
+
     // Reconstruir selector amb preselecció de finca+varietat usades
     const finquesUsades = [...new Set(tractamentsGrup.map(function(t) {
         return t.parcelles ? t.parcelles.finca : null;
@@ -565,7 +640,8 @@ async function editarTractamentGrupV2(grupTractament) {
                 fertilitzant_id: p.fertilitzant_id,
                 dosi: p.dosi,
                 unitat: p.unitat,
-                data_limit: p.data_limit
+                data_limit: p.data_limit,
+                plagues: p.plagues
             });
         });
     } else {
@@ -573,6 +649,313 @@ async function editarTractamentGrupV2(grupTractament) {
     }
 
     actualitzarDataLimitEfectiva();
+    actualitzarAvisosQIEForm();
+}
+
+// ============================================================
+// QIE — camps del formulari, indicador a la taula i gestió de catàlegs
+// ============================================================
+
+var _qieRTs = [];            // RT candidates per a la data del tractament
+var _qieRTProductes = [];    // productes (i plagues) de la RT seleccionada
+
+// Indicador «QIE» a la columna de data de la taula de tractaments
+function badgeQIETractament(g) {
+    if (!hasPermission('update') || !qieCataleg.carregat) return '';
+    const m = mancancesQIETractament(g.tractaments, g.productes);
+    if (m === null) return '';
+    if (!m.length) return '<br><span style="font-size:11px; color:#2e7d32;">✔ QIE</span>';
+    return '<br><span title="' + qieEscapeHtml('Falta:\n• ' + m.join('\n• ')) + '" ' +
+        'style="font-size:11px; background:#fff3cd; color:#8a6d3b; padding:2px 6px; border-radius:10px; cursor:help;">⚠ QIE (' + m.length + ')</span>';
+}
+
+async function omplirSelectsQIE() {
+    try {
+        await carregarCatalegQIE(true);
+    } catch (e) {
+        console.warn('Catàleg QIE no disponible:', e.message);
+        return;
+    }
+    const cat = qieCataleg;
+
+    const selAp = document.getElementById('tractament-aplicador');
+    if (selAp) {
+        selAp.innerHTML = '<option value="">— Seleccionar —</option>' +
+            cat.aplicadors.filter(function(a) { return a.actiu !== false; }).map(function(a) {
+                const nom = (a.treballadors && a.treballadors.nom) || 'Aplicador';
+                return '<option value="' + a.id + '">' + qieEscapeHtml(nom + (a.ropo ? '' : ' (sense ROPO)')) + '</option>';
+            }).join('');
+    }
+
+    const selEq = document.getElementById('tractament-equip');
+    if (selEq) {
+        const equips = cat.equips.slice().sort(function(a, b) {
+            const ra = a.roma_num_inscripcio ? 0 : 1, rb = b.roma_num_inscripcio ? 0 : 1;
+            if (ra !== rb) return ra - rb;
+            return nomEquipQIE(a).localeCompare(nomEquipQIE(b));
+        });
+        selEq.innerHTML = '<option value="">— Seleccionar —</option>' + equips.map(function(m) {
+            return '<option value="' + m.id + '">' + qieEscapeHtml(nomEquipQIE(m) + (m.roma_num_inscripcio ? ' · ROMA ' + m.roma_num_inscripcio : ' · sense ROMA')) + '</option>';
+        }).join('');
+    }
+
+    const selAs = document.getElementById('tractament-assessor');
+    if (selAs) {
+        selAs.innerHTML = '<option value="">— Seleccionar —</option>' +
+            cat.assessors.filter(function(a) { return a.actiu !== false; }).map(function(a) {
+                return '<option value="' + a.id + '">' + qieEscapeHtml(a.nom) + '</option>';
+            }).join('');
+    }
+
+    await carregarRTsPerData();
+}
+
+// Llista les RT que cobreixen la data del tractament (o la RT ja assignada, en edició)
+async function carregarRTsPerData(rtSeleccionat) {
+    const sel = document.getElementById('tractament-rt');
+    const dataEl = document.getElementById('tractament-data');
+    if (!sel || !dataEl || !dataEl.value) return;
+
+    const actual = rtSeleccionat || sel.value || '';
+    const data = dataEl.value;
+    const columnes = 'id, codi_rt, data_recomanacio, periode_inici, periode_fi, tecnic, caldo_lha, assessor_id';
+
+    const d = new Date(data + 'T00:00:00');
+    d.setDate(d.getDate() - 120);
+    const r = await supabaseClient.from('recomanacions_rt')
+        .select(columnes)
+        .gte('data_recomanacio', dataLocalISO(d))
+        .order('data_recomanacio', { ascending: false })
+        .limit(200);
+    if (r.error) { console.warn('RT no disponibles:', r.error.message); return; }
+
+    const rts = (r.data || []).filter(function(x) {
+        if (x.periode_inici && x.periode_fi) return data >= x.periode_inici && data <= x.periode_fi;
+        return x.data_recomanacio <= data;
+    });
+
+    if (actual && !rts.some(function(x) { return x.id === actual; })) {
+        const ra = await supabaseClient.from('recomanacions_rt').select(columnes).eq('id', actual).maybeSingle();
+        if (ra.data) rts.unshift(ra.data);
+    }
+
+    _qieRTs = rts;
+    sel.innerHTML = '<option value="">— Sense RT —</option>' + rts.map(function(x) {
+        const etiqueta = (x.codi_rt || 'RT') + ' · ' + formatData(x.data_recomanacio) + (x.tecnic ? ' · ' + x.tecnic : '');
+        return '<option value="' + x.id + '">' + qieEscapeHtml(etiqueta) + '</option>';
+    }).join('');
+    sel.value = actual;
+}
+
+async function carregarProductesRT(rtId) {
+    _qieRTProductes = [];
+    if (!rtId) return;
+    const rp = await supabaseClient.from('recomanacions_rt_productes')
+        .select('producte_id, plagues')
+        .eq('recomanacio_id', rtId);
+    if (!rp.error) _qieRTProductes = rp.data || [];
+}
+
+// En triar una RT: hereta assessor, volum de caldo i plagues dels productes coincidents
+async function aplicarRTATractament() {
+    const rtId = document.getElementById('tractament-rt').value;
+    if (!rtId) {
+        _qieRTProductes = [];
+        actualitzarAvisosQIEForm();
+        return;
+    }
+    const rt = _qieRTs.find(function(x) { return x.id === rtId; });
+    if (rt) {
+        if (rt.assessor_id) document.getElementById('tractament-assessor').value = rt.assessor_id;
+        const caldo = document.getElementById('tractament-caldo');
+        if (caldo && !caldo.value && rt.caldo_lha) caldo.value = rt.caldo_lha;
+    }
+    await carregarProductesRT(rtId);
+    document.querySelectorAll('#modal-tractament .linia-producte').forEach(function(l) { omplirPlaguesLinia(l); });
+    actualitzarAvisosQIEForm();
+}
+
+// Omple les plagues d'una línia amb les de la RT (si el producte hi és i el camp és buit)
+function omplirPlaguesLinia(linia) {
+    const sel = linia.querySelector('.lp-producte');
+    const inp = linia.querySelector('.lp-plagues');
+    if (!sel || !inp || (sel.value || '').indexOf('fito:') !== 0) return;
+    const id = sel.value.split(':')[1];
+    const rp = (_qieRTProductes || []).find(function(p) { return p.producte_id === id; });
+    if (rp && Array.isArray(rp.plagues) && rp.plagues.length && !inp.value.trim()) {
+        inp.value = rp.plagues.join(', ');
+    }
+}
+
+// Avisa si algun fitosanitari del formulari no és a la RT seleccionada
+function actualitzarAvisosQIEForm() {
+    const el = document.getElementById('qie-avis-form');
+    if (!el) return;
+    const rt = document.getElementById('tractament-rt');
+    const msgs = [];
+    if (rt && rt.value && _qieRTProductes.length) {
+        document.querySelectorAll('#modal-tractament .linia-producte').forEach(function(l) {
+            const sel = l.querySelector('.lp-producte');
+            if (!sel || (sel.value || '').indexOf('fito:') !== 0) return;
+            const id = sel.value.split(':')[1];
+            if (!_qieRTProductes.some(function(p) { return p.producte_id === id; })) {
+                const f = (fitosanitaris || []).find(function(x) { return x.id === id; });
+                msgs.push('⚠️ ' + (f ? f.nom : 'Un producte') + ' no és a la RT seleccionada');
+            }
+        });
+    }
+    el.innerHTML = msgs.map(qieEscapeHtml).join('<br>');
+}
+
+function aplicadorSeleccionat() {
+    const id = document.getElementById('tractament-aplicador').value;
+    const a = qieCataleg.aplicadors.find(function(x) { return x.id === id; });
+    const op = document.getElementById('tractament-operador');
+    if (a && op && !op.value.trim()) op.value = (a.treballadors && a.treballadors.nom) || '';
+}
+
+function equipSeleccionat() {
+    const id = document.getElementById('tractament-equip').value;
+    const m = qieCataleg.equips.find(function(x) { return x.id === id; });
+    const mq = document.getElementById('tractament-maquinaria');
+    if (m && mq && !mq.value.trim()) mq.value = nomEquipQIE(m);
+}
+
+// ------------------------------------------------------------
+// Gestió de catàlegs: assessors i aplicadors (NIF, ROPO)
+// El ROMA dels equips s'edita a Gestió → Immobilitzat.
+// ------------------------------------------------------------
+
+async function obrirModalDadesQIE() {
+    if (!hasPermission('update')) {
+        mostrarNotificacio('No tens permisos per gestionar les dades QIE', 'error');
+        return;
+    }
+    const antic = document.getElementById('modal-dades-qie');
+    if (antic) antic.remove();
+    document.body.insertAdjacentHTML('beforeend',
+        '<div id="modal-dades-qie" class="modal" style="display:block;">' +
+        '<div class="modal-content" style="max-width:920px;">' +
+        '<span class="close" onclick="tancarModal(\'modal-dades-qie\')">&times;</span>' +
+        '<h2>⚙️ Dades QIE</h2><div id="dades-qie-cos">Carregant...</div>' +
+        '</div></div>');
+    await renderDadesQIE();
+}
+
+async function renderDadesQIE() {
+    const cos = document.getElementById('dades-qie-cos');
+    if (!cos) return;
+    try {
+        await carregarCatalegQIE(true);
+        if (!treballadors || !treballadors.length) treballadors = await getTreballadors();
+    } catch (e) {
+        cos.innerHTML = '<p style="color:red;">Error carregant dades: ' + qieEscapeHtml(e.message) + '</p>';
+        return;
+    }
+    const cat = qieCataleg;
+    const est = 'style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"';
+
+    let html = '<p style="font-size:13px; color:#666;">Dades que el QIE exigeix per a cada tractament. Es poden deixar buides i completar-les quan es tinguin: els tractaments mostraran «⚠ QIE» fins que no hi siguin.</p>';
+
+    // --- Assessors
+    html += '<h3>🧑‍🔬 Assessors</h3>';
+    html += '<table class="data-table"><thead><tr><th>Nom</th><th style="width:160px;">NIF</th><th style="width:160px;">ROPO</th><th style="width:60px;"></th></tr></thead><tbody>';
+    cat.assessors.concat([null]).forEach(function(a) {
+        const id = a ? a.id : 'nou';
+        html += '<tr>' +
+            '<td><input id="qie-as-nom-' + id + '" value="' + qieEscapeHtml(a ? a.nom : '') + '" placeholder="' + (a ? '' : 'Nou assessor: nom i cognoms') + '" ' + est + '></td>' +
+            '<td><input id="qie-as-nif-' + id + '" value="' + qieEscapeHtml(a && a.nif) + '" ' + est + '></td>' +
+            '<td><input id="qie-as-ropo-' + id + '" value="' + qieEscapeHtml(a && a.ropo) + '" ' + est + '></td>' +
+            '<td><button class="btn btn-sm btn-primary" title="Guardar" onclick="guardarAssessorQIE(\'' + id + '\')">💾</button></td>' +
+            '</tr>';
+    });
+    html += '</tbody></table>';
+
+    // --- Aplicadors
+    const jaAplicadors = new Set(cat.aplicadors.map(function(a) { return a.treballador_id; }));
+    const candidats = (treballadors || []).filter(function(t) { return t.actiu !== false && !t.eliminat && !jaAplicadors.has(t.id); });
+    html += '<h3 style="margin-top:24px;">🧑‍🌾 Aplicadors (carnet d\'aplicador)</h3>';
+    html += '<table class="data-table"><thead><tr><th>Treballador</th><th style="width:140px;">NIF</th><th style="width:140px;">ROPO</th><th style="width:150px;">Caducitat</th><th style="width:60px;"></th></tr></thead><tbody>';
+    cat.aplicadors.forEach(function(a) {
+        html += '<tr>' +
+            '<td><strong>' + qieEscapeHtml((a.treballadors && a.treballadors.nom) || '—') + '</strong></td>' +
+            '<td><input id="qie-ap-nif-' + a.id + '" value="' + qieEscapeHtml(a.nif) + '" ' + est + '></td>' +
+            '<td><input id="qie-ap-ropo-' + a.id + '" value="' + qieEscapeHtml(a.ropo) + '" ' + est + '></td>' +
+            '<td><input type="date" id="qie-ap-cad-' + a.id + '" value="' + qieEscapeHtml(a.ropo_caducitat) + '" ' + est + '></td>' +
+            '<td><button class="btn btn-sm btn-primary" title="Guardar" onclick="guardarAplicadorQIE(\'' + a.id + '\')">💾</button></td>' +
+            '</tr>';
+    });
+    html += '<tr>' +
+        '<td><select id="qie-ap-treb-nou" ' + est + '><option value="">Afegir treballador...</option>' +
+        candidats.map(function(t) { return '<option value="' + t.id + '">' + qieEscapeHtml(t.nom) + '</option>'; }).join('') +
+        '</select></td>' +
+        '<td><input id="qie-ap-nif-nou" ' + est + '></td>' +
+        '<td><input id="qie-ap-ropo-nou" ' + est + '></td>' +
+        '<td><input type="date" id="qie-ap-cad-nou" ' + est + '></td>' +
+        '<td><button class="btn btn-sm btn-primary" title="Afegir" onclick="guardarAplicadorQIE(\'nou\')">💾</button></td>' +
+        '</tr></tbody></table>';
+
+    // --- Equips (només informació: s'editen a Immobilitzat)
+    const equipsRellevants = cat.equips.filter(function(m) {
+        return m.roma_num_inscripcio || /tractor|atomitz|pulveritz|polvoritz|maquinaria|turbo/i.test(String(m.tipus || '') + ' ' + String(m['descripció'] || ''));
+    });
+    html += '<h3 style="margin-top:24px;">🚜 Equips d\'aplicació</h3>';
+    html += '<p style="font-size:12px; color:#666;">El número ROMA s\'edita a <strong>Gestió → Immobilitzat</strong>. Aquí només es mostra què hi ha informat.</p>';
+    if (!equipsRellevants.length) {
+        html += '<p style="color:#999;">No s\'ha trobat cap tractor ni atomitzador a l\'immobilitzat.</p>';
+    } else {
+        html += '<table class="data-table"><thead><tr><th>Equip</th><th>Tipus</th><th>ROMA</th></tr></thead><tbody>';
+        equipsRellevants.forEach(function(m) {
+            html += '<tr><td>' + qieEscapeHtml(nomEquipQIE(m)) + '</td><td>' + qieEscapeHtml(m.tipus || '—') + '</td><td>' +
+                (m.roma_num_inscripcio ? qieEscapeHtml(m.roma_num_inscripcio) : '<span style="color:#c77;">sense ROMA</span>') + '</td></tr>';
+        });
+        html += '</tbody></table>';
+    }
+
+    cos.innerHTML = html;
+}
+
+function valorCampQIE(id) {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+}
+
+async function guardarAssessorQIE(id) {
+    const nom = valorCampQIE('qie-as-nom-' + id);
+    if (!nom) { mostrarNotificacio('Cal indicar el nom de l\'assessor', 'error'); return; }
+    const dades = {
+        nom: nom,
+        nif: valorCampQIE('qie-as-nif-' + id).toUpperCase() || null,
+        ropo: valorCampQIE('qie-as-ropo-' + id).toUpperCase() || null
+    };
+    const r = id === 'nou'
+        ? await supabaseClient.from('assessors').insert([dades])
+        : await supabaseClient.from('assessors').update(dades).eq('id', id);
+    if (r.error) { mostrarNotificacio('Error: ' + r.error.message, 'error'); return; }
+    mostrarNotificacio('Assessor guardat', 'success');
+    await renderDadesQIE();
+    if (document.getElementById('tbody-tractaments')) carregarTaulaTractaments();
+}
+
+async function guardarAplicadorQIE(id) {
+    const dades = {
+        nif: valorCampQIE('qie-ap-nif-' + id).toUpperCase() || null,
+        ropo: valorCampQIE('qie-ap-ropo-' + id).toUpperCase() || null,
+        ropo_caducitat: valorCampQIE('qie-ap-cad-' + id) || null
+    };
+    let r;
+    if (id === 'nou') {
+        const trebId = valorCampQIE('qie-ap-treb-nou');
+        if (!trebId) { mostrarNotificacio('Cal triar un treballador', 'error'); return; }
+        dades.treballador_id = trebId;
+        r = await supabaseClient.from('aplicadors').insert([dades]);
+    } else {
+        r = await supabaseClient.from('aplicadors').update(dades).eq('id', id);
+    }
+    if (r.error) { mostrarNotificacio('Error: ' + r.error.message, 'error'); return; }
+    mostrarNotificacio('Aplicador guardat', 'success');
+    await renderDadesQIE();
+    if (document.getElementById('tbody-tractaments')) carregarTaulaTractaments();
 }
 
 // ============================================================
