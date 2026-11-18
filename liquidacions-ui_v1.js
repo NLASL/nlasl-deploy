@@ -15,9 +15,7 @@ async function mostrarVistaLiquidacions() {
     const container = document.getElementById('view-container');
     if (!container) return;
 
-    const ara = new Date();
-    const mes = ara.getMonth() + 1;
-    const campanyadefecte = mes >= 10 ? ara.getFullYear() + 1 : ara.getFullYear();
+    const campanyadefecte = getCampanyaActual(); // helpers a collita.v1.js
     if (!liquidacioCampanyaActiva) liquidacioCampanyaActiva = campanyadefecte;
 
     let html = '<div class="vista-liquidacions">';
@@ -34,9 +32,7 @@ async function mostrarVistaLiquidacions() {
     html += '<div style="display:flex; gap:15px; align-items:flex-end; margin-bottom:15px; flex-wrap:wrap; background:#f5f5f5; padding:12px; border-radius:8px;">';
     html += '<div><label style="display:block; font-size:0.85em; margin-bottom:3px;"><strong>Campanya</strong></label>';
     html += '<select id="filtre-campanya-liquidacio" onchange="liquidacioCampanyaActiva=parseInt(this.value);mostrarTaulaLiquidacions();" style="padding:6px; border-radius:4px; border:1px solid #ddd;">';
-    [campanyadefecte, campanyadefecte - 1, campanyadefecte - 2].forEach(function(c) {
-        html += '<option value="' + c + '"' + (c === liquidacioCampanyaActiva ? ' selected' : '') + '>' + c + '</option>';
-    });
+    html += opcionsCampanya(liquidacioCampanyaActiva); // abans: només les 3 últimes
     html += '</select></div>';
     html += '</div>';
 
@@ -514,7 +510,23 @@ async function generarLiniesDesEscandall() {
         mostrarNotificacio('Selecciona una varietat concreta (collita_escandall es filtra per fruita_varietat_id)', 'warning');
         return;
     }
-    if (!confirm('Això afegirà línies noves agregades des dels escandalls d\'aquesta campanya/varietat. Continuar?')) return;
+
+    // Avís si ja hi ha línies: generar-ne de noves les duplicaria (kg i import brut inclosos)
+    let liniesExistents = [];
+    try {
+        liniesExistents = await getLiquidacioLinies(liquidacioModalId);
+    } catch (error) {
+        mostrarNotificacio('No s\'han pogut comprovar les línies existents: ' + error.message, 'error');
+        console.error(error);
+        return;
+    }
+    const missatgeConfirm = liniesExistents.length > 0
+        ? '⚠️ Aquesta liquidació ja té ' + liniesExistents.length + ' línies.\n\n' +
+          'Generar des dels escandalls AFEGIRÀ línies noves i DUPLICARÀ els kg i l\'import brut.\n' +
+          'Si només vols actualitzar-la, cancel·la i elimina primer les línies existents.\n\n' +
+          'Continuar igualment?'
+        : 'Això afegirà línies noves agregades des dels escandalls d\'aquesta campanya/varietat. Continuar?';
+    if (!confirm(missatgeConfirm)) return;
 
     try {
         await desarCapcaleraSiCal();

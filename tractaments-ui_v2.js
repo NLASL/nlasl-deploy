@@ -14,6 +14,7 @@ async function carregarVistaTractaments() {
     html += '<button class="btn btn-secondary" onclick="canviarVista(\'recomanacionsT\')">📋 Recomanacions RT</button>';
     if (hasPermission('update')) {
         html += '<button class="btn btn-secondary" onclick="obrirModalDadesQIE()">⚙️ Dades QIE</button>';
+        html += '<button class="btn btn-secondary" onclick="obrirModalExtracteQIE()">📤 Extracte QIE</button>';
     }
     if (podeCrear) {
         html += '<button class="btn btn-primary" onclick="obrirModalTractament()">➕ Nou Tractament</button>';
@@ -588,6 +589,11 @@ async function editarTractamentGrupV2(grupTractament) {
     const productes = await getProductesByGrup(grupTractament);
     const primer = tractamentsGrup[0];
 
+    if (primer.qie_enviat_at && !confirm('Aquest tractament JA S\'HA ENVIAT a la gestoria (' +
+        String(primer.qie_enviat_at).slice(0, 10) + ').\n\nSi el guardes, l\'enviat quedarà anul·lat i el nou sortirà a l\'extracte, amb una rectificació. Continuar?')) {
+        return;
+    }
+
     await obrirModalTractament();
 
     document.getElementById('modal-tractament-titol').textContent = 'Editar Tractament';
@@ -664,7 +670,11 @@ function badgeQIETractament(g) {
     if (!hasPermission('update') || !qieCataleg.carregat) return '';
     const m = mancancesQIETractament(g.tractaments, g.productes);
     if (m === null) return '';
-    if (!m.length) return '<br><span style="font-size:11px; color:#2e7d32;">✔ QIE</span>';
+    const enviat = g.tractaments[0] && g.tractaments[0].qie_enviat_at;
+    if (!m.length) {
+        return '<br><span style="font-size:11px; color:#2e7d32;">✔ QIE' +
+            (enviat ? ' · 📤 enviat ' + formatData(String(enviat).slice(0, 10)) : '') + '</span>';
+    }
     return '<br><span title="' + qieEscapeHtml('Falta:\n• ' + m.join('\n• ')) + '" ' +
         'style="font-size:11px; background:#fff3cd; color:#8a6d3b; padding:2px 6px; border-radius:10px; cursor:help;">⚠ QIE (' + m.length + ')</span>';
 }
@@ -819,6 +829,110 @@ function equipSeleccionat() {
     const m = qieCataleg.equips.find(function(x) { return x.id === id; });
     const mq = document.getElementById('tractament-maquinaria');
     if (m && mq && !mq.value.trim()) mq.value = nomEquipQIE(m);
+}
+
+// ------------------------------------------------------------
+// Extracte mensual QIE per a la gestoria
+// ------------------------------------------------------------
+
+var _qieExtracteActual = null;
+
+function obrirModalExtracteQIE() {
+    if (!hasPermission('update')) {
+        mostrarNotificacio('No tens permisos per generar l\'extracte QIE', 'error');
+        return;
+    }
+    const antic = document.getElementById('modal-extracte-qie');
+    if (antic) antic.remove();
+    _qieExtracteActual = null;
+
+    // Per defecte, el mes anterior (el que toca enviar) durant els primers 10 dies del mes
+    const avui = new Date();
+    const ref = avui.getDate() <= 10 ? new Date(avui.getFullYear(), avui.getMonth() - 1, 1) : avui;
+    const mesDefecte = ref.getFullYear() + '-' + String(ref.getMonth() + 1).padStart(2, '0');
+
+    document.body.insertAdjacentHTML('beforeend',
+        '<div id="modal-extracte-qie" class="modal" style="display:block;">' +
+        '<div class="modal-content" style="max-width:760px;">' +
+        '<span class="close" onclick="tancarModal(\'modal-extracte-qie\')">&times;</span>' +
+        '<h2>📤 Extracte QIE per a la gestoria</h2>' +
+        '<p style="font-size:13px; color:#666;">Inclou els tractaments fitosanitaris <strong>actius, complets i no enviats</strong> fins a l\'últim dia del mes triat, més les rectificacions dels ja enviats que s\'han anul·lat. Els tractaments anteriors a l\'1/1/2027 no hi surten.</p>' +
+        '<div style="display:flex; gap:12px; align-items:flex-end; margin:12px 0;">' +
+        '<div><label style="display:block; font-size:12px; margin-bottom:4px;">Fins al mes</label>' +
+        '<input type="month" id="qie-extracte-mes" value="' + mesDefecte + '" style="padding:8px; border:1px solid #ddd; border-radius:4px;"></div>' +
+        '<button class="btn btn-primary" onclick="prepararExtracteQIEUI()">🔍 Preparar</button>' +
+        '</div>' +
+        '<div id="qie-extracte-resum"></div>' +
+        '</div></div>');
+}
+
+async function prepararExtracteQIEUI() {
+    const mes = (document.getElementById('qie-extracte-mes') || {}).value;
+    const cos = document.getElementById('qie-extracte-resum');
+    if (!mes || !cos) return;
+    cos.innerHTML = '<p>⏳ Preparant l\'extracte...</p>';
+    try {
+        _qieExtracteActual = await preparaExtracteQIE(mes);
+    } catch (e) {
+        console.error('Extracte QIE:', e);
+        cos.innerHTML = '<p style="color:red;">Error: ' + qieEscapeHtml(e.message) + '</p>';
+        return;
+    }
+    const ext = _qieExtracteActual;
+
+    let html = '<div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px;">';
+    html += '<div style="background:#d4edda; padding:10px 16px; border-radius:6px;"><strong>' + ext.grupsComplets.length + '</strong> tractaments complets · ' + ext.linies.length + ' línies</div>';
+    html += '<div style="background:' + (ext.incomplets.length ? '#fff3cd' : '#f1f1f1') + '; padding:10px 16px; border-radius:6px;">⚠️ <strong>' + ext.incomplets.length + '</strong> incomplets (no inclosos)</div>';
+    html += '<div style="background:' + (ext.rectificacions.length ? '#ffe0e0' : '#f1f1f1') + '; padding:10px 16px; border-radius:6px;">↩️ <strong>' + ext.rectificacions.length + '</strong> rectificacions</div>';
+    html += '</div>';
+
+    if (ext.incomplets.length) {
+        html += '<div style="background:#fff8e1; border-radius:6px; padding:10px 12px; margin-bottom:12px; font-size:12px; max-height:180px; overflow:auto;">';
+        html += '<strong>Incomplets:</strong><br>';
+        ext.incomplets.slice(0, 30).forEach(function(i) {
+            html += qieEscapeHtml(formatData(i.data) + ' — ' + i.productes + ': falta ' + i.mancances.join(', ')) + '<br>';
+        });
+        if (ext.incomplets.length > 30) html += '… i ' + (ext.incomplets.length - 30) + ' més (a la pestanya «Incomplets» de l\'Excel)';
+        html += '</div>';
+    }
+
+    const res = ext.grupsComplets.length + ext.rectificacions.length;
+    html += '<div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">';
+    html += '<button class="btn btn-secondary" id="btn-qie-descarregar" onclick="descarregarExtracteQIEUI()"' + (res || ext.incomplets.length ? '' : ' disabled') + '>⬇️ Descarregar Excel</button>';
+    html += '<button class="btn btn-success" id="btn-qie-marcar" onclick="marcarExtracteQIEEnviatUI()" disabled>✅ Marcar com a enviat</button>';
+    html += '</div>';
+    html += '<p style="font-size:12px; color:#666; margin-top:8px;">«Marcar com a enviat» s\'activa en descarregar l\'Excel. Fes-ho només quan ja l\'hagis enviat a la gestoria: els tractaments marcats no tornaran a sortir als extractes.</p>';
+    cos.innerHTML = html;
+}
+
+function descarregarExtracteQIEUI() {
+    if (!_qieExtracteActual) return;
+    try {
+        descarregarExtracteQIE(_qieExtracteActual);
+        const btn = document.getElementById('btn-qie-marcar');
+        if (btn && (_qieExtracteActual.grupsComplets.length || _qieExtracteActual.rectificacions.length)) btn.disabled = false;
+        mostrarNotificacio('✅ Excel descarregat', 'success');
+    } catch (e) {
+        console.error(e);
+        mostrarNotificacio('Error generant l\'Excel: ' + e.message, 'error');
+    }
+}
+
+async function marcarExtracteQIEEnviatUI() {
+    const ext = _qieExtracteActual;
+    if (!ext || !ext.descarregat) return;
+    if (!confirm('Marcar com a ENVIATS ' + ext.grupsComplets.length + ' tractaments i ' + ext.rectificacions.length +
+        ' rectificacions?\n\nNo tornaran a sortir als extractes. Fes-ho només si l\'Excel ja és a la gestoria.')) return;
+    try {
+        await marcarExtracteQIEEnviat(ext);
+        mostrarNotificacio('✅ Enviament registrat', 'success');
+        _qieExtracteActual = null;
+        tancarModal('modal-extracte-qie');
+        if (document.getElementById('tbody-tractaments')) carregarTaulaTractaments();
+    } catch (e) {
+        console.error(e);
+        mostrarNotificacio('Error registrant l\'enviament: ' + e.message, 'error');
+    }
 }
 
 // ------------------------------------------------------------

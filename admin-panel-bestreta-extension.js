@@ -21,10 +21,7 @@ async function mostrarVistaBestreta() {
     html += '<button class="btn btn-success" onclick="obrirModalNovabestreta()">➕ Nova Bestreta</button>';
     html += '<label style="font-weight:500;">Campanya:</label>';
     html += '<select id="filtre-campanya-bestreta" onchange="mostrarVistaBestreta()" style="padding:8px;border:1px solid #ddd;border-radius:4px;">';
-    [2024, 2025, 2026, 2027].forEach(function(c) {
-        const sel = c === campanyaFiltre ? ' selected' : '';
-        html += '<option value="' + c + '"' + sel + '>' + c + '</option>';
-    });
+    html += opcionsCampanya(campanyaFiltre); // llista dinàmica (collita.v1.js)
     html += '</select>';
     html += '</div>';
 
@@ -142,7 +139,7 @@ function obrirModalNovabestreta() {
                 <div class="form-group">
                     <label>Campanya *</label>
                     <select id="bestreta-campanya" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
-                        ${[2024,2025,2026,2027].map(c => `<option value="${c}"${c === campanyaFiltre ? ' selected' : ''}>${c}</option>`).join('')}
+                        ${opcionsCampanya(campanyaFiltre)}
                     </select>
                 </div>
                 <div class="form-group">

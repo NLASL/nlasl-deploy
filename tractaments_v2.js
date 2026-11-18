@@ -124,6 +124,281 @@ function llegirCampsQIEForm() {
     };
 }
 
+// ============================================================
+// QIE — EXTRACTE MENSUAL PER A LA GESTORIA
+// Inclou els tractaments fitosanitaris ACTIUS, COMPLETS i NO ENVIATS fins a
+// l'últim dia del mes triat, i una llista de rectificacions (tractaments ja
+// enviats que després s'han anul·lat). L'enviament es registra a banda
+// (marcarExtracteQIEEnviat) perquè només es marca quan l'Excel ja és a la gestoria.
+// ============================================================
+
+function ultimDiaMesISO(anyMes) {
+    const p = String(anyMes).split('-').map(Number);
+    return dataLocalISO(new Date(p[0], p[1], 0));
+}
+
+// Llegeix tota una consulta de vista en blocs de 1.000 files (límit de PostgREST)
+async function consultaVistaPaginada(construir) {
+    const resultat = [];
+    const mida = 1000;
+    let desde = 0;
+    while (true) {
+        const r = await construir().order('id').range(desde, desde + mida - 1);
+        if (r.error) throw r.error;
+        const bloc = r.data || [];
+        resultat.push.apply(resultat, bloc);
+        if (bloc.length < mida) break;
+        desde += mida;
+    }
+    return resultat;
+}
+
+function agruparPerGrupTractament(files) {
+    const grups = new Map();
+    files.forEach(function(f) {
+        if (!grups.has(f.grup_tractament)) grups.set(f.grup_tractament, []);
+        grups.get(f.grup_tractament).push(f);
+    });
+    return grups;
+}
+
+function nomsProductesGrup(productes) {
+    return (productes || []).map(function(p) { return p && p.nom ? p.nom : '—'; }).join(', ');
+}
+
+// Desglossa «25010:0:0:502:141:1» en municipi, polígon, parcel·la i recinte
+function partsSigpacQIE(sigpac) {
+    const p = String(sigpac || '').split(':');
+    if (p.length < 6) return { municipi: '', poligon: '', parcela: '', recinte: '' };
+    return { municipi: p[0], poligon: p[3], parcela: p[4], recinte: p[5] };
+}
+
+async function preparaExtracteQIE(anyMes) {
+    const limit = ultimDiaMesISO(anyMes);
+    await carregarCatalegQIE(true);
+    if (!parcelles || !parcelles.length) parcelles = await getParcellas();
+    const cat = qieCataleg;
+
+    // 1) Tractaments actius no enviats, des de l'inici de l'obligació fins a la data límit
+    const files = await consultaVistaPaginada(function() {
+        return supabaseClient.from('tractaments_complet').select('*')
+            .eq('estat', 'actiu').is('qie_enviat_at', null)
+            .gte('data', QIE_DATA_INICI).lte('data', limit);
+    });
+    const grups = agruparPerGrupTractament(files);
+
+    // 2) RT referenciades (codi i data de validació)
+    const rtIds = Array.from(new Set(files.map(function(f) { return f.recomanacio_rt_id; }).filter(Boolean)));
+    const rtMapa = new Map();
+    if (rtIds.length) {
+        const rr = await supabaseClient.from('recomanacions_rt').select('id, codi_rt, data_recomanacio').in('id', rtIds);
+        if (rr.error) throw rr.error;
+        (rr.data || []).forEach(function(x) { rtMapa.set(x.id, x); });
+    }
+
+    const linies = [];
+    const incomplets = [];
+    const grupsComplets = [];
+
+    grups.forEach(function(rows, grup) {
+        const cap = rows[0];
+        const mancances = mancancesQIETractament(rows, cap.productes);
+        if (mancances === null) return;                       // sense fitosanitaris: no va al QIE
+        if (mancances.length) {
+            incomplets.push({
+                data: cap.data,
+                grup: grup,
+                productes: nomsProductesGrup(cap.productes),
+                parcelles: rows.length,
+                ha: rows.reduce(function(s, r) { return s + (parseFloat(r.superficie_tractada) || 0); }, 0),
+                mancances: mancances
+            });
+            return;
+        }
+        grupsComplets.push(grup);
+
+        // Productes de la barreja que no són fitosanitaris (mullants, bioestimulants...):
+        // no s'exigeixen ni bloquegen, però s'hi fan constar perquè la gestoria decideixi
+        const altresProductes = (cap.productes || [])
+            .filter(function(p) { return p && p.fertilitzant_id; })
+            .map(function(p) { return (p.nom || '—') + ' ' + (parseFloat(p.dosi) || 0) + ' ' + (p.unitat || ''); })
+            .join('; ');
+
+        const rt = rtMapa.get(cap.recomanacio_rt_id) || null;
+        const assessor = cat.assessors.find(function(a) { return a.id === cap.assessor_id; }) || {};
+        const aplicador = cat.aplicadors.find(function(a) { return a.id === cap.aplicador_id; }) || {};
+        const equip = cat.equips.find(function(e) { return e.id === cap.equip_id; }) || null;
+
+        rows.forEach(function(r) {
+            const par = (parcelles || []).find(function(p) { return p.id === r.parcella_id; }) || {};
+            const sp = partsSigpacQIE(par.sigpac);
+            const cultiu = r.cultiu_aplicat || par.cultiu || '';
+            const varietat = r.cultiu_aplicat ? (r.varietat_aplicada || '') : (par.varietat || '');
+            const sup = parseFloat(r.superficie_tractada) || 0;
+
+            (cap.productes || []).filter(function(p) { return p && p.producte_id; }).forEach(function(p) {
+                const dosi = parseFloat(p.dosi) || 0;
+                linies.push({
+                    data: r.data,
+                    dgc: r.dun_ordre,
+                    sigpac: par.sigpac || '',
+                    municipi: sp.municipi, poligon: sp.poligon, parcela: sp.parcela, recinte: sp.recinte,
+                    finca: par.finca || '',
+                    cultiu: cultiu,
+                    varietat: varietat,
+                    superficie: sup,
+                    producte: p.nom || '',
+                    registre: p.registre || '',
+                    materia_activa: p.materia_activa || '',
+                    dosi: dosi,
+                    unitat: p.unitat || '',
+                    quantitat: Number((dosi * sup).toFixed(3)),
+                    unitat_quantitat: String(p.unitat || '').split('/')[0],
+                    caldo: r.volum_caldo_lha || '',
+                    plagues: (p.plagues || []).join(', '),
+                    justificacio: r.justificacio || (rt ? 'Recomanació tècnica ' + (rt.codi_rt || '') : ''),
+                    rt_codi: rt ? (rt.codi_rt || '') : '',
+                    rt_data: rt ? (rt.data_recomanacio || '') : '',
+                    assessor: assessor.nom || '', assessor_nif: assessor.nif || '', assessor_ropo: assessor.ropo || '',
+                    aplicador: (aplicador.treballadors && aplicador.treballadors.nom) || '',
+                    aplicador_nif: aplicador.nif || '', aplicador_ropo: aplicador.ropo || '',
+                    equip: nomEquipQIE(equip), equip_roma: equip ? (equip.roma_num_inscripcio || '') : '',
+                    altres: altresProductes
+                });
+            });
+        });
+    });
+
+    linies.sort(function(a, b) {
+        return String(a.data).localeCompare(String(b.data)) || String(a.sigpac).localeCompare(String(b.sigpac));
+    });
+    incomplets.sort(function(a, b) { return String(a.data).localeCompare(String(b.data)); });
+
+    // 3) Rectificacions: enviats a la gestoria i anul·lats després, encara no comunicats
+    const filesAnul = await consultaVistaPaginada(function() {
+        return supabaseClient.from('tractaments_complet').select('*')
+            .eq('estat', 'anulat').not('qie_enviat_at', 'is', null).is('qie_rectificat_at', null)
+            .gte('data', QIE_DATA_INICI);
+    });
+    const grupsAnul = agruparPerGrupTractament(filesAnul);
+    const substituts = new Map();
+    const idsAnul = Array.from(grupsAnul.keys());
+    for (let i = 0; i < idsAnul.length; i += 100) {
+        const bloc = idsAnul.slice(i, i + 100);
+        const rs = await supabaseClient.from('tractaments').select('grup_tractament, grup_anterior, data')
+            .eq('estat', 'actiu').in('grup_anterior', bloc);
+        if (rs.error) throw rs.error;
+        (rs.data || []).forEach(function(x) { substituts.set(x.grup_anterior, x); });
+    }
+    const rectificacions = [];
+    grupsAnul.forEach(function(rows, grup) {
+        const cap = rows[0];
+        const sub = substituts.get(grup) || null;
+        rectificacions.push({
+            grup: grup,
+            data: cap.data,
+            productes: nomsProductesGrup(cap.productes),
+            dgcs: rows.map(function(r) { return r.dun_ordre || ''; }).filter(Boolean).join(', '),
+            parcelles: rows.length,
+            enviat: cap.qie_enviat_at,
+            anulat: cap.data_anulacio,
+            motiu: cap.motiu_anulacio || '',
+            substitut: sub ? 'Nou tractament del ' + sub.data : 'Sense substitut (només anul·lat)'
+        });
+    });
+    rectificacions.sort(function(a, b) { return String(a.data).localeCompare(String(b.data)); });
+
+    return {
+        anyMes: anyMes,
+        limit: limit,
+        linies: linies,
+        grupsComplets: grupsComplets,
+        incomplets: incomplets,
+        rectificacions: rectificacions,
+        grupsRectificats: rectificacions.map(function(r) { return r.grup; }),
+        descarregat: false
+    };
+}
+
+// Construeix i descarrega l'Excel de l'extracte
+function descarregarExtracteQIE(ext) {
+    const wb = XLSX.utils.book_new();
+
+    const capcalera = ['Data aplicació', 'DGC (Ordre DUN)', 'SIGPAC', 'Municipi', 'Polígon', 'Parcel·la', 'Recinte', 'Finca',
+        'Cultiu', 'Varietat', 'Superfície tractada (Ha)', 'Producte', 'Nº registre MAPA', 'Matèria activa',
+        'Dosi', 'Unitat', 'Quantitat total', 'Unitat quantitat', 'Volum de caldo (L/Ha)', 'Problemàtica (plagues)',
+        'Justificació', 'RT (codi)', 'RT (data validació)', 'Assessor', 'NIF assessor', 'ROPO assessor',
+        'Aplicador', 'NIF aplicador', 'ROPO aplicador', 'Equip d\'aplicació', 'ROMA equip',
+        'Altres productes a la barreja (no fitosanitaris)'];
+    const dades = [capcalera];
+    ext.linies.forEach(function(l) {
+        dades.push([l.data, l.dgc, l.sigpac, l.municipi, l.poligon, l.parcela, l.recinte, l.finca,
+            l.cultiu, l.varietat, l.superficie, l.producte, l.registre, l.materia_activa,
+            l.dosi, l.unitat, l.quantitat, l.unitat_quantitat, l.caldo, l.plagues,
+            l.justificacio, l.rt_codi, l.rt_data, l.assessor, l.assessor_nif, l.assessor_ropo,
+            l.aplicador, l.aplicador_nif, l.aplicador_ropo, l.equip, l.equip_roma, l.altres]);
+    });
+    const ws1 = XLSX.utils.aoa_to_sheet(dades);
+    ws1['!cols'] = capcalera.map(function(c) { return { wch: Math.max(12, Math.min(34, c.length + 4)) }; });
+    XLSX.utils.book_append_sheet(wb, ws1, 'Tractaments');
+
+    const inc = [['Data', 'Productes', 'Parcel·les', 'Hectàrees', 'Què falta']];
+    ext.incomplets.forEach(function(i) {
+        inc.push([i.data, i.productes, i.parcelles, Number(i.ha.toFixed(2)), i.mancances.join('; ')]);
+    });
+    const ws2 = XLSX.utils.aoa_to_sheet(inc);
+    ws2['!cols'] = [{ wch: 12 }, { wch: 40 }, { wch: 10 }, { wch: 10 }, { wch: 70 }];
+    XLSX.utils.book_append_sheet(wb, ws2, 'Incomplets (no inclosos)');
+
+    const rec = [['Data tractament', 'Productes', 'DGC', 'Parcel·les', 'Enviat el', 'Anul·lat el', 'Motiu', 'Substitut']];
+    ext.rectificacions.forEach(function(r) {
+        rec.push([r.data, r.productes, r.dgcs, r.parcelles,
+            r.enviat ? String(r.enviat).slice(0, 10) : '', r.anulat ? String(r.anulat).slice(0, 10) : '', r.motiu, r.substitut]);
+    });
+    const ws3 = XLSX.utils.aoa_to_sheet(rec);
+    ws3['!cols'] = [{ wch: 14 }, { wch: 40 }, { wch: 16 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 40 }, { wch: 36 }];
+    XLSX.utils.book_append_sheet(wb, ws3, 'Rectificacions');
+
+    const resum = [
+        ['Extracte QIE — tractaments fitosanitaris'],
+        ['Fins a la data', ext.limit],
+        ['Generat el', new Date().toLocaleString('ca-ES')],
+        ['Línies per enviar', ext.linies.length],
+        ['Tractaments complets', ext.grupsComplets.length],
+        ['Tractaments incomplets (no inclosos)', ext.incomplets.length],
+        ['Rectificacions', ext.rectificacions.length],
+        [],
+        ['Només inclou tractaments actius, complets i no enviats anteriorment.']
+    ];
+    const ws4 = XLSX.utils.aoa_to_sheet(resum);
+    ws4['!cols'] = [{ wch: 40 }, { wch: 24 }];
+    XLSX.utils.book_append_sheet(wb, ws4, 'Resum');
+
+    XLSX.writeFile(wb, 'extracte_QIE_' + ext.anyMes + '.xlsx');
+    ext.descarregat = true;
+}
+
+// Registra l'enviament: només es crida quan l'Excel ja ha arribat a la gestoria
+async function marcarExtracteQIEEnviat(ext) {
+    const ara = new Date().toISOString();
+    for (let i = 0; i < ext.grupsComplets.length; i += 100) {
+        const r = await supabaseClient.from('tractaments')
+            .update({ qie_enviat_at: ara })
+            .in('grup_tractament', ext.grupsComplets.slice(i, i + 100))
+            .eq('estat', 'actiu').is('qie_enviat_at', null)
+            .select('id');
+        if (r.error) throw r.error;
+    }
+    for (let i = 0; i < ext.grupsRectificats.length; i += 100) {
+        const r = await supabaseClient.from('tractaments')
+            .update({ qie_rectificat_at: ara })
+            .in('grup_tractament', ext.grupsRectificats.slice(i, i + 100))
+            .eq('estat', 'anulat').is('qie_rectificat_at', null)
+            .select('id');
+        if (r.error) throw r.error;
+    }
+}
+
 async function createTractament(dades) {
     const { data, error } = await supabaseClient
         .from('tractaments')
@@ -367,7 +642,14 @@ function recollirLiniesProducte() {
 // El nom es manté per compatibilitat amb els botons existents, però ja no esborra:
 // anul·la el tractament i en guarda el motiu.
 async function eliminarTractamentGrup(grupTractament) {
-    if (!confirm('Segur que vols anul·lar aquest tractament?\n\nQuedarà a l\'historial com a anul·lat i deixarà de comptar a l\'estoc i als informes.')) return;
+    let avisEnviat = '';
+    try {
+        const rs = await supabaseClient.from('tractaments').select('qie_enviat_at').eq('grup_tractament', grupTractament).limit(1).maybeSingle();
+        if (rs.data && rs.data.qie_enviat_at) {
+            avisEnviat = '\n\n⚠️ Aquest tractament JA S\'HA ENVIAT a la gestoria (' + String(rs.data.qie_enviat_at).slice(0, 10) + '). Sortirà a la pestanya «Rectificacions» del proper extracte.';
+        }
+    } catch (e) { console.warn('No s\'ha pogut comprovar l\'enviament:', e.message); }
+    if (!confirm('Segur que vols anul·lar aquest tractament?\n\nQuedarà a l\'historial com a anul·lat i deixarà de comptar a l\'estoc i als informes.' + avisEnviat)) return;
     const motiu = prompt('Motiu de l\'anul·lació (obligatori):');
     if (!motiu || !motiu.trim()) {
         mostrarNotificacio('Cal indicar un motiu per anul·lar', 'warning');

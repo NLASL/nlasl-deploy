@@ -1,6 +1,64 @@
 // ============================================================
 // COLLITA.V1.JS - CORE LOGIC (sense UI)
+// v1.1 - Helpers de campanya dinàmics + correccions (veure resum)
 // ============================================================
+
+// ============================================================
+// HELPERS DE CAMPANYA (font única de veritat)
+// Campanya agrícola: 1 oct (any-1) -> 30 set (any)
+// Es carrega ABANS que collita-ui.v1.js: no redeclarar-los allà.
+// ============================================================
+
+const CAMPANYA_INICIAL = 2024; // primera campanya amb dades
+
+// Campanya d'una data 'YYYY-MM-DD' (sense passar per Date: evita desfasaments de zona horària)
+function campanyaDeData(dataStr) {
+    const parts = String(dataStr).split('-');
+    const any = parseInt(parts[0], 10);
+    const mes = parseInt(parts[1], 10);
+    return mes >= 10 ? any + 1 : any;
+}
+
+function getCampanyaActual() {
+    const ara = new Date();
+    return (ara.getMonth() + 1) >= 10 ? ara.getFullYear() + 1 : ara.getFullYear();
+}
+
+// Llista ascendent [2024 ... campanya actual]. S'amplia sola cada any.
+// 'extra' garanteix que una campanya concreta hi sigui (p.ex. una de futura ja guardada).
+function getCampanyesDisponibles(extra) {
+    const fi = Math.max(getCampanyaActual(), extra || 0);
+    const llista = [];
+    for (let c = CAMPANYA_INICIAL; c <= fi; c++) llista.push(c);
+    return llista;
+}
+
+// <option> per a qualsevol selector de campanya
+function opcionsCampanya(seleccionada) {
+    return getCampanyesDisponibles(seleccionada).map(function(c) {
+        return '<option value="' + c + '"' + (c === seleccionada ? ' selected' : '') + '>' + c + '</option>';
+    }).join('');
+}
+
+// Dades de configuració per campanya (qualitats, calibres, classificacions NC):
+// agafa la campanya actual i, si encara no té dades configurades, cau a l'última
+// anterior que en tingui. Així no queden llistes buides en començar una campanya nova.
+async function obtenirConfigCampanya(taula) {
+    const camp = getCampanyaActual();
+    const { data, error } = await supabaseClient
+        .from(taula)
+        .select('*')
+        .eq('actiu', true)
+        .lte('campanya', camp);
+    if (error) throw new Error('Error ' + taula + ': ' + error.message);
+    const files = data || [];
+    if (files.length === 0) return [];
+    const campUsada = Math.max.apply(null, files.map(function(f) { return f.campanya; }));
+    if (campUsada !== camp) {
+        console.warn('ℹ️ ' + taula + ': sense dades per la campanya ' + camp + ', s\'usa la ' + campUsada);
+    }
+    return files.filter(function(f) { return f.campanya === campUsada; });
+}
 
 // Variables globals
 let fruites = [];
@@ -35,26 +93,15 @@ async function carregarDadesCollita() {
         varietats = varietatsData || [];
         console.log('✅ Varietats carregades:', varietats.length);
 
-        // Qualitats (campanya actual)
-        const { data: qualitatData, error: qualitatError } = await supabaseClient
-            .from('qualitats_collita')
-            .select('*')
-            .eq('actiu', true)
-            .eq('campanya', 2025);
-        if (qualitatError) throw new Error('Error qualitats: ' + qualitatError.message);
-        qualitats = qualitatData || [];
+        // Qualitats (campanya actual, amb fallback a l'última configurada)
+        qualitats = await obtenirConfigCampanya('qualitats_collita');
         console.log('✅ Qualitats carregades:', qualitats.length);
 
-        // Calibres per fruita (campanya actual)
-        const { data: calibresData, error: calibresError } = await supabaseClient
-            .from('calibres_fruites')
-            .select('*')
-            .eq('campanya', 2025)
-            .eq('actiu', true);
-        if (calibresError) throw new Error('Error calibres: ' + calibresError.message);
-        
+        // Calibres per fruita (campanya actual, amb fallback a l'última configurada)
+        const calibresData = await obtenirConfigCampanya('calibres_fruites');
+
         calibresFruita = {};
-        (calibresData || []).forEach(c => {
+        calibresData.forEach(c => {
             if (!calibresFruita[c.fruita_id]) {
                 calibresFruita[c.fruita_id] = [];
             }
@@ -62,18 +109,12 @@ async function carregarDadesCollita() {
         });
         console.log('✅ Calibres carregats');
 
-        // Classificacions No Comercial (campanya actual)
-        const { data: classData, error: classError } = await supabaseClient
-            .from('classificacions_no_comercial')
-            .select('*')
-            .eq('campanya', 2026)
-            .eq('actiu', true);
-        if (classError) throw new Error('Error classificacions: ' + classError.message);
-        classificacionsNoCom = classData || [];
+        // Classificacions No Comercial (campanya actual, amb fallback a l'última configurada)
+        classificacionsNoCom = await obtenirConfigCampanya('classificacions_no_comercial');
         console.log('✅ Classificacions No Comercial carregades:', classificacionsNoCom.length);
 
         // Finques (referència a finques existents - ja carregades a app_v8.js)
-        console.log('✅ Finques disponibles:', finques.length);
+        console.log('✅ Finques disponibles:', (typeof finques !== 'undefined' && finques) ? finques.length : 'no carregades');
         
         console.log('✅✅ TODAS LES DADES COLLITA CARREGADES CORRECTAMENT');
     } catch (error) {
@@ -116,33 +157,33 @@ async function crearAlbaraEntrada(dades) {
     }
 }
 
+// Definició única (abans n'hi havia dues i la segona anul·lava el recàlcul).
+// Recalcula pes_net i pes_mig quan canvia algun pes. No escriu updated_at:
+// la segona versió ja no ho feia i la UI comenta que hi ha columnes que no existeixen.
 async function actualitzarAlbaraEntrada(id, dades) {
     try {
-        // Recalcular pes_net i pes_mig
         if (dades.pes_brut !== undefined || dades.tara_envases !== undefined || dades.tara_vehicle !== undefined) {
-            const entrada = await obtenerAlbaraEntrada(id);
-            dades.pes_brut = dades.pes_brut !== undefined ? dades.pes_brut : entrada.pes_brut;
-            dades.tara_envases = dades.tara_envases !== undefined ? dades.tara_envases : entrada.tara_envases;
-            dades.tara_vehicle = dades.tara_vehicle !== undefined ? dades.tara_vehicle : entrada.tara_vehicle;
-            
-            dades.pes_net = dades.pes_brut - dades.tara_envases - dades.tara_vehicle;
-            
-            if (dades.quantitat_palots_entrada && dades.quantitat_palots_entrada > 0) {
-                dades.pes_mig = dades.pes_net / dades.quantitat_palots_entrada;
+            const entrada = await obtenerAlbaraEntradaPorId(id);
+            const pesBrut = dades.pes_brut !== undefined ? dades.pes_brut : entrada.pes_brut;
+            const taraEnv = dades.tara_envases !== undefined ? dades.tara_envases : entrada.tara_envases;
+            const taraVeh = dades.tara_vehicle !== undefined ? dades.tara_vehicle : entrada.tara_vehicle;
+            dades.pes_net = (pesBrut || 0) - (taraEnv || 0) - (taraVeh || 0);
+
+            const palots = dades.quantitat_palots_entrada !== undefined
+                ? dades.quantitat_palots_entrada
+                : entrada.quantitat_palots_entrada;
+            if (palots && palots > 0) {
+                dades.pes_mig = dades.pes_net / palots;
             }
         }
 
-        dades.updated_at = new Date().toISOString();
-
-        const { data, error } = await supabaseClient
+        const { error } = await supabaseClient
             .from('collita_entrada')
             .update(dades)
-            .eq('id', id)
-            .select();
+            .eq('id', id);
 
         if (error) throw error;
         console.log('✅ Albarà entrada actualitzat');
-        return data[0];
     } catch (error) {
         console.error('❌ Error actualitzant albarà entrada:', error);
         throw error;
@@ -156,7 +197,7 @@ async function eliminarAlbaraEntrada(id) {
             .from('collita_entrada')
             .update({
                 estat: 'anulat',
-                data_anulacio: new Date().toISOString().split('T')[0]
+                data_anulacio: dataLocalISO()
             })
             .eq('id', id)
             .select();
@@ -207,14 +248,7 @@ async function obtenerAlbaraEntradaPorNum(numAlbara) {
 async function obtenirTodasEntradas(campanya = null) {
     try {
         // Detectar campanya actual si no s'especifica
-        if (!campanya) {
-            const ara = new Date();
-            const mes = ara.getMonth() + 1;
-            const any = ara.getFullYear();
-            // Octubre-Desembre → campanya any+1
-            // Gener-Setembre → campanya any
-            campanya = mes >= 10 ? any + 1 : any;
-        }
+        if (!campanya) campanya = getCampanyaActual();
 
         // Dates campanya: 1 octubre (any-1) → 30 setembre (any)
         const dataInici = (campanya - 1) + '-10-01';
@@ -280,9 +314,7 @@ async function obtenirResumCollitaDashboard(fincaSeleccionada) {
         if (errorUltimaFruita) throw errorUltimaFruita;
 
         if (ultimaFruita && ultimaFruita.length > 0) {
-            const dataUltima = new Date(ultimaFruita[0].data);
-            const mesUltima = dataUltima.getMonth() + 1;
-            const campanyaFruita = mesUltima >= 10 ? dataUltima.getFullYear() + 1 : dataUltima.getFullYear();
+            const campanyaFruita = campanyaDeData(ultimaFruita[0].data);
             const dataIniciCamp = (campanyaFruita - 1) + '-10-01';
             const dataFiCamp = campanyaFruita + '-09-30';
 
@@ -465,7 +497,7 @@ async function compararEntradaVsEscandall(entradaId, escandallDades) {
 
         // Comparar pes_net (alerta si > 5%)
         const diferenciaPes = Math.abs(escandallDades.pes_net - entrada.pes_net);
-        const percentatgeDif = (diferenciaPes / entrada.pes_net) * 100;
+        const percentatgeDif = entrada.pes_net ? (diferenciaPes / entrada.pes_net) * 100 : 0;
         
         if (percentatgeDif > 5) {
             alerts.push({
@@ -623,22 +655,7 @@ async function obtenerAlbaraEntradaPorId(id) {
     }
 }
 
-async function actualitzarAlbaraEntrada(id, dades) {
-    try {
-        console.log('Actualitzant albarà:', id, dades);
-        
-        const { error } = await supabaseClient
-            .from('collita_entrada')
-            .update(dades)
-            .eq('id', id);
-        
-        if (error) throw error;
-        console.log('✅ Albarà actualitzat');
-    } catch (error) {
-        console.error('❌ Error actualitzant albarà:', error);
-        throw error;
-    }
-}
+
 async function eliminarEscandallConfirm(id) {
     if (!confirm('Segur que vols eliminar aquest escandall?')) return;
     
@@ -1024,7 +1041,7 @@ try {
 function sumarDies(dataStr, dies) {
     const d = new Date(dataStr + 'T00:00:00');
     d.setDate(d.getDate() + dies);
-    return d.toISOString().slice(0, 10);
+    return dataLocalISO(d); // abans toISOString(): a Europa retornava el dia anterior
 }
 
 registrarProveidorAgenda(agendaProvider_collita);

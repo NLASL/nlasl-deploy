@@ -619,20 +619,11 @@ async function eliminarAlerta(id) {
 function generarOpcionsCampanya(idSelect, campanyadefecte) {
     const sel = document.getElementById(idSelect);
     if (!sel) return;
-    sel.innerHTML = '';
-    [2024, 2025, 2026, 2027].forEach(function(c) {
-        const opt = document.createElement('option');
-        opt.value = c;
-        opt.text = c;
-        if (c === campanyadefecte) opt.selected = true;
-        sel.appendChild(opt);
-    });
+    sel.innerHTML = opcionsCampanya(campanyadefecte); // llista dinàmica: collita.v1.js
 }
  
 function getCampanyaDefecte() {
-    const ara = new Date();
-    const mes = ara.getMonth() + 1;
-    return mes >= 10 ? ara.getFullYear() + 1 : ara.getFullYear();
+    return getCampanyaActual(); // font única: collita.v1.js
 }
  
 function getDatesCampanya(campanya) {
@@ -3069,9 +3060,7 @@ document.getElementById('fitxatge-tasca').required = false;
 async function carregarVistaInformes() {
     const container = document.getElementById('view-container');
  
-    const ara = new Date();
-    const mes = ara.getMonth() + 1;
-    const campanyadefecte = mes >= 10 ? ara.getFullYear() + 1 : ara.getFullYear();
+    const campanyadefecte = getCampanyaActual();
  
     let html = '<div class="view-informes">';
     html += '<h2>📊 Informes</h2>';
@@ -3083,9 +3072,7 @@ async function carregarVistaInformes() {
  
     // Selector campanya
     html += '<div><label>Campanya</label><select id="informe-fert-any" style="padding:8px;border:1px solid #ddd;border-radius:4px;">';
-    [2024, 2025, 2026, 2027].forEach(function(c) {
-        html += '<option value="' + c + '"' + (c === campanyadefecte ? ' selected' : '') + '>' + c + '</option>';
-    });
+    html += opcionsCampanya(campanyadefecte);
     html += '</select></div>';
  
     // Selector finca
@@ -3112,9 +3099,9 @@ async function carregarVistaInformes() {
     // Selector d'any NATURAL (gener → desembre)
     html += '<div><label>Any (natural)</label><select id="informe-dan-any" style="padding:8px;border:1px solid #ddd;border-radius:4px;">';
     const anyNaturalInforme = new Date().getFullYear();
-    [2024, 2025, 2026, 2027].forEach(function(c) {
+    for (let c = CAMPANYA_INICIAL; c <= anyNaturalInforme; c++) {
         html += '<option value="' + c + '"' + (c === anyNaturalInforme ? ' selected' : '') + '>' + c + '</option>';
-    });
+    }
     html += '</select></div>';
  
     html += '<button class="btn btn-primary" onclick="generarDAN()">📋 Generar registre</button>';
