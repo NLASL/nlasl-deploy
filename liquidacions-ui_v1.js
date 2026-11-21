@@ -84,7 +84,7 @@ async function mostrarTaulaLiquidacions() {
             html += '<td style="text-align:right;">' + Number(liq.import_deduccio || 0).toFixed(2) + ' €</td>';
             html += '<td style="text-align:right;"><strong>' + Number(liq.import_net).toFixed(2) + ' €</strong></td>';
             html += '<td><span style="color:' + colorEstat + ';font-weight:600;">' + liq.estat + '</span></td>';
-            html += '<td><button class="btn btn-secondary" onclick="obrirModalLiquidacio(\'' + liq.id + '\')">✏️ Obrir</button></td>';
+            html += '<td><button class="btn btn-secondary" onclick="obrirModalLiquidacio(\'' + liq.id + '\')">✏️ Obrir</button> <button class="btn btn-secondary" onclick="duplicarLiquidacio(\'' + liq.id + '\')" title="Crea una còpia amb els mateixos kg i preus">📋 Duplicar</button></td>';
             html += '</tr>';
         });
 
@@ -127,6 +127,7 @@ async function obrirModalLiquidacio(id) {
                 <span>Import brut: <strong>${Number(liquidacio.import_brut).toFixed(2)} €</strong></span>
                 <span>Bestretes: <strong>${Number(liquidacio.import_bestretes).toFixed(2)} €</strong></span>
                 <span>Deducció${liquidacio.concepte_deduccio ? ' (' + liquidacio.concepte_deduccio + ')' : ''}: <strong>${Number(liquidacio.import_deduccio || 0).toFixed(2)} €</strong></span>
+                <span>Comp. Qualitat${liquidacio.comp_qualitat_preu ? ' (' + liquidacio.comp_qualitat_preu + ' €/kg)' : ''}: <strong>${Number(liquidacio.comp_qualitat_import || 0).toFixed(2)} €</strong></span>
                 <span>Net a pagar: <strong>${Number(liquidacio.import_net).toFixed(2)} €</strong></span>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -141,7 +142,7 @@ async function obrirModalLiquidacio(id) {
                 <tbody id="liquidacio-linies-tbody">${ordenarLiniesLiquidacio(linies).map(renderFilaLinia).join('')}</tbody>
             </table>
             <div style="text-align:right;margin-top:10px;">
-                <button class="btn btn-primary" onclick="guardarTotsElsPreus()">💾 Guardar tots els preus</button>
+                <button class="btn btn-primary" onclick="guardarTotsElsPreus()">💾 Guardar kg i preus</button>
             </div>
             <div id="fila-nova-linia-container"></div>
         `;
@@ -192,6 +193,17 @@ async function obrirModalLiquidacio(id) {
                     <input type="number" step="0.01" id="liq-import-deduccio" value="${liquidacio ? (liquidacio.import_deduccio || 0) : 0}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
                 </div>
                 <div class="form-group">
+                    <label>Comp. Qualitat — preu (€/kg)</label>
+                    <div style="display:flex;gap:8px;">
+                        <input type="number" step="0.00001" id="liq-comp-preu" value="${liquidacio && liquidacio.comp_qualitat_preu != null ? liquidacio.comp_qualitat_preu : ''}" placeholder="0.01533" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                        <button type="button" class="btn btn-secondary" onclick="calcularImportCompQualitat()" title="Import = kg totals (comercial + no comercial) × preu">↻</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Comp. Qualitat — import (€)</label>
+                    <input type="number" step="0.01" id="liq-comp-import" value="${liquidacio ? (liquidacio.comp_qualitat_import || 0) : 0}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                </div>
+                <div class="form-group">
                     <label>Estat</label>
                     <select id="liq-estat" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
                         <option value="provisional" ${liquidacio && liquidacio.estat === 'provisional' ? 'selected' : ''}>Provisional</option>
@@ -208,6 +220,7 @@ async function obrirModalLiquidacio(id) {
 
             <div style="margin-top:20px;text-align:right;border-top:1px solid #ddd;padding-top:15px;">
                 <button type="button" class="btn btn-secondary" onclick="tancarModal('modal-liquidacio')" style="margin-right:10px;">Cancel·lar</button>
+                ${id ? '<button type="button" class="btn btn-info" onclick="duplicarLiquidacio(\'' + id + '\', true)" style="margin-right:10px;">📋 Duplicar</button>' : ''}
                 ${id ? '<button type="button" class="btn btn-danger" onclick="confirmarEliminarLiquidacio(\'' + id + '\')" style="margin-right:10px;">Eliminar</button>' : ''}
                 <button type="button" class="btn btn-primary" onclick="guardarCapcaleraLiquidacio()">Guardar capçalera</button>
             </div>
@@ -261,7 +274,7 @@ function renderFilaLinia(l) {
             <td>${l.qualitat_nom}</td>
             <td>${l.calibre || '—'}</td>
             <td>${l.fnc_tipus || '—'}</td>
-            <td style="text-align:right;">${l.kg}</td>
+            <td style="text-align:right;"><input type="number" step="0.01" class="input-kg-linia" data-linia-id="${l.id}" value="${l.kg}" style="width:110px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right;"></td>
             <td style="text-align:right;">
                 <input type="number" step="0.0001" class="input-preu-linia" data-linia-id="${l.id}" value="${l.preu_unitari}" style="width:90px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:right;">
             </td>
@@ -285,13 +298,17 @@ async function guardarTotsElsPreus() {
     inputs.forEach(function(input) {
         const preu = parseFloat(input.value);
         if (!isNaN(preu)) {
-            actualitzacions.push(updateLiquidacioLinia(input.dataset.liniaId, { preu_unitari: preu, editat_manualment: true }));
+            const kgInput = document.querySelector('.input-kg-linia[data-linia-id="' + input.dataset.liniaId + '"]');
+            const kg = kgInput ? parseFloat(kgInput.value) : NaN;
+            const canvis = { preu_unitari: preu, editat_manualment: true };
+            if (!isNaN(kg)) canvis.kg = kg;
+            actualitzacions.push(updateLiquidacioLinia(input.dataset.liniaId, canvis));
         }
     });
 
     try {
         await Promise.all(actualitzacions);
-        mostrarNotificacio('Preus actualitzats', 'success');
+        mostrarNotificacio('Kg i preus actualitzats', 'success');
         await refrescarLiniesModal();
     } catch (error) {
         mostrarNotificacio('Error guardant preus: ' + error.message, 'error');
@@ -313,7 +330,8 @@ async function refrescarLiniesModal() {
             <span>Import brut: <strong>${Number(liquidacio.import_brut).toFixed(2)} €</strong></span>
             <span>Bestretes: <strong>${Number(liquidacio.import_bestretes).toFixed(2)} €</strong></span>
             <span>Deducció${liquidacio.concepte_deduccio ? ' (' + liquidacio.concepte_deduccio + ')' : ''}: <strong>${Number(liquidacio.import_deduccio || 0).toFixed(2)} €</strong></span>
-            <span>Net a pagar: <strong>${Number(liquidacio.import_net).toFixed(2)} €</strong></span>
+            <span>Comp. Qualitat${liquidacio.comp_qualitat_preu ? ' (' + liquidacio.comp_qualitat_preu + ' €/kg)' : ''}: <strong>${Number(liquidacio.comp_qualitat_import || 0).toFixed(2)} €</strong></span>
+                <span>Net a pagar: <strong>${Number(liquidacio.import_net).toFixed(2)} €</strong></span>
         `;
     }
 
@@ -352,6 +370,8 @@ function recollirDadesCapcaleraForm() {
         import_bestretes: parseFloat(document.getElementById('liq-bestretes').value) || 0,
         concepte_deduccio: document.getElementById('liq-concepte-deduccio').value.trim() || null,
         import_deduccio: parseFloat(document.getElementById('liq-import-deduccio').value) || 0,
+        comp_qualitat_preu: parseFloat(document.getElementById('liq-comp-preu').value) || null,
+        comp_qualitat_import: parseFloat(document.getElementById('liq-comp-import').value) || 0,
         estat: document.getElementById('liq-estat').value,
         notes: document.getElementById('liq-notes').value
     };
@@ -595,7 +615,10 @@ async function generarLiniesDesEscandall() {
         let liniesCreades = 0;
         for (const clau in agCalibres) {
             const ag = agCalibres[clau];
-            const preuCfg = preusCalibres.find(function(p) { return p.calibre === ag.calibre; });
+            const preuCfg = preusCalibres.find(function(p) {
+                return p.calibre === ag.calibre &&
+                    (p.fruita_varietat_id === undefined || p.fruita_varietat_id === null || p.fruita_varietat_id === varietatId);
+            });
             await createLiquidacioLinia({
                 liquidacio_id: liquidacioModalId,
                 varietat_id: varietatId,
@@ -616,7 +639,7 @@ async function generarLiniesDesEscandall() {
                 qualitat_nom: 'NO_COMERCIAL',
                 fnc_tipus: ag.fnc_tipus,
                 kg: ag.kg,
-                preu_unitari: preuCfg ? preuCfg.preu_unitari : 0,
+                preu_unitari: preuCfg ? -Math.abs(Number(preuCfg.preu_unitari)) : 0, // NC: descompte (import negatiu)
                 editat_manualment: false
             });
             liniesCreades++;
@@ -707,6 +730,103 @@ async function eliminarLinia(liniaId) {
         await refrescarLiniesModal();
     } catch (error) {
         mostrarNotificacio('Error eliminant línia: ' + error.message, 'error');
+    }
+}
+
+
+// ============================================================
+// COMP. QUALITAT: import = kg totals de la liquidació (comercial + no comercial) × preu €/kg
+// (deduït de la liquidació de la cooperativa: 163.838 kg × 0,01533 = 2.511,64 €).
+// El preu del full surt arrodonit a 4 decimals: si l'import no quadra pel cèntim,
+// escriu directament l'import del full.
+// ============================================================
+async function calcularImportCompQualitat() {
+    if (!liquidacioModalId) {
+        mostrarNotificacio('Guarda primer la capçalera i genera les línies', 'warning');
+        return;
+    }
+    const preu = parseFloat(document.getElementById('liq-comp-preu').value);
+    if (isNaN(preu)) {
+        mostrarNotificacio('Introdueix el preu de Comp. Qualitat', 'warning');
+        return;
+    }
+    try {
+        const liq = await getLiquidacio(liquidacioModalId);
+        const importCalc = Math.round(Number(liq.kg_total || 0) * preu * 100) / 100;
+        document.getElementById('liq-comp-import').value = importCalc.toFixed(2);
+        mostrarNotificacio('Proposat: ' + importCalc.toFixed(2) + ' € sobre ' + Number(liq.kg_total).toLocaleString('ca-ES') + ' kg', 'info');
+    } catch (error) {
+        mostrarNotificacio('Error calculant Comp. Qualitat: ' + error.message, 'error');
+    }
+}
+
+
+// ============================================================
+// DUPLICAR LIQUIDACIÓ (nova versió: informativa -> definitiva)
+// Copia capçalera (bestretes, deducció, Comp. Qualitat) i totes les línies
+// amb els seus kg i preus. La còpia queda 'provisional' i amb la data nova.
+// L'informe de Comparativa usa la versió més recent de cada varietat.
+// ============================================================
+async function duplicarLiquidacio(id, desdeModal) {
+    try {
+        if (desdeModal) await desarCapcaleraSiCal();   // copia també el que hi hagi editat al formulari
+
+        const origen = await getLiquidacio(id);
+        const linies = await getLiquidacioLinies(id);
+
+        const dataNova = prompt(
+            'Data de la nova liquidació (AAAA-MM-DD).\n' +
+            'Es copiaran capçalera i ' + linies.length + ' línies (kg i preus) de la liquidació del ' + formatData(origen.data_liquidacio) + '.',
+            dataLocalISO()
+        );
+        if (dataNova === null) return;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dataNova.trim())) {
+            mostrarNotificacio('Data no vàlida: usa el format AAAA-MM-DD', 'warning');
+            return;
+        }
+
+        const nova = await createLiquidacio({
+            campanya: origen.campanya,
+            fruita_id: origen.fruita_id,
+            varietat_id: origen.varietat_id,
+            data_liquidacio: dataNova.trim(),
+            import_bestretes: origen.import_bestretes || 0,
+            concepte_deduccio: origen.concepte_deduccio || null,
+            import_deduccio: origen.import_deduccio || 0,
+            comp_qualitat_preu: origen.comp_qualitat_preu != null ? origen.comp_qualitat_preu : null,
+            comp_qualitat_import: origen.comp_qualitat_import || 0,
+            estat: 'provisional',
+            notes: 'Duplicada de la liquidació del ' + origen.data_liquidacio
+        });
+
+        if (linies.length > 0) {
+            const copia = linies.map(function(l) {
+                return {
+                    liquidacio_id: nova.id,
+                    varietat_id: l.varietat_id,
+                    qualitat_nom: l.qualitat_nom,
+                    calibre: l.calibre,
+                    fnc_tipus: l.fnc_tipus,
+                    kg: l.kg,
+                    preu_unitari: l.preu_unitari,
+                    editat_manualment: l.editat_manualment
+                };
+            });
+            const { error } = await supabaseClient.from('collita_liquidacions_linies').insert(copia);
+            if (error) {
+                // No deixar una capçalera buida a mitges
+                try { await deleteLiquidacio(nova.id); } catch (e) { console.error(e); }
+                throw error;
+            }
+        }
+
+        mostrarNotificacio('Liquidació duplicada (' + linies.length + ' línies)', 'success');
+        tancarModal('modal-liquidacio');
+        await mostrarTaulaLiquidacions();
+        await obrirModalLiquidacio(nova.id);
+    } catch (error) {
+        mostrarNotificacio('Error duplicant la liquidació: ' + error.message, 'error');
+        console.error(error);
     }
 }
 
